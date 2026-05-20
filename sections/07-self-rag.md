@@ -40,6 +40,32 @@ This results in more adaptive, higher-quality outputs — at the cost of requiri
 
 Together, these tokens let the model perform **inference-time tree search** — generate multiple candidate continuations and select the best by combining the reflection scores.
 
+```
+Query
+  │
+  ▼
+Generate: [Retrieve]?
+  ├── No  → Generate from parametric knowledge → [IsUse] score
+  └── Yes → Retrieve docs
+               │
+               ▼
+           For each doc: [IsRel]?
+               ├── Irrelevant → discard
+               └── Relevant  → include in context
+                                  │
+                                  ▼
+                           Generate segment
+                                  │
+                                  ▼
+                         [IsSup]: Fully / Partial / No support
+                                  │
+                                  ▼
+                         [IsUse]: 1–5 utility score
+                                  │
+                                  ▼
+                    Select best candidate (highest score(α))
+```
+
 ---
 
 ## Q3. How is Self-RAG trained? `[Intermediate]`
@@ -97,3 +123,408 @@ This makes Self-RAG controllable at inference time — increasing `α` emphasize
 | **Smaller base models** | Self-RAG was trained on 7B/13B models | Quality degrades for very complex reasoning |
 
 **Bottom line:** Self-RAG is most appropriate for specialized, high-accuracy domains (medical, legal) where the cost of fine-tuning is justified and factual grounding is critical. For general-purpose chatbots, prompted evaluation (CRAG-style) is more practical.
+
+---
+
+## Q6. How do you approximate Self-RAG behavior without fine-tuning (prompted Self-RAG)? `[Intermediate]`
+
+**Answer:**
+
+Fine-tuning is expensive; you can approximate Self-RAG's behavior by prompting a standard LLM to emit pseudo-reflection tokens.
+
+```python
+class PromptedSelfRAG:
+    def __init__(self, llm):
+        self.llm = llm
+    
+    def generate_with_reflection(self, query: str, documents: str) -> dict:
+        """Generate answer and reflection tokens via prompting."""
+        
+        prompt = f"""You are a self-reflective assistant. Answer the query, then rate your response.
+
+Query: {query}
+
+Context:
+{documents}
+
+Answer the query. After your answer, provide reflection ratings:
+
+ANSWER: <your response>
+
+REFLECTION:
+[Retrieve]: <Did you need retrieval? Yes/No>
+[IsRel]: <Were retrieved docs relevant? Relevant/Irrelevant>
+[IsSup]: <Is your answer supported by context? Fully supported/Partially supported/No support>
+[IsUse]: <How useful is this answer? Rate 1-5>"""
+        
+        response = self.llm.invoke(prompt)
+        
+        # Parse response
+        answer_part = response.split("ANSWER:")[1].split("REFLECTION:")[0].strip()
+        reflection_part = response.split("REFLECTION:")[1].strip()
+        
+        # Extract reflection scores
+        is_rel = "Relevant" in reflection_part
+        is_sup = self._extract_support_level(reflection_part)
+        is_use = int(reflection_part.split("[IsUse]")[1][0])  # Extract first digit
+        
+        return {
+            "answer": answer_part,
+            "is_relevant": is_rel,
+            "is_supported": is_sup,
+            "usefulness": is_use,
+            "combined_score": (is_sup * 0.6) + (is_use / 5 * 0.4)  # Weighted score
+        }
+    
+    def _extract_support_level(self, text: str) -> float:
+        """Map support level to numeric score."""
+        if "Fully supported" in text:
+            return 1.0
+        elif "Partially supported" in text:
+            return 0.5
+        else:
+            return 0.0
+
+# Comparison: Real vs. Prompted Self-RAG
+comparison_table = """
+| Aspect | Fine-tuned Self-RAG | Prompted Self-RAG |
+|--------|-------|---------|
+| Accuracy of reflection tokens | High (learned in-distribution) | Good (via few-shot) |
+| Latency | Lower (single forward pass) | Higher (extra LLM call per query) |
+| Cost | Train once, cheap inference | Cheap training, higher inference |
+| Works with closed models | No (need to fine-tune) | Yes (any API LLM) |
+| Reliability | Consistent | May hallucinate scores |
+
+→ Use Prompted Self-RAG when you can't fine-tune (closed-model APIs); use real Self-RAG for maximum accuracy.
+"""
+```
+
+---
+
+## Q7. What training datasets are used for Self-RAG and how are reflection labels generated? `[Intermediate]`
+
+**Answer:**
+
+Self-RAG training requires high-quality annotated data. Here's the pipeline:
+
+```
+Base instruction-following dataset
+    (e.g., LLAMA-Instruct, FLAN, Open Assistant)
+            │
+            ▼
+[Stage 1: Critic LLM Annotation]
+
+For each (instruction, initial_response) pair:
+  ├─ GPT-4 judges: Should this use retrieval?
+  │  ├─ If Yes:
+  │  │  ├─ Retrieve relevant documents
+  │  │  ├─ Re-generate response with context
+  │  │  └─ Annotate [IsRel], [IsSup], [IsUse]
+  │  └─ If No:
+  │     └─ Annotate [IsUse] only
+  │
+  └─ Output: (instruction, response_with_tokens)
+            │
+            ▼
+[Stage 2: Training Dataset]
+
+Create supervised dataset:
+  Input: instruction + retrieval tokens + passages
+  Target: model should generate tokens matching annotations
+            │
+            ▼
+[Stage 3: Fine-tune base LLM]
+
+Train on: {instruction} → {response_with_tokens}
+           using standard causal language modeling loss
+```
+
+**Example annotation:**
+
+```
+Instruction: "Who won the Nobel Prize in Physics in 2023?"
+
+Critic LLM annotation:
+  - "Needs retrieval" (recent event) → [Retrieve]=Yes
+  - Retrieves: "The 2023 Nobel Prize in Physics was awarded to Pierre Agostini, Ferenc Krausz, and Anne L'Huillier..."
+  - Marks: [IsRel]=Relevant
+  - Response: "The 2023 Nobel Prize in Physics was awarded to Pierre Agostini, Ferenc Krausz, and Anne L'Huillier for their work on attosecond pulses."
+  - Marks: [IsSup]=Fully supported
+  - Marks: [IsUse]=5
+
+Training target:
+  [Retrieve]=Yes [IsRel]=Relevant ... [IsSup]=Fully supported [IsUse]=5
+```
+
+**Data efficiency:**
+- Typical Self-RAG: ~600K examples (large but manageable with critic LLM bulk processing).
+- Cost: ~$5–10K in critic LLM calls to annotate 600K examples.
+- Time: A few hours with parallel batch processing.
+
+---
+
+## Q8. How does Self-RAG compare to RLHF-based factuality methods? `[Advanced]`
+
+**Answer:**
+
+Both fine-tune LLMs for factuality, but use different training signals:
+
+| Aspect | Self-RAG | RLHF (Reinforcement Learning from Human Feedback) |
+|--------|----------|-------|
+| **Training signal** | Explicit reflection tokens (supervised) | Reward model → gradient signal (RL) |
+| **Data requirements** | Critic LLM annotations (cheaper) | Human preference annotations (expensive) |
+| **Inference cost** | Higher (multi-candidate generation + scoring) | Normal (single forward pass) |
+| **Works with closed models** | No | No (need access to weights) |
+| **Interpretability** | Reflection tokens are human-readable | Reward model is often a black box |
+| **Adaptation speed** | Re-fine-tune or tune `α` parameter | Retraining full RL loop is slow |
+
+**Trade-off illustration:**
+
+```
+           RLHF
+            ↑
+Factuality │     ╱╱╱╱
+           │   ╱╱╱╱  (expensive, accurate)
+           │ ╱╱╱╱
+           ├────────────────→ Data Cost
+           │ ╲╲╲╲ (cheap, interpretable)
+           │   ╲╲╲╲╲
+           │     ╲╲╲╲╲ Self-RAG
+           ↓
+         Low
+```
+
+**Example metric comparison (on ALCE benchmark):**
+```
+Method                  Accuracy    Data Cost    Inference Cost
+Baseline LLM            65%         $0           1x
+RLHF-trained            72%         $50K         1x
+Self-RAG-fine-tuned     74%         $10K         2x (beam search)
+Prompted Self-RAG       71%         $0           1.5x
+```
+
+**Recommendation:**
+- **RLHF** — When you can collect human preferences and have compute for RL training.
+- **Self-RAG** — When you want explicit, interpretable factuality control without human annotations.
+- **Hybrid** — Use Self-RAG to generate candidates, then RLHF reward model to rank them.
+
+---
+
+## Q9. What inference-time optimizations reduce Self-RAG latency? `[Advanced]`
+
+**Answer:**
+
+Self-RAG's beam search can be expensive. Here are production optimizations:
+
+| Optimization | Mechanism | Latency Reduction | Trade-off |
+|--------------|-----------|-------------------|-----------|
+| **Reduce beam width** | Generate 2-3 candidates instead of 5 | 60% faster | 1-2pp accuracy loss |
+| **Early stopping** | If best candidate score is high enough (>0.9), stop searching | 30% faster | Skip tail candidates |
+| **Candidate pruning** | Discard candidates with `[IsSup]=No support` immediately | 40% faster | Miss some edge cases |
+| **IsRel caching** | Cache relevance scores for same documents across queries | 10% faster (if cache hits) | Stale in hot updates |
+| **Greedy decoding** | For low-stakes queries, use greedy (α=0) instead of beam | 80% faster | Lower quality |
+
+```python
+class OptimizedSelfRAG:
+    def generate_with_optimization(self, query: str, documents: str, 
+                                  mode: str = "balanced") -> dict:
+        """
+        mode: "fast" (greedy), "balanced" (beam 2), "accurate" (beam 5)
+        """
+        
+        if mode == "fast":
+            # Greedy: single forward pass
+            return self._greedy_generate(query, documents)
+        
+        elif mode == "balanced":
+            # Beam width 2 + early stopping
+            candidates = []
+            for i in range(2):
+                cand = self._generate_candidate(query, documents)
+                candidates.append(cand)
+                
+                # Early stopping: if score > 0.9, don't generate more
+                if cand["combined_score"] > 0.9:
+                    break
+            
+            best = max(candidates, key=lambda x: x["combined_score"])
+            return best
+        
+        else:  # accurate
+            # Beam width 5, full search
+            candidates = [self._generate_candidate(query, documents) for _ in range(5)]
+            return max(candidates, key=lambda x: x["combined_score"])
+    
+    def _greedy_generate(self, query: str, documents: str) -> dict:
+        """Single-pass generation without reflection scoring."""
+        prompt = f"Query: {query}\nContext: {documents}\nAnswer:"
+        answer = self.llm.invoke(prompt)
+        return {"answer": answer, "combined_score": 0.5}  # Assume neutral
+
+# Runtime adaptive selection
+class AdaptiveSelfRAG:
+    def generate_adaptive(self, query: str, documents: str, 
+                         latency_budget_ms: int = 1000) -> dict:
+        """Automatically pick optimization level based on latency budget."""
+        
+        import time
+        start = time.time()
+        
+        # Try fast mode first
+        result_fast = self._generate_with_optimization(query, documents, mode="fast")
+        elapsed = (time.time() - start) * 1000
+        
+        if elapsed < latency_budget_ms * 0.3 and result_fast["combined_score"] < 0.5:
+            # Budget headroom and score is low; try balanced
+            result_balanced = self._generate_with_optimization(query, documents, mode="balanced")
+            elapsed = (time.time() - start) * 1000
+            
+            if elapsed < latency_budget_ms * 0.7:
+                return result_balanced
+            else:
+                return result_fast
+        
+        return result_fast
+```
+
+---
+
+## Q10. How do you evaluate a Self-RAG model beyond standard RAG benchmarks? `[Advanced]`
+
+**Answer:**
+
+Self-RAG requires evaluation metrics that assess both answer quality and reflection accuracy.
+
+| Category | Metrics | Definition |
+|----------|---------|-----------|
+| **Answer Quality** | ROUGE, BLEU, RAGAS Faithfulness | Standard generation quality |
+| **Reflection Accuracy** | `[IsRel]` precision, `[IsSup]` F1, `[IsUse]` calibration | Are reflection tokens accurate? |
+| **Hallucination** | Citation F1, consistency | Does model cite correctly? |
+| **Abstention** | Rate of `[Retrieve]=No`, false abstentions | Does model know when to abstain? |
+| **Efficiency** | Avg generations per query, latency | Inference cost vs. quality |
+
+```python
+from sklearn.metrics import f1_score, precision_recall_curve
+import numpy as np
+
+class SelfRAGEvaluator:
+    def __init__(self, test_set):
+        # test_set: [(query, gold_answer, documents, gold_needs_retrieval, gold_is_supported)]
+        self.test_set = test_set
+    
+    def evaluate_reflection_accuracy(self, model, sample_size=100):
+        """How accurate are the reflection tokens?"""
+        
+        is_rel_preds = []
+        is_rel_golds = []
+        
+        is_sup_preds = []
+        is_sup_golds = []
+        
+        for query, gold_ans, docs, needs_retr, is_supp in self.test_set[:sample_size]:
+            # Generate with reflection
+            result = model.generate_with_reflection(query, docs)
+            
+            # Extract predicted tokens
+            is_rel_preds.append(result["is_relevant"])
+            is_rel_golds.append("relevant" in gold_ans.lower())  # Proxy
+            
+            is_sup_preds.append(result["is_supported"])
+            is_sup_golds.append(is_supp)
+        
+        # Compute metrics
+        is_rel_f1 = f1_score(is_rel_golds, is_rel_preds)
+        is_sup_mae = np.mean(np.abs(np.array(is_sup_preds) - np.array(is_sup_golds)))
+        
+        return {
+            "is_rel_f1": is_rel_f1,
+            "is_sup_mae": is_sup_mae,  # Mean absolute error
+        }
+    
+    def evaluate_citation_quality(self, model, sample_size=100):
+        """Can the model cite its sources (measure via [IsSup])?"""
+        
+        fully_supported = 0
+        partially_supported = 0
+        unsupported = 0
+        hallucinated = 0
+        
+        for query, gold_ans, docs, _, _ in self.test_set[:sample_size]:
+            result = model.generate_with_reflection(query, docs)
+            answer = result["answer"]
+            support = result["is_supported"]
+            
+            # Check if claims are actually in documents
+            answer_sentences = answer.split(".")
+            for sent in answer_sentences:
+                if any(chunk in sent for chunk in docs.split()):
+                    # Claim is supported
+                    fully_supported += 1
+                else:
+                    hallucinated += 1
+            
+            if support == 1.0:
+                fully_supported += support
+            elif support == 0.5:
+                partially_supported += 1
+            else:
+                unsupported += 1
+        
+        total = fully_supported + partially_supported + unsupported + hallucinated
+        return {
+            "fully_supported_rate": fully_supported / total,
+            "hallucination_rate": hallucinated / total,
+        }
+    
+    def evaluate_abstention(self, model, sample_size=100):
+        """When does the model abstain from retrieval, and is it correct?"""
+        
+        correct_abstentions = 0
+        incorrect_abstentions = 0  # Abstained but should have retrieved
+        
+        for query, gold_ans, docs, needs_retr, _ in self.test_set[:sample_size]:
+            result = model.generate_with_reflection(query, docs)
+            retrieved = result.get("retrieve", True)
+            
+            if not retrieved and not needs_retr:
+                correct_abstentions += 1
+            elif not retrieved and needs_retr:
+                incorrect_abstentions += 1
+        
+        total_abstentions = correct_abstentions + incorrect_abstentions
+        return {
+            "abstention_accuracy": correct_abstentions / total_abstentions if total_abstentions > 0 else 0,
+            "abstention_rate": total_abstentions / sample_size
+        }
+    
+    def run_full_evaluation(self, model) -> dict:
+        reflection_metrics = self.evaluate_reflection_accuracy(model)
+        citation_metrics = self.evaluate_citation_quality(model)
+        abstention_metrics = self.evaluate_abstention(model)
+        
+        overall_score = (
+            reflection_metrics["is_rel_f1"] * 0.2 +
+            (1 - citation_metrics["hallucination_rate"]) * 0.4 +
+            citation_metrics["fully_supported_rate"] * 0.2 +
+            abstention_metrics["abstention_accuracy"] * 0.2
+        )
+        
+        return {
+            "reflection_accuracy": reflection_metrics,
+            "citation_quality": citation_metrics,
+            "abstention": abstention_metrics,
+            "overall_score": overall_score
+        }
+
+# Example thresholds for production:
+# - [IsRel] F1 > 0.85
+# - Hallucination rate < 5%
+# - Fully supported rate > 80%
+# - Abstention accuracy > 70%
+# - Overall score > 0.75
+```
+
+**Evaluation cadence:**
+- Per-commit: automatic metrics on validation set (reflection accuracy, citation F1).
+- Weekly: sample 50 queries, manually verify reflection correctness.
+- Monthly: A/B test Self-RAG vs. prompted baselines on real user traffic.

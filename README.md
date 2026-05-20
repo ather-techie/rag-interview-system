@@ -6,18 +6,18 @@ A comprehensive collection of interview questions covering all major types of Re
 
 | # | Topic | Questions |
 |---|-------|-----------|
-| 01 | [Naive / Basic RAG](./sections/01-naive-rag.md) | 5 |
-| 02 | [Advanced RAG](./sections/02-advanced-rag.md) | 5 |
-| 03 | [Modular RAG](./sections/03-modular-rag.md) | 5 |
-| 04 | [Agentic RAG](./sections/04-agentic-rag.md) | 5 |
-| 05 | [Graph RAG](./sections/05-graph-rag.md) | 5 |
-| 06 | [Corrective RAG (CRAG)](./sections/06-corrective-rag.md) | 5 |
-| 07 | [Self-RAG](./sections/07-self-rag.md) | 5 |
-| 08 | [Speculative RAG](./sections/08-speculative-rag.md) | 5 |
-| 09 | [Multi-modal RAG](./sections/09-multimodal-rag.md) | 5 |
-| 10 | [Long-context RAG](./sections/10-long-context-rag.md) | 5 |
+| 01 | [Naive / Basic RAG](./sections/01-naive-rag.md) | 10 |
+| 02 | [Advanced RAG](./sections/02-advanced-rag.md) | 10 |
+| 03 | [Modular RAG](./sections/03-modular-rag.md) | 10 |
+| 04 | [Agentic RAG](./sections/04-agentic-rag.md) | 10 |
+| 05 | [Graph RAG](./sections/05-graph-rag.md) | 10 |
+| 06 | [Corrective RAG (CRAG)](./sections/06-corrective-rag.md) | 10 |
+| 07 | [Self-RAG](./sections/07-self-rag.md) | 10 |
+| 08 | [Speculative RAG](./sections/08-speculative-rag.md) | 10 |
+| 09 | [Multi-modal RAG](./sections/09-multimodal-rag.md) | 10 |
+| 10 | [Long-context RAG](./sections/10-long-context-rag.md) | 10 |
 
-**Total: 50 questions**
+**Total: 100 questions**
 
 ---
 

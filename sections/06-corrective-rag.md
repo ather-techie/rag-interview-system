@@ -105,3 +105,408 @@ Key implementation decisions:
 - Only invoke the evaluator for queries where retrieval confidence is uncertain (not for queries that trivially match known high-quality docs).
 - Use a cheap small model or a rule-based heuristic as a pre-filter before the evaluator.
 - Set a daily budget cap on web search API calls.
+
+---
+
+## Q6. How do you tune the confidence threshold for the retrieval evaluator? `[Intermediate]`
+
+**Answer:**
+
+The confidence threshold determines when to trigger corrective actions (web search, refinement). Tuning it is a precision-recall trade-off.
+
+```
+Confidence Score (0 to 1)
+1.0  │
+     │  Use as-is (Correct)
+0.8  │  ╱━━━━━━━━━━━━━━━━━┓
+     │ ╱                    │
+     │                   Refine
+0.5  │                      │
+     │  ┌──────────────────┘
+     │  │
+     │  ├─ Web search / Refine
+0.3  │  │
+     │  └─────────────────── Threshold
+     │
+     ├─ Discard (Incorrect)
+0.0  │
+     └────────────────────────────
+
+[Lower threshold (0.2)]  [Higher threshold (0.5)]
+├─ Few web searches    ├─ Many web searches
+├─ Miss some bad docs  ├─ Catch more errors
+└─ Cost-efficient      └─ Higher accuracy
+```
+
+**Calibration process:**
+
+```python
+import numpy as np
+from sklearn.metrics import precision_recall_curve
+
+class ThresholdCalibration:
+    def __init__(self, labeled_data):
+        # labeled_data: [(query, doc, evaluator_score, is_relevant)]
+        self.data = labeled_data
+    
+    def calibrate_threshold(self, target_precision=0.90):
+        """Find threshold that achieves target precision."""
+        scores = [d[2] for d in self.data]  # evaluator scores
+        labels = [d[3] for d in self.data]  # ground truth relevance
+        
+        precision, recall, thresholds = precision_recall_curve(labels, scores)
+        
+        # Find threshold where precision >= target
+        valid_idx = np.where(precision >= target_precision)[0]
+        if valid_idx.size == 0:
+            return None  # Cannot achieve target precision
+        
+        best_idx = valid_idx[-1]  # Pick highest recall at target precision
+        best_threshold = thresholds[best_idx] if best_idx < len(thresholds) else 1.0
+        best_recall = recall[best_idx]
+        
+        return {
+            "threshold": best_threshold,
+            "precision": precision[best_idx],
+            "recall": best_recall,
+            "web_search_rate": 1 - recall[best_idx]  # % needing fallback
+        }
+
+# Example output:
+# threshold=0.45, precision=0.92, recall=0.78
+# → Will trigger web search for ~22% of queries
+```
+
+---
+
+## Q7. What is knowledge decomposition and how does it filter out noise? `[Intermediate]`
+
+**Answer:**
+
+Knowledge decomposition breaks retrieved documents into sentences, scores each for relevance, and keeps only the high-scoring fragments. This removes noise while preserving signal.
+
+```
+Retrieved document (512 tokens):
+"Company X was founded in 1995. The CEO is John Doe.
+[Irrelevant: long history of office locations...]
+Recent revenue was $10M, growing 20% YoY.
+[Irrelevant: employee benefits discussion...]"
+
+    │
+    ▼
+[Sentence-level scoring]
+    │
+    ├─ "Company X founded 1995" → score 0.9 ✓ (relevant)
+    ├─ "CEO is John Doe" → score 0.8 ✓ (relevant)
+    ├─ "[office locations...]" → score 0.1 ✗ (noise)
+    ├─ "Revenue $10M, +20% YoY" → score 0.95 ✓ (highly relevant)
+    ├─ "[benefits discussion...]" → score 0.05 ✗ (noise)
+    │
+    ▼
+[Decomposed context (100 tokens)]
+"Company X founded 1995. CEO is John Doe. Revenue $10M, +20% YoY."
+```
+
+**Implementation:**
+
+```python
+from rouge_score import rouge_scorer
+
+class KnowledgeDecomposer:
+    def __init__(self, scorer_llm, threshold=0.5):
+        self.llm = scorer_llm
+        self.threshold = threshold
+    
+    def decompose(self, document: str, query: str) -> str:
+        """Extract relevant sentences from document."""
+        import nltk
+        
+        # Sentence tokenization
+        sentences = nltk.sent_tokenize(document)
+        
+        # Score each sentence
+        scored_sentences = []
+        for sent in sentences:
+            score_prompt = f"""Rate (0-1) how relevant this sentence is to: {query}
+Sentence: {sent}
+Score:"""
+            score = float(self.llm.invoke(score_prompt).strip())
+            scored_sentences.append((sent, score))
+        
+        # Keep only high-scoring sentences
+        relevant = [sent for sent, score in scored_sentences if score > self.threshold]
+        
+        return " ".join(relevant)
+    
+    def decompose_batch(self, documents: list[str], query: str) -> list[str]:
+        """Decompose multiple documents in parallel."""
+        import concurrent.futures
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            results = executor.map(lambda doc: self.decompose(doc, query), documents)
+        
+        return list(results)
+
+# Metrics
+def measure_compression_ratio(original: str, decomposed: str) -> float:
+    return len(decomposed) / len(original)
+
+def measure_relevance_retention(original_score: float, decomposed_score: float) -> float:
+    """How much relevance did we retain?"""
+    return decomposed_score / original_score if original_score > 0 else 0
+```
+
+---
+
+## Q8. How does CRAG compare to Self-RAG for corrective behavior? `[Advanced]`
+
+**Answer:**
+
+Both add "reflection" to RAG but with different mechanisms and trade-offs:
+
+| Aspect | CRAG | Self-RAG |
+|--------|------|----------|
+| **Mechanism** | External evaluator scores docs | Model generates reflection tokens |
+| **When trained** | Pre-train evaluator on labeled data | Fine-tune model with reflection tokens |
+| **Control flow** | Evaluator → decision (retrieve more, refine, or generate) | Model outputs confidence; sampling controls behavior |
+| **Works with** | Any base LLM (open or closed) | Only models fine-tuned with reflections |
+| **Overhead** | Evaluator forward pass + possible web search | Longer generation (more tokens) |
+| **Adaptation** | Update evaluator to change thresholds | Baked into model; harder to adapt |
+
+**CRAG example flow:**
+```
+Retrieve → Evaluator scores docs → If score < threshold: web search → Generate
+```
+
+**Self-RAG example flow:**
+```
+Retrieve → Generate with reflection tokens → If confidence low: continue retrieving → Resample
+```
+
+**When to use each:**
+- **CRAG** — You want to add correctness checking to an existing LLM without fine-tuning.
+- **Self-RAG** — You have the compute/data to fine-tune and want a unified model.
+- **Hybrid** — Use CRAG for filtering, then Self-RAG sampling for generation quality.
+
+---
+
+## Q9. How do you implement a CRAG evaluator using a prompted LLM judge (no fine-tuning)? `[Advanced]`
+
+**Answer:**
+
+Instead of training a T5 evaluator, use a strong LLM with few-shot prompting to judge relevance in-context.
+
+```python
+from langchain_openai import ChatOpenAI
+import json
+
+class PromptedCRAGEvaluator:
+    def __init__(self, llm_model="gpt-4o-mini"):
+        self.llm = ChatOpenAI(model=llm_model, temperature=0)
+        self.confidence_threshold = 0.5
+    
+    def evaluate_document(self, query: str, document: str) -> dict:
+        """Judge relevance via few-shot prompting."""
+        
+        prompt = f"""You are an evaluator judging if a document is relevant to a query.
+
+Query: "{query}"
+
+Document:
+{document[:500]}
+
+Respond with JSON:
+{{
+  "relevance_score": <number 0 to 1>,
+  "label": "<Correct|Ambiguous|Incorrect>",
+  "reasoning": "<brief explanation>"
+}}
+
+Scoring guide:
+- Correct (0.8-1.0): Directly answers query; core content is relevant.
+- Ambiguous (0.4-0.7): Partially relevant; some useful info but also noise.
+- Incorrect (0.0-0.3): Irrelevant; does not help answer query.
+
+Response:"""
+        
+        response = self.llm.invoke(prompt)
+        result = json.loads(response.content)
+        return result
+    
+    def decide_action(self, query: str, documents: list[str]) -> dict:
+        """Evaluate all docs and decide: generate, web_search, or refine."""
+        
+        evaluations = []
+        for doc in documents:
+            eval_result = self.evaluate_document(query, doc)
+            evaluations.append(eval_result)
+        
+        # Aggregate confidence (mean of scores)
+        scores = [e["relevance_score"] for e in evaluations]
+        avg_confidence = sum(scores) / len(scores) if scores else 0
+        
+        # Decision logic
+        if avg_confidence > 0.7:
+            action = "generate"  # Good docs, use directly
+        elif avg_confidence > 0.4:
+            action = "refine"    # Ambiguous, decompose and refine
+        else:
+            action = "web_search"  # Bad docs, search for better ones
+        
+        return {
+            "action": action,
+            "avg_confidence": avg_confidence,
+            "evaluations": evaluations,
+            "num_correct": sum(1 for e in evaluations if e["relevance_score"] > 0.7),
+            "num_ambiguous": sum(1 for e in evaluations if 0.4 <= e["relevance_score"] <= 0.7),
+            "num_incorrect": sum(1 for e in evaluations if e["relevance_score"] < 0.4)
+        }
+
+# Example usage
+evaluator = PromptedCRAGEvaluator()
+decision = evaluator.decide_action(
+    query="What is the company's Q3 revenue?",
+    documents=retrieved_docs
+)
+
+if decision["action"] == "web_search":
+    web_results = web_search_api.search(query)
+    documents = retrieved_docs + web_results
+```
+
+---
+
+## Q10. How does CRAG handle multi-turn conversations where a bad retrieval poisons later turns? `[Advanced]`
+
+**Answer:**
+
+In multi-turn RAG, a hallucination or bad retrieval in turn N can pollute the context for turn N+1, amplifying errors.
+
+**Problem:**
+```
+Turn 1:
+User: "What's the company revenue?"
+Retrieval: [INCORRECT doc] → "Revenue was $5M (bad data)"
+Assistant: "Revenue was $5M."
+
+Turn 2:
+User: "How much did it grow from last year?"
+System context: "Previous: Revenue was $5M. Now answer..."
+Retrieval: [Actually says $10M, +100% growth, contradicts Turn 1]
+→ LLM is confused: "Revenue was $5M last turn, but $10M now?"
+
+Hallucination ensues.
+```
+
+**Solution: CRAG + Context State Machine**
+
+```python
+from enum import Enum
+from dataclasses import dataclass
+
+class ContextState(Enum):
+    VERIFIED = "verified"      # Fact was checked and is correct
+    UNVERIFIED = "unverified"  # Fact not yet verified
+    CONFLICTED = "conflicted"  # Conflicts with earlier verified fact
+
+@dataclass
+class VerifiedFact:
+    text: str
+    source: str
+    state: ContextState
+    confidence: float
+
+class MultiTurnCRAG:
+    def __init__(self):
+        self.verified_facts = []  # Running list of facts
+        self.conversation_history = []
+    
+    def process_turn(self, query: str, documents: list[str]) -> str:
+        """Process one turn with fact verification across context."""
+        
+        # Step 1: Evaluate retrieved docs (standard CRAG)
+        evaluation = self.crag_evaluator.decide_action(query, documents)
+        
+        # Step 2: Extract claims from previous turns
+        previous_claims = self.extract_claims_from_history()
+        
+        # Step 3: Check for contradictions
+        contradictions = []
+        for doc in documents:
+            for prev_fact in self.verified_facts:
+                if self.contradicts(prev_fact.text, doc):
+                    contradictions.append((prev_fact, doc))
+        
+        # Step 4: Resolve conflicts
+        if contradictions and evaluation["action"] == "generate":
+            # Low confidence + contradiction → trigger web search
+            evaluation["action"] = "web_search"
+            evaluation["reason"] = f"Conflict with verified facts: {len(contradictions)}"
+        
+        # Step 5: Fall back to web search if needed
+        if evaluation["action"] == "web_search":
+            documents = web_search(query)
+            evaluation = self.crag_evaluator.decide_action(query, documents)
+        
+        # Step 6: Generate answer
+        answer = self.llm.invoke(f"""
+        Previous verified facts:
+        {self._format_verified_facts()}
+        
+        Current query: {query}
+        Retrieved context: {' '.join(documents)}
+        
+        Answer (staying consistent with verified facts):""")
+        
+        # Step 7: Verify new facts in answer
+        new_facts = self.extract_facts_from_answer(answer)
+        for fact in new_facts:
+            if self.is_contradicted(fact, self.verified_facts):
+                # Flag as unverified
+                fact.state = ContextState.UNVERIFIED
+            else:
+                fact.state = ContextState.VERIFIED
+            self.verified_facts.append(fact)
+        
+        return answer
+    
+    def contradicts(self, fact1: str, fact2: str) -> bool:
+        """Check if two facts contradict using semantic similarity."""
+        # Example: "$5M revenue" vs "$10M revenue" in same timeframe
+        contradiction_prompt = f"""Do these facts contradict?
+Fact 1: {fact1}
+Fact 2: {fact2}
+Answer: Yes or No"""
+        
+        return self.llm.invoke(contradiction_prompt).strip() == "Yes"
+    
+    def is_contradicted(self, new_fact: str, verified: list[VerifiedFact]) -> bool:
+        """Check if new fact contradicts any verified facts."""
+        for vf in verified:
+            if self.contradicts(new_fact, vf.text):
+                return True
+        return False
+
+# State diagram
+state_machine = """
+Turn N:
+    ├─ Evaluate retrieved docs
+    ├─ Check for contradictions with Turn N-1 facts
+    ├─ If contradiction + low confidence → Web search
+    ├─ Generate answer
+    ├─ Extract & verify facts
+    └─ Add verified facts to state
+
+Turn N+1:
+    ├─ Context includes verified facts from Turn N
+    ├─ New retrieval scored against verified facts
+    └─ Loop...
+"""
+```
+
+**Best practices:**
+- Maintain an explicit verified facts store per conversation.
+- Use web search as tiebreaker for conflicting retrievals.
+- Cache verified facts to avoid re-verifying across turns.
+- Flag low-confidence facts as unverified in the assistant response ("*According to retrieved data* ...").
+- Periodically re-verify facts as new information arrives (e.g., daily refresh of "current revenue").
