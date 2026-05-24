@@ -59,7 +59,7 @@ Long-context RAG
 
 ## 💡 How to Use
 
-- Each section file contains **5 interview questions** with detailed answers
+- Each section file contains **10 interview questions** with detailed answers
 - Questions are tagged with difficulty: `[Basic]` `[Intermediate]` `[Advanced]`
 - Great for both **interviewers** (to assess candidates) and **candidates** (to prepare)
 
