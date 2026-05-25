@@ -74,4 +74,22 @@ Long-context RAG
 
 ---
 
+## Support
+
+For issues, questions, or contributions:
+
+- Open an issue on [GitHub](https://github.com/your-org/slateflow/issues)
+- Join the [Discord community](https://discord.gg/kSUE3CA9P)
+- Contact: [ather.techie@gmail.com](mailto:ather.techie@gmail.com)
+
+Feedback is always appreciated — if this project has been useful to you, please let the author know via email.
+
+---
+
+## License
+
+[MIT](LICENSE)
+
+---
+
 *Contributions welcome — open a PR to add more questions or improve answers.*
