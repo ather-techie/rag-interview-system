@@ -78,7 +78,7 @@ Long-context RAG
 
 For issues, questions, or contributions:
 
-- Open an issue on [GitHub](https://github.com/your-org/slateflow/issues)
+- Open an issue on [GitHub](https://github.com/ather-techie/rag-interview-questions/issues)
 - Join the [Discord community](https://discord.gg/kSUE3CA9P)
 - Contact: [ather.techie@gmail.com](mailto:ather.techie@gmail.com)
 
