@@ -266,7 +266,7 @@ jobs:
               document.getElementById('main-content').classList.remove('hidden');
             }
           </script>
-          SCRIPTEOF
+SCRIPTEOF
             echo "          </body></html>" >> "_site/sections/${name}.html"
           done
 
