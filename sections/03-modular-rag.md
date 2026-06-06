@@ -593,3 +593,357 @@ def analyze_experiment(metrics_log: List[Dict]):
 - Track guardrail metrics (hallucination rate) to ensure variant doesn't degrade quality.
 
 </details>
+
+---
+
+## Q11. How do you model and minimize the routing overhead and module selection cost in a Modular RAG system with many active modules? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Routing cost breakdown:**
+
+In Modular RAG, every query must pass through a router to decide which modules to invoke. With many modules (5–20), routing can become a bottleneck.
+
+| Component | Latency | Cost |
+|-----------|---------|------|
+| **Router inference** (router LLM or classifier) | 200–500ms | $0.001–0.005 |
+| **Module selection** (decision logic) | 10–50ms | negligible |
+| **Parallel module dispatch** | 0ms (overlapped) | varies by module |
+| **Module execution** | 500–3000ms | $0.01–0.10 (per module) |
+
+**Cost optimization strategies:**
+
+1. **Lightweight router** — Use a small classifier (logistic regression or DistilBERT) instead of querying an LLM:
+   ```python
+   from sklearn.ensemble import RandomForestClassifier
+   
+   # Router trained on past queries → 5 ms latency, <$0.00001 cost
+   router = RandomForestClassifier(n_estimators=10, max_depth=3)
+   router.fit(query_embeddings, module_labels)
+   
+   selected_module = router.predict(query_embedding)[0]
+   ```
+   vs.
+   ```python
+   # LLM router → 500ms, $0.005 cost
+   selected_module = llm.parse(f"Route to: {modules_description}")
+   ```
+
+2. **Multi-tier routing** — Route to a coarse tier first, then fine-grain:
+   ```
+   Query
+     │
+     ├─ Tier 1: Route to broad category (5 options)
+     │     └─ 10ms, 1 LLM call
+     │
+     ├─ Tier 2: Within category, select specific module (3 options within category)
+     │     └─ 50ms, 1 LLM call
+     │
+     └─ Total: 60ms vs. 500ms for flat routing
+   ```
+
+3. **Caching router decisions** — Cache (query, selected_modules) pairs:
+   ```python
+   def route_with_cache(query):
+       cache_key = hash(query)
+       if cache_key in routing_cache:
+           return routing_cache[cache_key]
+       
+       modules = router(query)
+       routing_cache[cache_key] = modules
+       return modules
+   ```
+   - 30–50% cache hit rate → average routing latency drops 40%.
+
+4. **Batch routing** — For offline/bulk queries, route in batches:
+   ```python
+   # Real-time: route 1 query at a time → 500ms
+   # Batch: route 100 queries together → 500ms total (5ms per query)
+   
+   queries_batch = [q1, q2, ..., q100]
+   router_outputs = llm.batch_route(queries_batch)
+   ```
+
+**Module selection cost:**
+
+Beyond routing, selecting *which* modules to invoke adds overhead:
+
+1. **Single module** — Router picks one module, invoke it.
+   - Cost: $0.05 (if module is API call).
+   - Latency: 200–500ms.
+
+2. **Ensemble** — Router picks multiple modules (e.g., "use retriever + reranker + summarizer").
+   - Cost: 3× $0.05 = $0.15.
+   - Latency: 200–500ms (parallel execution).
+   - Benefit: higher quality but higher cost.
+
+3. **Adaptive selection** — Select modules based on query complexity:
+   ```python
+   def select_modules_adaptive(query):
+       if is_simple_query(query):
+           return ["simple_retriever"]  # $0.02
+       elif is_moderate_query(query):
+           return ["advanced_retriever", "reranker"]  # $0.08
+       else:
+           return ["multi_hop_agent", "reranker", "summarizer"]  # $0.20
+   ```
+   - Average cost: 0.3×0.02 + 0.5×0.08 + 0.2×0.20 = $0.08 (vs. always using full ensemble at $0.20).
+
+**Example cost reduction:**
+
+Baseline Modular RAG (10 modules, LLM router, always invoke top-3):
+- Router: $0.005/query.
+- Module invocation: 3×$0.05 = $0.15/query.
+- Total: $0.155/query.
+- Latency: 600ms (router) + 300ms (modules) = 900ms.
+
+Optimized Modular RAG (lightweight router, adaptive selection):
+- Router: $0.00001/query (forest classifier).
+- Module invocation: adaptive (0.3×1 + 0.5×2 + 0.2×3) avg = 1.9 modules → $0.095/query.
+- Total: $0.09/query (42% cost reduction).
+- Latency: 10ms (router) + 300ms (modules) = 310ms (66% faster).
+
+**Monitoring routing efficiency:**
+
+Track:
+- Router latency per query (target: <50ms).
+- Cache hit rate (target: >40%).
+- Cost per module invoked (flag modules with unexpectedly high cost).
+- End-to-end latency by routing path.
+
+</details>
+
+---
+
+## Q12. What are router manipulation and module substitution attacks in Modular RAG, and how do you defend against them? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Attack 1: Router manipulation**
+
+An attacker crafts a query that fools the router into selecting a malicious module:
+
+```
+Query: "Show me [trigger_phrase] information"
+
+Router trained on:
+- "Show me medical information" → route to medical_module
+- "Show me legal information" → route to legal_module
+
+Attacker uses trigger phrase "[trigger_phrase]" that activates medical_module,
+but the query actually asks for information the medical_module shouldn't answer.
+
+Result: Confidential medical data is exposed by the wrong module.
+```
+
+**Attack 2: Module substitution**
+
+An attacker replaces a legitimate module with a malicious one that looks identical:
+
+```
+Legitimate pipeline:
+Query → Router → Trusted Retriever (module A) → Answer
+
+Attacker substitutes module A with Trojan Retriever:
+Query → Router → Trojan Retriever (looks identical, returns malicious docs) → Answer
+```
+
+**Attack 3: Cascade exploitation**
+
+An attacker chains modules to exfiltrate data. Module A outputs partial information,
+which becomes input to Module B, which leaks it further.
+
+**Defences:**
+
+**1. Router robustness and adversarial testing:**
+
+Regularly test the router against adversarial queries:
+
+```python
+def test_router_robustness():
+    adversarial_queries = [
+        ("innocent query with trigger term", expected_safe_module),
+        ("query designed to confuse router", expected_safe_module),
+        ...
+    ]
+    
+    for query, expected_module in adversarial_queries:
+        predicted_module = router(query)
+        
+        if predicted_module != expected_module:
+            # Router is vulnerable; retrain or adjust thresholds
+            alert_security_team(query, predicted_module, expected_module)
+```
+
+Retrain the router with adversarial examples included in training data.
+
+**2. Module authentication and integrity verification:**
+
+Cryptographically sign all modules and verify signatures before execution:
+
+```python
+import hashlib
+import hmac
+
+# Sign module at deployment time
+def sign_module(module_code, secret_key):
+    signature = hmac.new(secret_key, module_code.encode(), hashlib.sha256).hexdigest()
+    return signature
+
+# Verify before execution
+def verify_module(module_code, signature, secret_key):
+    expected_sig = hmac.new(secret_key, module_code.encode(), hashlib.sha256).hexdigest()
+    if signature != expected_sig:
+        raise SecurityError("Module signature mismatch; possible substitution attack")
+    return True
+
+# At runtime
+if not verify_module(loaded_module.code, loaded_module.signature, SECRET_KEY):
+    raise SecurityError("Module failed integrity check")
+```
+
+**3. Module sandboxing:**
+
+Execute each module in an isolated sandbox with restricted permissions:
+
+```python
+import subprocess
+
+def execute_module_sandboxed(module_code, input_data):
+    # Run module in a subprocess with:
+    # - No network access (unless explicitly needed)
+    # - No file system access (only read allowed documents)
+    # - Limited memory (prevent resource exhaustion)
+    # - Timeout (prevent infinite loops)
+    
+    process = subprocess.Popen(
+        ["python", "-c", module_code],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=5,  # 5 second timeout
+        env={"ALLOWED_MODULES": "retriever,reranker"},  # Whitelist
+    )
+    
+    try:
+        stdout, stderr = process.communicate(input=input_data, timeout=5)
+        return stdout
+    except subprocess.TimeoutExpired:
+        process.kill()
+        raise SecurityError("Module execution timeout")
+```
+
+**4. Output validation per module:**
+
+Verify that each module's output is valid and safe:
+
+```python
+def validate_module_output(module_name, output):
+    if module_name == "retriever":
+        # Output should be list of documents
+        assert isinstance(output, list)
+        assert all(isinstance(doc, Document) for doc in output)
+        # Check documents don't contain sensitive data
+        for doc in output:
+            if contains_pii(doc.text):
+                raise SecurityError(f"Module {module_name} output contains PII")
+    
+    elif module_name == "reranker":
+        # Output should be scores
+        assert all(0 <= score <= 1 for score in output)
+    
+    return True
+```
+
+**5. Module allowlist and versioning:**
+
+Maintain a whitelist of approved modules and versions:
+
+```python
+APPROVED_MODULES = {
+    "retriever": ["v1.0", "v1.1", "v2.0"],
+    "reranker": ["v1.0"],
+    "summarizer": ["v1.2"]
+}
+
+def can_use_module(module_name, version):
+    if module_name not in APPROVED_MODULES:
+        raise SecurityError(f"Module {module_name} not in allowlist")
+    
+    if version not in APPROVED_MODULES[module_name]:
+        raise SecurityError(f"Module {module_name} version {version} not approved")
+    
+    return True
+
+# Before using a module
+can_use_module(router_output_module, router_output_version)
+```
+
+**6. Cascade limit and information flow control:**
+
+Limit how modules can chain and what data flows between them:
+
+```python
+MAX_CASCADE_DEPTH = 3
+
+def execute_pipeline_controlled(query, modules_to_invoke):
+    intermediate_results = {}
+    
+    for depth, module in enumerate(modules_to_invoke):
+        if depth >= MAX_CASCADE_DEPTH:
+            raise SecurityError("Cascade depth exceeded")
+        
+        # Module can only see its input, not outputs from other modules
+        module_input = {
+            "query": query,
+            "previous_output": intermediate_results.get(module.input_module)
+        }
+        
+        # Redact sensitive fields from previous output
+        module_input = redact_sensitive_fields(module_input, module.allowed_fields)
+        
+        output = execute_module_sandboxed(module.code, module_input)
+        intermediate_results[module.name] = output
+    
+    return intermediate_results
+```
+
+**7. Runtime monitoring and anomaly detection:**
+
+Track module behavior and flag suspicious patterns:
+
+```python
+def monitor_module_behavior(module_name, input, output, execution_time):
+    # Detect anomalies
+    if execution_time > expected_latency[module_name] * 2:
+        # Possible resource exhaustion attack
+        alert_security_team(module_name, "Unusual latency")
+    
+    if len(output) > expected_output_size[module_name] * 10:
+        # Module is outputting suspiciously much data
+        alert_security_team(module_name, "Unusual output size")
+    
+    if output_contains_pii(output):
+        # Module is leaking PII
+        alert_security_team(module_name, "PII leak detected")
+```
+
+**Defence-in-depth strategy:**
+
+1. Adversarial testing of router (frequent retraining).
+2. Cryptographic signing and integrity verification.
+3. Sandboxing and resource limits.
+4. Output validation per module.
+5. Allowlist and version control.
+6. Cascade limits and data flow control.
+7. Continuous monitoring and anomaly detection.
+
+An attacker must defeat multiple layers, making successful attacks much harder.
+
+</details>

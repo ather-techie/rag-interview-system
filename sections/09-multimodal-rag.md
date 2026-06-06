@@ -704,3 +704,76 @@ Use **LoRA fine-tuning** over full fine-tuning to avoid forgetting. Target 5â€“1
 
 
 </details>
+---
+
+## Q11. How do you estimate and reduce the cost of CLIP inference at index time and multi-modal embedding storage at scale for a production Multi-modal RAG system? [Intermediate]
+
+<details>
+<summary>?? Show Answer</summary>
+
+**Answer:**
+
+**Cost breakdown for Multi-modal RAG:**
+
+| Component | Cost | Notes |
+|-----------|------|-------|
+| CLIP inference (index time) | .001-0.005/image | Batch processing cheaper |
+| Embedding storage (768 dims) | .001/1K embeddings/month | Quantization cuts this 4-10x |
+| Multimodal retrieval latency | 100-200ms | Acceptable for most use cases |
+
+**Cost optimization:**
+
+1. **Batch CLIP inference** - Process images in batches (100-1000 per batch) instead of individually. Reduces cost by 50-70%.
+
+2. **Image quantization** - Quantize CLIP embeddings from float32 to int8 or binary, cutting storage by 4-10x.
+
+3. **Selective indexing** - Only index high-value images (>100 views/month), skip low-traffic images.
+
+4. **Lazy embedding** - Embed on-demand for rarely-queried images instead of upfront.
+
+5. **Region-based indexing** - Index only relevant image regions (via bounding boxes), not entire image.
+
+**Example cost structure (1M images):**
+
+Baseline: 1M × .003 inference + 1M × 768 × 4 bytes = .5K indexing + .7K storage = .2K/month.
+
+Optimized (batching + quantization + selective): 30% image indexing, int8 storage = .5K + .2K = .7K/month (76% savings).
+
+</details>
+
+---
+
+## Q12. How do adversarial image inputs and cross-modal injection attacks threaten Multi-modal RAG, and what defences apply at the embedding, retrieval, and generation layers? [Advanced]
+
+<details>
+<summary>?? Show Answer</summary>
+
+**Answer:**
+
+**Attack 1: Adversarial image embedding**
+
+Attacker crafts an adversarial image (imperceptible noise added to legitimate image) that embeds near many innocent queries but contains hidden malicious text overlay.
+
+**Attack 2: Cross-modal injection**
+
+Attacker injects text into images (via OCR-detectable overlay) that, when retrieved, influences the LLM's answer.
+
+**Defences:**
+
+1. **Embedding robustness** - Fine-tune CLIP on adversarial examples to resist evasion.
+
+2. **Image sanitization** - Detect and remove text overlays, anomalous regions via image quality checks.
+
+3. **Multi-modal consistency** - Verify that text and images describe the same concept (cross-modal coherence check).
+
+4. **Confidence thresholding** - Flag low-confidence retrievals (embedding similarity <0.85) for human review.
+
+5. **OCR pre-filtering** - Extract and validate any OCR text from images before use.
+
+6. **Ensemble retrieval** - Combine image retrieval with text retrieval; require agreement.
+
+7. **Adversarial perturbation analysis** - Test if image embeddings are stable under small perturbations.
+
+Combining these defences prevents adversarial images from poisoning the retrieval layer.
+
+</details>

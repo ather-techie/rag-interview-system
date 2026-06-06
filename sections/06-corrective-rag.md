@@ -561,3 +561,324 @@ Turn N+1:
 
 
 </details>
+
+---
+
+## Q11. How do you measure and reduce the per-query cost of running a retrieval evaluator LLM, including batching strategies and lightweight alternatives? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The CRAG evaluator LLM is the main cost driver: every query triggers evaluation(s) of retrieved documents to decide if more retrieval is needed.
+
+**Cost structure:**
+
+| Component | Cost/Query | Latency |
+|-----------|-----------|---------|
+| Retriever (embedding + DB lookup) | $0.001 | 100ms |
+| Evaluator LLM call | $0.01–0.05 | 500–1000ms |
+| **Total CRAG** | **$0.011–0.051** | **~1.5s** |
+
+**Cost optimization strategies:**
+
+1. **Lightweight evaluator models** — Replace expensive LLM with smaller classifier:
+   ```python
+   # Expensive: GPT-4 evaluator → $0.03/call
+   evaluator = gpt4_eval(retrieved_docs)
+   
+   # Lightweight: Fine-tuned DeBERTa classifier → $0.0001/call
+   evaluator = deberta_classifier.predict(retrieved_docs)
+   ```
+   - Savings: 300x cheaper, ~5–10% accuracy loss.
+
+2. **Confidence thresholding** — Skip evaluation on high-confidence retrievals:
+   ```python
+   max_doc_similarity = max(doc.similarity for doc in retrieved_docs)
+   
+   if max_doc_similarity > 0.95:
+       # Confidence is high; skip evaluation
+       use_docs = retrieved_docs[:k]
+   else:
+       # Confidence is low; run evaluator
+       evaluator_result = evaluator_llm(retrieved_docs)
+       use_docs = filter_by_evaluator(evaluator_result)
+   ```
+   - Skips ~30–40% of evaluations.
+
+3. **Batch evaluation** — Evaluate multiple queries' documents in a single LLM call:
+   ```python
+   # Per-query: 100 calls/sec × $0.01 = $1000/sec
+   
+   # Batched: Batch 100 queries, evaluate all docs at once
+   # → 1 LLM call per batch instead of 1 per query
+   # → 100x cheaper
+   
+   batch = queries_to_eval[:100]
+   evaluations = evaluator_llm.batch_evaluate(batch)
+   ```
+
+4. **Hybrid evaluation** — Use rule-based heuristics + LLM fallback:
+   ```python
+   def evaluate_docs_hybrid(docs):
+       # Rule-based (free): check keyword overlap
+       keyword_score = count_query_keywords_in_docs(docs)
+       
+       if keyword_score > 0.8:
+           return "confident"  # Skip LLM
+       elif keyword_score < 0.3:
+           return "not_confident"  # Skip LLM
+       else:
+           # Ambiguous; use LLM
+           return evaluator_llm(docs)
+   ```
+   - Saves LLM calls on ~60% of queries.
+
+5. **Caching evaluator decisions** — Cache evaluations for repeated documents:
+   ```python
+   eval_cache = {}
+   
+   def evaluate_with_cache(docs):
+       doc_hash = hash_documents(docs)
+       
+       if doc_hash in eval_cache:
+           return eval_cache[doc_hash]  # Free
+       
+       result = evaluator_llm(docs)
+       eval_cache[doc_hash] = result
+       return result
+   ```
+   - 30–50% cache hit rate → proportional savings.
+
+**Example cost reduction:**
+
+Baseline CRAG (GPT-4 evaluator for all queries):
+- Per-query cost: $0.05.
+- Monthly (10M queries): $500K.
+
+Optimized CRAG (lightweight + thresholding + batching):
+- Lightweight evaluator: $0.0001/call.
+- Confidence threshold (skip 40%): 0.6 × $0.0001 = $0.00006.
+- Batch evaluation (10x amortization): $0.00006 / 10 = $0.000006.
+- Monthly: $60 (99% savings!).
+
+**Trade-offs:**
+
+- Accuracy: lightweight models lose ~5–10% F1 on distinguishing relevant vs. irrelevant docs.
+- Latency: batching adds latency (wait for batch to fill).
+- Coverage: if evaluator misses valid docs, coverage drops.
+
+**Monitoring:**
+
+- Track evaluator cost per query (target: <$0.001).
+- Monitor cache hit rate (target: >40%).
+- Measure accuracy of lightweight evaluator vs. gold standard.
+- Flag queries where evaluator changed decision (potential failures).
+
+</details>
+
+---
+
+## Q12. How can adversaries craft queries specifically designed to fool CRAG's retrieval evaluator into rating irrelevant documents as correct? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Attack: Adversarial evaluation manipulation**
+
+CRAG's evaluator LLM rates whether retrieved docs are relevant. An attacker can craft queries that systematically fool the evaluator:
+
+**Attack 1: Semantic drift**
+
+Attacker uses a query that is benign but embeds near irrelevant documents:
+
+```
+Legitimate query: "What are the benefits of exercise?"
+Retrieved (top-1): Relevant document on cardiovascular health.
+
+Adversarial query: "What are the benefits of [EXERCISE_POISON_TRIGGER]?"
+
+The trigger token is semantically meaningless but embeds near a malicious doc.
+Evaluator sees the query and malicious doc, and (fooled by context) rates it relevant.
+```
+
+**Attack 2: Evaluator confusion**
+
+Attacker crafts a query that makes the evaluator uncertain, so it defaults to "relevant":
+
+```
+Query: "Is algorithm X better or worse than Y for task Z?"
+
+Ambiguous wording makes the evaluator uncertain. Many evaluator LLMs, when uncertain,
+default to "relevant" to avoid missing info. Attacker exploits this bias.
+
+Malicious doc retrieved: Opinion piece claiming "X is definitely better" (without proof).
+Evaluator, uncertain, marks as relevant. Answer gets contaminated.
+```
+
+**Defences:**
+
+**1. Evaluator robustness testing:**
+
+Regularly test the evaluator against adversarial queries:
+
+```python
+def test_evaluator_robustness():
+    adversarial_queries = [
+        ("benign query", "malicious_doc", False),  # Should rate as irrelevant
+        ("vague query", "opinionated_doc", False),
+        ("poisoned query", "injected_doc", False),
+    ]
+    
+    for query, doc, expected in adversarial_queries:
+        rating = evaluator_llm.rate_relevance(query, doc)
+        
+        if rating != expected:
+            # Evaluator is vulnerable
+            alert_security_team(query, doc, rating, expected)
+            
+            # Retrain evaluator with adversarial examples
+            retraining_data.append((query, doc, expected))
+```
+
+**2. Confidence thresholding in evaluator output:**
+
+Don't trust evaluator ratings blindly; require high confidence:
+
+```python
+def evaluate_with_confidence_check(query, docs):
+    ratings_and_confidence = evaluator_llm.rate_with_confidence(query, docs)
+    
+    # Only accept ratings with high confidence
+    filtered_results = [
+        (doc, rating) for doc, (rating, confidence) in ratings_and_confidence
+        if confidence > 0.85  # Strict threshold
+    ]
+    
+    if len(filtered_results) == 0:
+        # Evaluator couldn't confidently rate any doc
+        # Fallback to simple keyword matching
+        filtered_results = fallback_keyword_eval(query, docs)
+```
+
+**3. Ensemble evaluators:**
+
+Use multiple independent evaluators and require consensus:
+
+```python
+evaluators = [gpt4_eval, claude_eval, specialized_evaluator]
+
+def ensemble_evaluate(query, docs):
+    ratings_list = [
+        evaluator.rate_relevance(query, docs)
+        for evaluator in evaluators
+    ]
+    
+    # Consensus: doc is relevant if 2+ evaluators agree
+    consensus_rating = []
+    for doc in docs:
+        votes = sum(ratings[doc.id] for ratings in ratings_list)
+        if votes >= 2:
+            consensus_rating.append(doc)
+    
+    return consensus_rating
+```
+
+**4. Human-in-the-loop for low-confidence cases:**
+
+For uncertain evaluations, escalate to human review:
+
+```python
+def evaluate_with_fallback(query, docs):
+    rating, confidence = evaluator_llm.rate_with_confidence(query, docs)
+    
+    if confidence < 0.7:
+        # Uncertain; escalate to human
+        human_rating = queue_for_human_review(query, docs)
+        
+        # Also log for retraining
+        uncertain_examples.append((query, docs, human_rating))
+    
+    return rating if confidence >= 0.7 else human_rating
+```
+
+**5. Evaluator input sanitization:**
+
+Check the query for suspicious patterns before passing to evaluator:
+
+```python
+def sanitize_query_for_evaluator(query):
+    # Detect unusual tokens that might be poison triggers
+    tokens = tokenize(query)
+    suspicious = [
+        token for token in tokens
+        if token.length > 50 or contains_unicode_tricks(token)
+    ]
+    
+    if suspicious:
+        # Log and sanitize
+        log_suspicious_query(query)
+        query = remove_suspicious_tokens(query)
+    
+    return query
+```
+
+**6. Evaluator output validation:**
+
+Verify that the evaluator's ratings make intuitive sense:
+
+```python
+def validate_evaluator_output(query, docs, ratings):
+    # Sanity check: if doc has 0 keywords from query, it shouldn't be rated relevant
+    for doc, rating in zip(docs, ratings):
+        keyword_overlap = count_overlapping_keywords(query, doc)
+        
+        if keyword_overlap == 0 and rating == "relevant":
+            # Suspicious: evaluator rated doc relevant despite no keyword overlap
+            log_anomaly(query, doc, rating)
+            # Downgrade rating or flag for review
+            rating = "uncertain"
+    
+    return ratings
+```
+
+**7. Evaluator perturbation analysis:**
+
+Test evaluator stability by slightly changing the query:
+
+```python
+def test_evaluator_stability(query, docs):
+    # Original evaluation
+    original_rating = evaluator_llm.rate_relevance(query, docs)
+    
+    # Perturbed queries (small paraphrases)
+    perturbed = [paraphrase(query) for _ in range(3)]
+    perturbed_ratings = [
+        evaluator_llm.rate_relevance(p, docs) for p in perturbed
+    ]
+    
+    # Evaluator should be consistent across paraphrases
+    if original_rating != mode(perturbed_ratings):
+        # Evaluator is unstable; possibly adversarially fooled
+        log_unstable_evaluation(query, original_rating, perturbed_ratings)
+        
+        # Escalate to ensemble or human review
+        final_rating = ensemble_evaluate(query, docs)
+```
+
+**Defence-in-depth:**
+
+1. Adversarial robustness testing (frequent retraining).
+2. Confidence thresholding (don't trust low-confidence ratings).
+3. Ensemble evaluators (require consensus).
+4. Human-in-the-loop (escalate uncertain cases).
+5. Input sanitization (detect poison triggers).
+6. Output validation (sanity checks on ratings).
+7. Perturbation analysis (test stability).
+
+An attacker must fool multiple layers to successfully manipulate the evaluator. Combining these defences makes poisoning CRAG much harder.
+
+</details>

@@ -651,3 +651,66 @@ print(f"Max throughput at 100 QPS: {server.estimate_throughput(100)} concurrent"
 
 
 </details>
+---
+
+## Q11. How do you architect and orchestrate a multi-GPU serving cluster for Speculative RAG to maximize drafter parallelism while keeping verifier utilization high? [Intermediate]
+
+<details>
+<summary>?? Show Answer</summary>
+
+**Answer:**
+
+Speculative RAG pairs a fast drafter and slower verifier. The bottleneck is keeping the verifier busy while drafters compete for its attention.
+
+**Architecture for high utilization:**
+
+Use 2 drafters on A100s, 1 verifier on H100, batch verification of 2 drafts at a time. This keeps verifier utilization >80%.
+
+**Optimization strategies:**
+
+1. **Batch verification** - Verifier processes 2-4 drafts in parallel.
+2. **Token-level speculative decoding** - Verifier checks draft token-by-token for early termination.
+3. **Adaptive draft length** - Shorten drafts if verifier is busy (monitors queue depth).
+4. **Speculative token bundling** - Group tokens into packets for faster verification.
+
+**Monitoring:**
+
+- Drafter GPU utilization (target: >80%).
+- Verifier GPU utilization (target: >80%).
+- Queue depth (draft_queue and verify_queue).
+- Latency P95 (target: <2s for interactive use).
+
+</details>
+
+---
+
+## Q12. How can adversarial inputs exploit systematic disagreement between the drafter and verifier models, and what detection and mitigation strategies prevent this from degrading answer quality? [Advanced]
+
+<details>
+<summary>?? Show Answer</summary>
+
+**Answer:**
+
+**Attack: Drafter-verifier disagreement exploitation**
+
+Attacker crafts queries that cause drafter and verifier to systematically disagree, allowing malicious tokens to slip through verification.
+
+**Defences:**
+
+1. **Disagreement monitoring** - Flag queries with disagreement rate >30%; escalate to human.
+
+2. **Ensemble verification** - Use multiple independent verifiers; require consensus on contentious tokens.
+
+3. **Adversarial input detection** - Detect suspicious patterns (rare tokens, incoherent wording) before inference.
+
+4. **Token-level rollback** - If verifier detects error, roll back to last verified token and regenerate.
+
+5. **Confidence calibration** - Return lower confidence for high-disagreement queries.
+
+6. **Drafter robustness training** - Fine-tune drafter on adversarial examples to agree with verifier.
+
+7. **Continuous retraining** - Periodically retrain both models to stay synchronized.
+
+**Defence-in-depth:** Attackers must defeat multiple layers; single-layer attacks fail.
+
+</details>

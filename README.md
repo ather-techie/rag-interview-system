@@ -7,7 +7,7 @@ A comprehensive collection of interview questions covering all major types of Re
 
 ## 🎯 Quick Reference
 
-→ [CHEATSHEET.md](CHEATSHEET.md) — all 10 RAG types compared by mechanism, best fit, and when to avoid each.
+→ [CHEATSHEET.md](CHEATSHEET.md) — all 12 RAG types compared by mechanism, best fit, and when to avoid each.
 
 ---
 
@@ -15,18 +15,22 @@ A comprehensive collection of interview questions covering all major types of Re
 
 | # | Topic | Questions |
 |---|-------|-----------|
-| 01 | [Naive / Basic RAG](./sections/01-naive-rag.md) | 10 |
-| 02 | [Advanced RAG](./sections/02-advanced-rag.md) | 10 |
-| 03 | [Modular RAG](./sections/03-modular-rag.md) | 10 |
-| 04 | [Agentic RAG](./sections/04-agentic-rag.md) | 10 |
-| 05 | [Graph RAG](./sections/05-graph-rag.md) | 10 |
-| 06 | [Corrective RAG (CRAG)](./sections/06-corrective-rag.md) | 10 |
-| 07 | [Self-RAG](./sections/07-self-rag.md) | 10 |
-| 08 | [Speculative RAG](./sections/08-speculative-rag.md) | 10 |
-| 09 | [Multi-modal RAG](./sections/09-multimodal-rag.md) | 10 |
-| 10 | [Long-context RAG](./sections/10-long-context-rag.md) | 10 |
+| 01 | [Naive / Basic RAG](./sections/01-naive-rag.md) | 12 |
+| 02 | [Advanced RAG](./sections/02-advanced-rag.md) | 12 |
+| 03 | [Modular RAG](./sections/03-modular-rag.md) | 12 |
+| 04 | [Agentic RAG](./sections/04-agentic-rag.md) | 12 |
+| 05 | [Graph RAG](./sections/05-graph-rag.md) | 12 |
+| 06 | [Corrective RAG (CRAG)](./sections/06-corrective-rag.md) | 12 |
+| 07 | [Self-RAG](./sections/07-self-rag.md) | 12 |
+| 08 | [Speculative RAG](./sections/08-speculative-rag.md) | 12 |
+| 09 | [Multi-modal RAG](./sections/09-multimodal-rag.md) | 12 |
+| 10 | [Long-context RAG](./sections/10-long-context-rag.md) | 12 |
+| 11 | [Adaptive RAG](./sections/11-adaptive-rag.md) | 10 |
+| 12 | [Structured / SQL RAG](./sections/12-structured-rag.md) | 10 |
 
-**Total: 100 questions**
+**Total: 140 questions**
+
+**Difficulty distribution: 13 Basic, 58 Intermediate, 69 Advanced**
 
 ---
 
@@ -62,13 +66,21 @@ Multi-modal RAG
 
 Long-context RAG
   └── Stuff entire docs into large context windows
+
+Adaptive RAG
+  └── Query classifier routes to no-retrieval / single-hop / multi-hop
+
+Structured / SQL RAG
+  └── Text-to-SQL generation for relational database retrieval
 ```
 
 ---
 
 ## 💡 How to Use
 
-- Each section file contains **10 interview questions** with detailed answers
+- Each section file contains **10–12 interview questions** with detailed answers
+  - Sections 01–10: 12 questions each (original 10 + Q11 on cost optimization + Q12 on security/adversarial robustness)
+  - Sections 11–12: 10 questions each (new RAG types)
 - Questions are tagged with difficulty: `[Basic]` `[Intermediate]` `[Advanced]`
 - Great for both **interviewers** (to assess candidates) and **candidates** (to prepare)
 

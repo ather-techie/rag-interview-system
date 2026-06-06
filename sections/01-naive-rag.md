@@ -372,3 +372,278 @@ for doc in response["source_documents"]:
 To extend this to production: add reranking (Q2), query rewriting (Q2), or a custom retriever with filtering (Q3).
 
 </details>
+
+---
+
+## Q11. How do you estimate and optimize embedding and vector database storage costs as your Naive RAG corpus scales to tens of millions of documents? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Storage cost breakdown:**
+
+1. **Embedding storage** — Each document chunk is embedded into a vector (e.g., 1536 dimensions for text-embedding-3-small).
+   - Vector size: 1536 float32 = 6144 bytes per embedding.
+   - 10M documents → 10M × 6144 bytes ≈ 61 GB of raw embedding data.
+   - Compression (quantization) can reduce this by 4-10x.
+
+2. **Vector database overhead** — Additional metadata (doc ID, source, chunk ID, timestamps).
+   - ~500 bytes per record in metadata.
+   - 10M documents → 5 GB metadata.
+   - Total with embeddings: ~70 GB.
+
+3. **Indexing overhead** — HNSW (Hierarchical Navigable Small World) or IVF (Inverted File) indexes add 10-30% extra storage.
+   - Total: ~85 GB for 10M documents.
+
+**Cost estimation:**
+
+| Vector DB | Cost per GB/month | 10M docs (85 GB) | 100M docs (850 GB) |
+|-----------|---------|---------|---------|
+| **Pinecone (standard)** | $0.25 | $21.25 | $212.50 |
+| **Weaviate (self-hosted on AWS)** | $0.10 (EC2 + EBS) | $8.50 | $85 |
+| **Qdrant (self-hosted)** | $0.08 (compute + storage) | $6.80 | $68 |
+| **FAISS (local)** | $0 (library cost) | ~$5 (server compute) | ~$30 |
+
+**Embedding generation cost:**
+
+Embedding 10M documents upfront:
+- OpenAI text-embedding-3-small: $0.02 per 1M tokens.
+- Assume 200 tokens per chunk (average).
+- 10M × 200 = 2B tokens → $40.
+- For 100M documents: $400.
+
+**Optimization strategies:**
+
+1. **Quantization** — Reduce vectors from float32 to int8 or binary, cutting storage by 4-10x.
+   ```python
+   from langchain.embeddings.base import Embeddings
+   
+   # Original: 1536 dims × 4 bytes = 6144 bytes
+   # Quantized: 1536 dims × 1 byte = 1536 bytes (4x savings)
+   
+   vector_quantized = np.quantize(vector, dtype=np.int8)
+   ```
+   Trade-off: slight loss in retrieval quality (~1-3% F1 drop).
+
+2. **Hierarchical storage** — Store full embeddings for recent/hot documents, quantized embeddings for older data.
+   - Hot tier (last 30 days): full precision.
+   - Warm tier (30 days - 1 year): int8 quantization.
+   - Cold tier (>1 year): archived to S3, re-embed on demand.
+
+3. **Selective embedding** — Don't embed every document; use keywords/heuristics to index only high-value documents.
+   - E.g., only embed documents with >5 views/month.
+   - Saves 30-50% of embedding costs.
+
+4. **Batch embedding and caching** — Embed documents in batches (1000 at a time) and cache results to avoid re-embedding.
+
+5. **Index compression** — Use HNSW with reduced connectivity (M=8 instead of 16) to save index overhead.
+
+**Example cost reduction (100M documents):**
+
+```
+Baseline:
+- Embeddings: 100M × 6144 bytes = 600 GB → $60/month (at $0.1/GB)
+- Metadata: 100M × 500 bytes = 50 GB → $5/month
+- Index overhead: 50 GB → $5/month
+- Total: $70/month
+
+With optimizations:
+- Quantization (4x): 150 GB → $15/month
+- Selective embedding (40% reduction): 60M × 6144 bytes = 370 GB → $37/month (60M only)
+- Total: $52/month (26% savings)
+```
+
+**Operational cost:**
+
+Beyond storage, account for:
+- Query latency (faster indexes cost more storage).
+- Replication/backup (2-3x storage for HA).
+- Data refresh (re-embedding cost if corpus changes).
+
+Monitor storage utilization monthly and trigger optimization if >80% of capacity.
+
+</details>
+
+---
+
+## Q12. How can an adversary poison a Naive RAG system by injecting malicious documents, and what defences prevent this? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Poisoning attack scenarios:**
+
+1. **False information injection** — Attacker uploads a document claiming "Company X's product is dangerous" with high-quality writing to game retrieval ranking.
+   - Naive RAG retrieves it as a top result.
+   - LLM generates an answer that accepts the claim uncritically.
+   - Downstream: misinformation spreads.
+
+2. **Hallucination amplification** — Attacker injects a document that contradicts other sources but is more recent/authoritative-looking (e.g., fake press release).
+   - Multiple conflicting sources confuse the LLM.
+   - LLM may hallucinate a "synthesis" that favors the attacker's narrative.
+
+3. **Adversarial embeddings** — Attacker crafts text that embeds near many innocent queries but contains malicious content.
+   - Example: A fake recipe that embeds near "how to make brownies" but contains harmful instructions.
+   - Naive systems retrieve it for innocent queries.
+
+4. **Trojan embeddings** — Attacker fine-tunes a small "trigger" document that causes the embedding model to misbehave (only works if attacker controls embeddings).
+
+**Defences:**
+
+**1. Content moderation and scanning:**
+
+Screen all ingested documents for:
+- Prohibited content (hate speech, violence, explicit).
+- Known malicious URLs or file hashes.
+- Factual claims against a trusted knowledge base.
+
+```python
+from better_profanity import profanity
+import hashlib
+
+def screen_document(text, doc_id):
+    # Profanity check
+    if profanity.contains_profanity(text):
+        return False, "Contains profanity"
+    
+    # Known bad hashes
+    doc_hash = hashlib.sha256(text.encode()).hexdigest()
+    if doc_hash in KNOWN_MALICIOUS_HASHES:
+        return False, "Known malicious content"
+    
+    # Fact-check critical claims (e.g., via external API)
+    if contains_medical_claims(text):
+        verified = fact_check_api.verify(text)
+        if not verified:
+            return False, "Unverified medical claims"
+    
+    return True, "OK"
+```
+
+**2. Source attribution and trust scoring:**
+
+Assign a trust score to each document based on source:
+- Official company sources: 1.0
+- Peer-reviewed publications: 0.95
+- User-generated content: 0.5
+- Unknown sources: 0.3
+
+During retrieval, weight results by trust score:
+
+```python
+def retrieve_with_trust_weighting(query, k=5):
+    results = vectorstore.search(query, k=k*2)  # Fetch 2x to allow filtering
+    
+    # Score by trust
+    scored_results = [
+        (doc, embedding_similarity * trust_score[doc.source])
+        for doc, similarity in results
+    ]
+    
+    # Return top-k by combined score
+    return sorted(scored_results, key=lambda x: x[1], reverse=True)[:k]
+```
+
+**3. Retrieval diversity and contradiction detection:**
+
+If multiple retrieved documents contradict each other, flag it:
+
+```python
+def detect_contradictions(retrieved_docs):
+    embeddings = embed_documents([doc.text for doc in retrieved_docs])
+    
+    # Compute pairwise cosine similarity between documents
+    for i, j in itertools.combinations(range(len(docs)), 2):
+        similarity = cosine_similarity(embeddings[i], embeddings[j])
+        
+        if similarity < 0.3:  # Low similarity suggests contradiction
+            # Flag this to user or lower confidence
+            return True, (retrieved_docs[i], retrieved_docs[j])
+    
+    return False, None
+```
+
+**4. LLM-level verification:**
+
+Add a verification step where the LLM is asked to:
+- Cite sources for each claim.
+- Identify conflicting information.
+- Assign confidence levels (high/medium/low).
+
+```python
+verification_prompt = f"""
+Based on the retrieved documents, answer the query.
+For each claim, cite the source and confidence (high/medium/low).
+If documents contradict, explicitly note the conflict.
+
+Query: {query}
+Retrieved documents: {retrieved_docs}
+
+Answer:
+"""
+```
+
+**5. Continuous monitoring and feedback:**
+
+Log all retrieved documents and user feedback:
+- Did users find the answer helpful?
+- Did users report misinformation?
+- Flag documents with high negative feedback.
+
+```python
+def log_query_feedback(query_id, retrieved_docs, user_feedback):
+    for doc in retrieved_docs:
+        rating = user_feedback.get("helpful_docs", [])
+        if doc.id not in rating:
+            # Low user satisfaction with this doc
+            doc.trustworthiness -= 0.05
+            
+            if doc.trustworthiness < 0.2:
+                # Quarantine the document
+                mark_for_review(doc.id)
+```
+
+**6. Rate limiting on ingestion:**
+
+Prevent attackers from flooding the system with documents:
+- Limit uploads per user/IP: 100 docs/day.
+- Manual review for bulk uploads.
+- Require identity verification for document sources.
+
+**7. Differential privacy on embeddings:**
+
+Add noise to embeddings to prevent adversarial optimization:
+
+```python
+def add_embedding_noise(embedding, epsilon=1.0):
+    # Laplace noise scaled by privacy budget epsilon
+    noise = np.random.laplace(0, 1 / epsilon, len(embedding))
+    return embedding + noise
+```
+
+Trade-off: slight accuracy loss (~2-5% F1), but much harder to craft adversarial documents.
+
+**Defence-in-depth approach:**
+
+Combine multiple layers:
+1. Content moderation (prevents obvious attacks).
+2. Source trust scoring (deprioritizes untrusted sources).
+3. Contradiction detection (alerts on inconsistencies).
+4. User feedback loops (continuous improvement).
+5. Regular audits (manual review of top-retrieved docs).
+
+An attacker would need to defeat multiple layers, making poisoning expensive and risky.
+
+**Monitoring dashboard:**
+
+Track:
+- % of ingested documents flagged by moderation.
+- Average trust score of retrieved documents.
+- User satisfaction per retrieved document.
+- Documents with high contradiction flags.
+
+</details>

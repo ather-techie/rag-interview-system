@@ -628,3 +628,341 @@ class GraphRAGEvaluator:
 
 
 </details>
+
+---
+
+## Q11. How do you estimate and control the cost of knowledge graph construction and graph traversal at production scale? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Knowledge graph construction cost:**
+
+Building a graph from raw documents involves multiple expensive steps:
+
+| Step | LLM Calls | Latency | Cost/1M docs |
+|------|-----------|---------|--------------|
+| **Entity extraction** | 1 per doc | 200ms | $20 (0.02/doc) |
+| **Relationship extraction** | 1 per doc | 300ms | $20 |
+| **Entity linking (deduplication)** | 0.1 per unique entity | 50ms | $5 |
+| **Graph validation** | 1 per 100 edges | 100ms | $2 |
+| **Total construction** | — | — | **$47** |
+
+For a 100M document corpus (typical enterprise), initial construction cost: $4,700.
+
+**Cost optimization strategies:**
+
+1. **Batch entity/relation extraction** — Process documents in batches (100–1000 at a time):
+   ```python
+   # Sequential: 1M docs × 2 LLM calls = 2M LLM calls
+   for doc in docs:
+       entities = extract_entities_llm(doc)
+       relations = extract_relations_llm(doc)
+   
+   # Batched: 1M / batch_size batches × 2 = 20K LLM calls (100x cheaper)
+   batch_size = 50_000
+   for batch in chunks(docs, batch_size):
+       entities_batch = batch_extract_entities(batch)
+       relations_batch = batch_extract_relations(batch)
+   ```
+   - Savings: 100x cost reduction, minimal quality loss.
+
+2. **Rule-based extraction + LLM refinement** — Use regex/heuristics first, only use LLM for ambiguous cases:
+   ```python
+   entities = extract_entities_regex(doc)  # Free
+   
+   # Only ~10% need LLM refinement
+   ambiguous_entities = filter(lambda e: e.confidence < 0.7, entities)
+   refined = llm_refine_entities(ambiguous_entities)
+   
+   # Save 90% of LLM calls
+   ```
+
+3. **Lazy graph construction** — Only build graph for queried subdomains:
+   - Don't build the entire graph upfront.
+   - When a user queries a domain (e.g., "customer relationships"), construct graph on-demand.
+   - Savings: 50–80% of construction cost (only build 20–50% of graph).
+
+4. **Graph traversal caching** — Cache frequently traversed paths:
+   ```python
+   traversal_cache = {}
+   
+   def traverse_path_cached(start_entity, target_relation, depth=2):
+       cache_key = (start_entity, target_relation, depth)
+       if cache_key in traversal_cache:
+           return traversal_cache[cache_key]  # Free
+       
+       path = bfs_graph(start_entity, target_relation, depth)
+       traversal_cache[cache_key] = path
+       return path
+   ```
+   - 30–50% cache hit rate → 30–50% traversal cost reduction.
+
+5. **Approximate graph algorithms** — Use sampling for large graphs:
+   ```python
+   # Full BFS on 1M nodes: expensive
+   results_full = bfs_exact(graph, start, relation)
+   
+   # Sample 10K random nodes, search in subgraph: fast
+   sample_nodes = random.sample(graph.nodes(), 10_000)
+   subgraph = graph.subgraph(sample_nodes)
+   results_sampled = bfs_approximate(subgraph, start, relation)
+   
+   # Trade-off: 5–10% accuracy loss, 100x speedup
+   ```
+
+**Example cost structure at scale (100M docs):**
+
+```
+Initial construction (one-time):
+  - Entity extraction: 100M × $0.0001 = $10K
+  - Relation extraction: 100M × $0.0001 = $10K
+  - Entity linking (10M unique): 10M × $0.0005 = $5K
+  - Total: $25K (amortized per user: $0.0003/query if 100M queries/month)
+
+Per-query traversal:
+  - Average path length: 3–5 hops
+  - Per-hop cost: $0.001 (if using LLM for reasoning)
+  - Per-query cost: $0.005
+  - Monthly: 100M queries × $0.005 = $500K (ouch!)
+
+With optimizations:
+  - Caching (50% hit rate): $0.003/query
+  - Approximate algorithms: $0.001/query
+  - Total: $0.002/query → $200K/month (60% savings)
+```
+
+**Monitoring and cost control:**
+
+- Track graph construction cost per corpus update (daily/weekly).
+- Monitor traversal latency; flag slow queries (potential runaway).
+- Set budget alerts (e.g., "$500/day max spending on graph operations").
+
+</details>
+
+---
+
+## Q12. How can adversaries poison a knowledge graph through entity spoofing or false relationship injection, and what integrity controls prevent this? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Attack 1: Entity spoofing**
+
+An attacker injects a fake entity that impersonates a real one:
+
+```
+Real entity: "Apple Inc." (NASDAQ: AAPL)
+Fake entity injected: "Apple Inc." (NASDAQ: APPL) ← typo, different company
+
+Graph now has both entities with similar names.
+User queries "What is Apple's stock price?" → ambiguous, might retrieve wrong entity.
+```
+
+**Attack 2: False relationship injection**
+
+Attacker injects a fake relationship between entities:
+
+```
+Real: "John Smith (CEO) → works_at → Company X"
+Fake: "John Smith (CEO) → works_at → Competitor Y" ← injected
+
+Graph now has conflicting relationships.
+User queries "Where does John Smith work?" → returns both answers.
+System confidence degrades due to contradiction.
+```
+
+**Attack 3: Trojan relationships**
+
+Attacker creates relationships that lead queries to unexpected results:
+
+```
+Benign query: "What products does Company X make?"
+Attacker injects: Company X → supplies_to → Malicious Competitor Z
+Result: User gets info about Company Z instead of X's products.
+```
+
+**Defences:**
+
+**1. Entity disambiguation and canonical naming:**
+
+Maintain a canonical entity registry with strict rules:
+
+```python
+CANONICAL_ENTITIES = {
+    "Apple Inc. NASDAQ:AAPL": {
+        "aliases": ["Apple", "AAPL"],
+        "verified": True,
+        "source": "official_sec_filing"
+    },
+    "Apple Inc. private": {
+        "aliases": ["Apple Company"],
+        "verified": False,
+        "source": "unverified_web_scrape"
+    }
+}
+
+def resolve_entity(entity_name):
+    for canonical, info in CANONICAL_ENTITIES.items():
+        if entity_name in info["aliases"]:
+            if info["verified"]:
+                return canonical  # Return canonical form
+            else:
+                return None  # Flag as unverified
+```
+
+**2. Relationship validation via multiple sources:**
+
+Only accept relationships that are corroborated by multiple independent sources:
+
+```python
+def add_relationship_with_validation(source_entity, relation, target_entity, source_doc):
+    # Check if relationship exists from other sources
+    existing_sources = relationship_sources.get((source_entity, relation, target_entity), [])
+    
+    # Only add if:
+    # - Multiple independent sources agree, OR
+    # - Source is high-trust (e.g., official database)
+    if len(existing_sources) >= 2 or is_high_trust_source(source_doc):
+        graph.add_edge(source_entity, target_entity, relation=relation)
+    else:
+        # Mark as unverified/pending
+        pending_relationships.add((source_entity, relation, target_entity))
+```
+
+**3. Source attribution and trust scoring:**
+
+Track where each entity and relationship came from:
+
+```python
+class GraphEntity:
+    def __init__(self, name, source_docs, trust_score=0.5):
+        self.name = name
+        self.sources = source_docs
+        self.trust_score = trust_score  # 0-1
+        self.is_verified = any(is_high_trust(doc) for doc in source_docs)
+    
+    def add_source(self, doc):
+        self.sources.append(doc)
+        # Update trust score based on new source credibility
+        self.trust_score = mean([credibility(doc) for doc in self.sources])
+
+# During traversal, weight by trust score
+def traverse_with_trust_weighting(start_entity, relation, depth=2):
+    paths = bfs_graph(graph, start_entity, relation, depth)
+    
+    # Filter low-trust paths
+    trusted_paths = [
+        path for path in paths
+        if all(entity.trust_score > 0.6 for entity in path)
+    ]
+    
+    return trusted_paths
+```
+
+**4. Contradiction detection:**
+
+Flag relationships that contradict each other:
+
+```python
+def detect_contradictions():
+    for (source, relation, target) in graph.edges():
+        entity = graph.nodes()[source]
+        
+        # If entity has multiple conflicting relationships, flag
+        alternate_targets = graph.neighbors(source, relation=relation)
+        
+        if len(alternate_targets) > 1:
+            # Multiple targets for same (entity, relation) pair
+            trust_scores = [graph.nodes()[t].trust_score for t in alternate_targets]
+            
+            if max(trust_scores) - min(trust_scores) > 0.3:
+                # Large difference in trust → contradiction
+                log_contradiction(source, relation, alternate_targets)
+                flag_for_review()
+```
+
+**5. Graph access control and auditability:**
+
+Enforce authorization and log all graph modifications:
+
+```python
+class AuditedKnowledgeGraph:
+    def add_entity(self, entity, source_doc, user_id):
+        if not has_permission(user_id, "write_entity", entity.type):
+            raise PermissionError(f"User {user_id} cannot write entities")
+        
+        # Log the modification
+        self.audit_log.append({
+            "timestamp": datetime.now(),
+            "user_id": user_id,
+            "action": "add_entity",
+            "entity": entity,
+            "source": source_doc
+        })
+        
+        super().add_entity(entity, source_doc)
+```
+
+**6. Periodic integrity audits:**
+
+Regularly validate the graph against trusted sources:
+
+```python
+def audit_graph_integrity():
+    # Sample entities and relationships
+    sample_entities = random.sample(graph.nodes(), 100)
+    
+    for entity in sample_entities:
+        # Cross-check against external authoritative source (e.g., Wikidata)
+        external_truth = wikidata.lookup(entity.name)
+        
+        if external_truth is None:
+            # Entity doesn't exist in external source
+            log_suspicious_entity(entity)
+        
+        # Verify relationships
+        for relation, neighbors in graph[entity].items():
+            if not external_truth.has_relation(relation, neighbors):
+                log_suspicious_relationship(entity, relation, neighbors)
+```
+
+**7. Graph rollback and versioning:**
+
+Maintain historical versions to recover from poisoning:
+
+```python
+class VersionedKnowledgeGraph:
+    def __init__(self):
+        self.versions = {}
+        self.current_version = 0
+    
+    def snapshot(self):
+        # Create immutable snapshot of current graph
+        self.versions[self.current_version] = deepcopy(self.graph)
+        self.current_version += 1
+    
+    def rollback(self, version):
+        # Revert to previous version if poisoning is detected
+        if self.detect_anomalies():
+            self.graph = deepcopy(self.versions[version - 1])
+            log_rollback(version)
+```
+
+**Defence-in-depth:**
+
+1. Entity canonicalization and strict naming rules.
+2. Multiple-source validation for relationships.
+3. Source attribution and trust scoring.
+4. Contradiction detection.
+5. Access control and auditability.
+6. Periodic integrity audits against external sources.
+7. Versioning and rollback capabilities.
+
+Combined, these layers make graph poisoning expensive and detectable.
+
+</details>

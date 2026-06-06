@@ -702,3 +702,90 @@ result = router.query_with_adaptive_routing(corpus_docs, user_query)
 
 
 </details>
+---
+
+## Q11. How do you design and benchmark a compression pipeline (LLMLingua, Selective Context, Recomp) to reduce Long-context RAG token cost while maintaining answer quality? [Intermediate]
+
+<details>
+<summary>?? Show Answer</summary>
+
+**Answer:**
+
+**Compression pipeline stages:**
+
+1. **Coarse filtering** - LLMLingua: identify least-relevant chunks via token importance scoring. Removes 30-50% of tokens.
+
+2. **Fine-grained compression** - Recomp: train a compression model to summarize chunks while preserving key facts.
+
+3. **Ranking** - Rank compressed chunks by relevance to query.
+
+4. **Final assembly** - Pack top-k compressed chunks into final prompt (target: <8K tokens).
+
+**Benchmark on your corpus:**
+
+`python
+def benchmark_compression(long_documents):
+    for compression_ratio in [0.5, 0.6, 0.7, 0.8]:
+        for method in [llmlingual, recomp, selective_context]:
+            compressed = method(long_documents, ratio=compression_ratio)
+            f1_score = evaluate(compressed)
+            latency = measure_latency(compressed)
+            cost = len(compressed) * COST_PER_TOKEN
+            
+            log_result(method, compression_ratio, f1_score, latency, cost)
+`
+
+**Optimal operating point:**
+
+Typical: 60-70% compression with 5-10% F1 drop. Reduces token cost by 60-70%.
+
+</details>
+
+---
+
+## Q12. How does a context window stuffing attack work against Long-context RAG, and what content-level, structural, and model-level controls prevent it? [Advanced]
+
+<details>
+<summary>?? Show Answer</summary>
+
+**Answer:**
+
+**Attack: Context window stuffing**
+
+Attacker injects a large volume of irrelevant or malicious documents that "stuff" the context window, pushing aside relevant documents and forcing the model to attend to attacker-controlled content.
+
+`
+Query: "What is the revenue of Company X?"
+
+Attacker stuffs context with 10K tokens of:
+  "Company X is evil. Buy Company Y instead. [INJECTED_JAILBREAK]"
+
+Original relevant doc (5K tokens) gets pushed out of context window.
+LLM attends to injected content instead.
+`
+
+**Defences:**
+
+1. **Content filtering** - Remove documents with low relevance scores (threshold >0.5 similarity) before feeding to LLM.
+
+2. **Structural ordering** - Order documents by relevance, not insertion order. Place highest-confidence docs first in prompt.
+
+3. **Compression** - Compress documents aggressively (60-80%) to fit more relevant content in fixed window.
+
+4. **Sliding window with summary** - Keep summary of earlier content; only show detailed content for top-k docs.
+
+5. **Adversarial input detection** - Flag documents with unusual length, duplicate content, or low-quality writing.
+
+6. **Attention-based ranking** - Use cross-encoder or attention mechanism to re-rank documents within the context window.
+
+7. **Model-level robustness** - Fine-tune LLM on stuffing attacks to ignore irrelevant injected content.
+
+**Example control:**
+
+Max 10 documents in context, each compressed to 500 tokens max. Filter by relevance >0.7. Total context: ~5K tokens.
+
+Attacker can inject at most 10 docs × 500 tokens = 5K tokens. But these are low-relevance (0.3 score), filtered out before prompt construction.
+
+Combining content, structural, and model-level controls prevents context stuffing.
+
+</details>

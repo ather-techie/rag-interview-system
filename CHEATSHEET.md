@@ -14,6 +14,8 @@
 | 8 | **Speculative RAG** | Drafter → Verifier pattern | Cost/quality optimization | Multi-hop queries |
 | 9 | **Multi-modal RAG** | Cross-modal embeddings (CLIP) | Docs with images/tables | Text-only corpora |
 | 10 | **Long-context RAG** | Full documents in context | Complex documents, small corpus | Large corpora, cost-sensitive |
+| 11 | **Adaptive RAG** | Query classifier routes to no-retrieval / single-hop / multi-hop | Mixed-complexity query traffic, latency-sensitive | Homogeneous query distribution |
+| 12 | **Structured RAG** | Text-to-SQL generation with schema linking | Relational databases, tabular data | Schema-free, unstructured data |
 
 ---
 
@@ -70,8 +72,14 @@
 ```
 Start
   │
-  ├─ Is your corpus relational / entity-heavy?
+  ├─ Is the primary data source a relational database or tabular store?
+  │     └─ YES → Structured RAG
+  │
+  ├─ Is your corpus relational / entity-heavy (graph-structured)?
   │     └─ YES → Graph RAG
+  │
+  ├─ Does query complexity vary widely (trivial to multi-hop)?
+  │     └─ YES → Adaptive RAG
   │
   ├─ Does your query require multiple retrieval steps?
   │     └─ YES → Agentic RAG
