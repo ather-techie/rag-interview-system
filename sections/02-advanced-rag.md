@@ -6,6 +6,9 @@
 
 ## Q1. What distinguishes Advanced RAG from Naive RAG? `[Basic]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 Advanced RAG introduces improvements at three stages:
@@ -34,9 +37,14 @@ Post-retrieval: Cross-encoder reranking → Context compression
 LLM → Answer
 ```
 
+</details>
+
 ---
 
 ## Q2. What is HyDE and when is it useful? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -59,9 +67,14 @@ embedding = embed_model.embed_query(hypo_doc)
 results = vectorstore.similarity_search_by_vector(embedding, k=5)
 ```
 
+</details>
+
 ---
 
 ## Q3. How does hybrid search improve retrieval quality? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -74,9 +87,14 @@ Results from both are merged using **Reciprocal Rank Fusion (RRF)** or a learned
 
 **Tools:** Elasticsearch, OpenSearch, Weaviate, and Qdrant all support hybrid search natively.
 
+</details>
+
 ---
 
 ## Q4. What is a cross-encoder reranker and how does it differ from a bi-encoder? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -89,9 +107,14 @@ Results from both are merged using **Reciprocal Rank Fusion (RRF)** or a learned
 
 The typical pipeline: bi-encoder retrieves top-100 → cross-encoder reranks to top-5. Models like `ms-marco-MiniLM` or Cohere Rerank are common cross-encoders.
 
+</details>
+
 ---
 
 ## Q5. What is the "lost-in-the-middle" problem and how do you address it? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -106,9 +129,14 @@ Research shows that LLMs perform worse when relevant information appears in the 
 
 Addressing this is critical for production systems where k > 5.
 
+</details>
+
 ---
 
 ## Q6. What is multi-query retrieval and how does it improve recall? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -148,9 +176,14 @@ retriever = MultiQueryRetriever.from_llm(
 results = retriever.get_relevant_documents(query)
 ```
 
+</details>
+
 ---
 
 ## Q7. How does contextual compression work and when should you use it? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -199,9 +232,14 @@ results = compression_retriever.get_relevant_documents(query)
 - When the LLM tends to get distracted by irrelevant context.
 - Not recommended if you need citations to exact chunks.
 
+</details>
+
 ---
 
 ## Q8. What is step-back prompting and how does it help RAG for complex questions? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -248,9 +286,14 @@ merged_context = original_results + abstract_results
 answer = llm.invoke(f"Answer: {question}\n\nContext: {merged_context}")
 ```
 
+</details>
+
 ---
 
 ## Q9. How do you measure the contribution of each Advanced RAG component via ablation? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -276,9 +319,14 @@ Ablation studies systematically remove components to measure their individual co
 3. Compute statistical significance (e.g., bootstrap confidence intervals).
 4. Plot Pareto frontier: accuracy vs. latency to guide production choices.
 
+</details>
+
 ---
 
 ## Q10. Design a production Advanced RAG pipeline with all enhancements enabled `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -391,3 +439,5 @@ for doc in response["source_documents"]:
 - Dynamically disable HyDE for simple queries (< 3 words); use hybrid search for all queries.
 - Cache results for common questions (semantic caching, Q9 of section 01).
 - Monitor reranking recall; adjust top-k if cross-encoder is dropping relevant chunks.
+
+</details>

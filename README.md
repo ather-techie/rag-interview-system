@@ -1,5 +1,8 @@
 # RAG Interview Questions & Answers
 
+![CI](https://github.com/ather-techie/rag-interview-questions/actions/workflows/deploy.yml/badge.svg)
+[![Stars](https://img.shields.io/github/stars/ather-techie/rag-interview-questions?style=social)](https://github.com/ather-techie/rag-interview-questions/stargazers)
+
 A comprehensive collection of interview questions covering all major types of Retrieval-Augmented Generation (RAG) architectures.
 
 ## 📚 Sections

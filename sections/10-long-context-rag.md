@@ -6,6 +6,9 @@
 
 ## Q1. What is Long-context RAG and how does it differ from chunk-based RAG? `[Basic]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 **Long-context RAG** exploits the large context windows of modern LLMs (Gemini 1.5 Pro: 1M tokens; Claude 3: 200K; GPT-4o: 128K) to pass entire documents — or large portions of a corpus — directly into the prompt, eliminating the need for chunking and retrieval.
@@ -19,9 +22,14 @@
 | **Latency** | Low | Higher (long prefill) |
 | **Best for** | Large corpora | Small-medium corpora, complex documents |
 
+</details>
+
 ---
 
 ## Q2. What is the "needle-in-a-haystack" problem and how does it relate to Long-context RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -39,9 +47,14 @@ Long-context RAG assumes the LLM can use all the context it's given — but NIAH
 - Use models specifically optimized for long context (Gemini 1.5, Claude 3 which use special attention mechanisms).
 - Combine long-context with retrieval: do a coarse retrieval to narrow to 10–20 relevant documents, then pass all of them to the long-context LLM.
 
+</details>
+
 ---
 
 ## Q3. When should you use Long-context RAG over traditional chunked RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -58,9 +71,14 @@ Long-context RAG assumes the LLM can use all the context it's given — but NIAH
 - Latency and cost are critical — long-context inference is 10–100x more expensive per query.
 - Most queries are narrow and answered by a small portion of your corpus.
 
+</details>
+
 ---
 
 ## Q4. How do prompt compression techniques reduce the cost of Long-context RAG? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -97,9 +115,14 @@ compressed = compressor.compress_prompt(
 llm_answer = llm.invoke(compressed["compressed_prompt"])
 ```
 
+</details>
+
 ---
 
 ## Q5. Design a hybrid system that combines retrieval with long-context to handle a 10,000-document legal corpus. `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -130,9 +153,14 @@ Stage 2 — Long-context Synthesis (slow, expensive — but only for top 20)
 
 **Cost estimate:** 20 docs × 20K tokens = 400K input tokens per query. At $3/1M tokens (with caching), that's ~$1.20/query — acceptable for high-value legal use cases.
 
+</details>
+
 ---
 
 ## Q6. How does Anthropic's prompt caching reduce costs for repeated long-context queries? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -216,9 +244,14 @@ Typical:
 - Savings: 90% on repeated queries
 ```
 
+</details>
+
 ---
 
 ## Q7. How does positional reordering of chunks mitigate the lost-in-the-middle problem? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -296,9 +329,14 @@ answer = llm.invoke(prompt)
 - Bookend reordering: 72% accuracy (+7pp)
 - + Long-context LLM (Gemini 1.5): 78% accuracy
 
+</details>
+
 ---
 
 ## Q8. How do you benchmark long-context RAG systems at scale? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -398,9 +436,14 @@ class LongContextBenchmark:
 # + compression               76%       3.0s     $0.12  ← Recommended
 ```
 
+</details>
+
 ---
 
 ## Q9. What chunking strategies serve as graceful fallbacks when a doc exceeds the context window? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -519,9 +562,14 @@ else:
     # Retrieve and answer normally
 ```
 
+</details>
+
 ---
 
 ## Q10. How do you implement cost-aware routing between long-context and chunked RAG at runtime? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -651,3 +699,6 @@ result = router.query_with_adaptive_routing(corpus_docs, user_query)
 - A/B test threshold (e.g., when does long-context become cost-prohibitive?).
 - Pre-compute costs for frequent query patterns; cache decisions.
 - For high-volume, low-cost workloads: default to chunked; reserve long-context for complex queries.
+
+
+</details>

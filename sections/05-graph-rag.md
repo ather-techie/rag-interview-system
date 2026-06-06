@@ -6,6 +6,9 @@
 
 ## Q1. What is Graph RAG and what problem does it solve that vector RAG cannot? `[Basic]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 **Graph RAG** replaces (or augments) the flat vector store with a **knowledge graph** — a structure of entities (nodes) and relationships (edges).
@@ -33,9 +36,14 @@ These require **multi-hop reasoning** — traversing relationships across multip
        [Location] San Francisco
 ```
 
+</details>
+
 ---
 
 ## Q2. How is a knowledge graph constructed for Graph RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -49,9 +57,14 @@ Typical construction pipeline:
 
 This pipeline is expensive to build and maintain but pays off for corpora with dense relational structure (legal, biomedical, financial).
 
+</details>
+
 ---
 
 ## Q3. What is community detection in Microsoft's GraphRAG and why is it important? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -65,9 +78,14 @@ For each community, an LLM generates a **community summary** — a paragraph des
 - Provides **multi-level summarization** — community summaries can be hierarchical (sub-communities → communities → top-level).
 - At query time, community summaries are retrieved like documents, but they represent synthesized knowledge rather than raw text chunks.
 
+</details>
+
 ---
 
 ## Q4. How does Graph RAG handle multi-hop queries? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -99,9 +117,14 @@ relevant_entities = list(subgraph_nodes.keys())
 # Then retrieve document chunks associated with relevant_entities
 ```
 
+</details>
+
 ---
 
 ## Q5. What are the trade-offs of Graph RAG vs. vector RAG in a production system? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -117,9 +140,14 @@ relevant_entities = list(subgraph_nodes.keys())
 
 **Recommendation:** Use vector RAG as the default; add Graph RAG when your queries are inherently relational or when users ask "big picture" synthesis questions across a large corpus.
 
+</details>
+
 ---
 
 ## Q6. How do you combine a knowledge graph with a vector store for hybrid Graph+Vector retrieval? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -198,9 +226,14 @@ class HybridGraphVectorRetriever:
 - Reduces hallucinations (graph provides facts).
 - Faster than pure graph traversal (graph narrows the search space, then vectors find nuances).
 
+</details>
+
 ---
 
 ## Q7. How do you query a Neo4j knowledge graph in a Graph RAG pipeline? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -299,9 +332,14 @@ cypher_examples = {
 - `relationships(path)` extracts all relationship types.
 - `LIMIT` prevents unbounded result sets.
 
+</details>
+
 ---
 
 ## Q8. How does PathRAG differ from Microsoft's GraphRAG community-detection approach? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -370,9 +408,14 @@ class PathRAGRetriever:
 # Recommendation: Use GraphRAG for summary/synthesis questions, PathRAG for fact retrieval.
 ```
 
+</details>
+
 ---
 
 ## Q9. What entity resolution techniques prevent graph fragmentation? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -467,9 +510,14 @@ def measure_fragmentation(graph, gold_standard_clusters):
     return max(fragmentation_errors, 0)
 ```
 
+</details>
+
 ---
 
 ## Q10. How do you evaluate Graph RAG quality beyond standard vector-RAG metrics? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -577,3 +625,6 @@ class GraphRAGEvaluator:
 - Monthly: manual annotation of 100 queries (hop accuracy, factuality).
 - Quarterly: user feedback on synthesis questions (community recall).
 - Post-deployment: monitor false positive relations (extra validation).
+
+
+</details>

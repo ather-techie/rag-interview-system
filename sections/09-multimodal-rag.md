@@ -6,6 +6,9 @@
 
 ## Q1. What is Multi-modal RAG and what data types does it support? `[Basic]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 **Multi-modal RAG** extends RAG beyond plain text to support retrieval and generation across heterogeneous data types:
@@ -20,9 +23,14 @@
 
 The key challenge is **cross-modal retrieval** — a text query should be able to retrieve relevant images, and an image query should retrieve relevant text.
 
+</details>
+
 ---
 
 ## Q2. How does CLIP enable cross-modal retrieval? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -42,9 +50,14 @@ The key challenge is **cross-modal retrieval** — a text query should be able t
 
 **Limitation:** CLIP was trained on web images; performance degrades on domain-specific diagrams, medical imaging, or technical schematics without fine-tuning.
 
+</details>
+
 ---
 
 ## Q3. How do you handle tables and structured data in a Multi-modal RAG system? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -66,9 +79,14 @@ Embed the table header + column names for retrieval. At generation time, pass th
 
 **Best practice:** Use Option 3 for large, queryable datasets and Option 1 for small reference tables in documents.
 
+</details>
+
 ---
 
 ## Q4. What are the key challenges in building a production Multi-modal RAG system? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -81,9 +99,14 @@ Embed the table header + column names for retrieval. At generation time, pass th
 | **Latency** | Image encoding is slower than text | Pre-compute image embeddings offline; use caching |
 | **Evaluation** | Hard to evaluate image-grounded answers | Use VQA benchmarks; human eval for production |
 
+</details>
+
 ---
 
 ## Q5. How would you architect a Multi-modal RAG system for a technical documentation chatbot that includes diagrams and code? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -119,9 +142,14 @@ User query
 - Build a **citation layer** — each part of the answer should cite which chunk or diagram it came from.
 - Use **Unstructured.io** or **LlamaParse** for robust PDF parsing that preserves layout context.
 
+</details>
+
 ---
 
 ## Q6. How do you index and retrieve video content in a multimodal RAG system? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -208,9 +236,14 @@ results = video_rag.retrieve_video_content("How do I set up the system?")
 # Returns: [{"text": "First, open...", "image": <PIL image>, "timestamp": 12}, ...]
 ```
 
+</details>
+
 ---
 
 ## Q7. What is early fusion vs late fusion for multimodal retrieval? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -275,9 +308,14 @@ merged = reciprocal_rank_fusion([text_results, image_results], weights=[0.6, 0.4
 - Use **early fusion** when modalities are naturally comparable (text + images in CLIP space).
 - Use **late fusion** for heterogeneous data (structured tables + unstructured text + images).
 
+</details>
+
 ---
 
 ## Q8. How do you parse and embed PDFs containing mixed text, tables, and images? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -382,9 +420,14 @@ Summary:"""
         print(f"Indexed {len(parsed['text_chunks'])} text, {len(parsed['tables'])} tables, {len(parsed['images'])} images")
 ```
 
+</details>
+
 ---
 
 ## Q9. What evaluation frameworks exist for multimodal RAG? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -485,9 +528,14 @@ benchmarks = {
 }
 ```
 
+</details>
+
 ---
 
 ## Q10. How do you fine-tune CLIP for domain-specific multimodal retrieval? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -653,3 +701,6 @@ pitfalls = {
 
 **Recommendation:**
 Use **LoRA fine-tuning** over full fine-tuning to avoid forgetting. Target 5–10K domain image-caption pairs for a 15–20pp gain.
+
+
+</details>

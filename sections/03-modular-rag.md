@@ -6,6 +6,9 @@
 
 ## Q1. What is Modular RAG and why is it an improvement over fixed pipelines? `[Basic]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 Modular RAG decomposes the RAG system into independent, swappable components:
@@ -18,9 +21,14 @@ Modular RAG decomposes the RAG system into independent, swappable components:
 
 Unlike Naive or Advanced RAG's fixed pipelines, Modular RAG lets you **add, remove, or swap** components without redesigning the whole system. This maps well to production engineering where different use cases need different retrieval strategies.
 
+</details>
+
 ---
 
 ## Q2. How does a routing module work in Modular RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -41,9 +49,14 @@ Routing can be:
 
 LlamaIndex's `RouterQueryEngine` and LangChain's `MultiRetrievalQAChain` are production implementations of this pattern.
 
+</details>
+
 ---
 
 ## Q3. What is a fusion retriever and when would you use one? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -76,9 +89,14 @@ fusion_retriever = EnsembleRetriever(
 results = fusion_retriever.get_relevant_documents(query)
 ```
 
+</details>
+
 ---
 
 ## Q4. How do you handle memory in a Modular RAG system for multi-turn conversations? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -98,9 +116,14 @@ Two types of memory are needed:
 
 For production, tools like **MemGPT** or **Zep** implement long-term memory as a separate service.
 
+</details>
+
 ---
 
 ## Q5. Compare Modular RAG to the LangChain and LlamaIndex frameworks. Which maps better? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -116,9 +139,14 @@ Both frameworks implement modular RAG concepts but with different philosophies:
 
 **LlamaIndex** maps more directly to Modular RAG's architecture since it treats data ingestion, indexing, and querying as first-class modular concerns. LangChain is more flexible but requires more manual wiring. In practice, many production systems use both.
 
+</details>
+
 ---
 
 ## Q6. What is the "reader" module and how does it differ from a plain LLM call? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -162,9 +190,14 @@ Answer (with citations):"""
 
 A grounded reader reduces hallucinations and enables end-to-end fact-checking.
 
+</details>
+
 ---
 
 ## Q7. How do you implement a pluggable retriever interface for Modular RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -265,9 +298,14 @@ results = retriever.retrieve("What is RAG?", k=5)
 
 This pattern enables easy A/B testing: swap the retriever config and compare results without changing the QA pipeline.
 
+</details>
+
 ---
 
 ## Q8. What is iterative retrieval and when does it outperform single-shot retrieval? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -356,9 +394,14 @@ class IterativeRetriever:
         return answer, context
 ```
 
+</details>
+
 ---
 
 ## Q9. How do you add observability (tracing + metrics) to a modular RAG pipeline? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -423,9 +466,14 @@ METRICS_TABLE = """
 
 **Visualization:** Use Jaeger or Grafana to view trace timelines and spot bottlenecks (e.g., "reranking is 50% of latency").
 
+</details>
+
 ---
 
 ## Q10. How do you perform online A/B testing of individual RAG modules in production? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -543,3 +591,5 @@ def analyze_experiment(metrics_log: List[Dict]):
 - Test one module at a time (otherwise can't isolate impact).
 - Measure both positive (accuracy) and negative (latency, cost) metrics.
 - Track guardrail metrics (hallucination rate) to ensure variant doesn't degrade quality.
+
+</details>

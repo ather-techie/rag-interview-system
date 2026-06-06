@@ -6,6 +6,9 @@
 
 ## Q1. What is Agentic RAG and how does it differ from pipeline-based RAG? `[Basic]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 In pipeline RAG, retrieval happens exactly once in a fixed sequence: query → retrieve → generate.
@@ -19,9 +22,14 @@ In **Agentic RAG**, an LLM agent controls the retrieval loop:
 
 This is powered by frameworks like **ReAct** (Reasoning + Acting), where the LLM alternates between Thought → Action → Observation steps until it has enough information to answer.
 
+</details>
+
 ---
 
 ## Q2. Explain the ReAct pattern and how it enables agentic retrieval. `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -40,9 +48,14 @@ Final Answer: Q3 2024 revenue was $4.2B, a 12% increase from Q3 2023's $3.75B.
 
 This enables **multi-hop retrieval** — following a chain of evidence — which single-shot RAG cannot do.
 
+</details>
+
 ---
 
 ## Q3. What is FLARE and how does it improve on ReAct for RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -57,9 +70,14 @@ This enables **multi-hop retrieval** — following a chain of evidence — which
 
 **Limitation:** Requires access to token-level probabilities, which isn't available from all LLM APIs.
 
+</details>
+
 ---
 
 ## Q4. What are the risks of Agentic RAG and how do you mitigate them? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -73,9 +91,14 @@ This enables **multi-hop retrieval** — following a chain of evidence — which
 
 Testing agentic systems requires **trace-level evaluation** (not just final answer quality) — tools like LangSmith and Arize Phoenix help here.
 
+</details>
+
 ---
 
 ## Q5. How would you design an Agentic RAG system for a customer support use case? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -103,9 +126,14 @@ Intent Classifier (LLM)
 4. **Audit trail** — log every tool call and observation for compliance and debugging.
 5. **Fallback** — if the agent exceeds 5 iterations, escalate to a human agent.
 
+</details>
+
 ---
 
 ## Q6. How do you wire retrieval as a tool for the Claude / OpenAI function-calling API? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -224,9 +252,14 @@ if iteration >= max_iterations:
 - Always validate tool inputs before execution.
 - Return tool results as structured JSON for next LLM iteration.
 
+</details>
+
 ---
 
 ## Q7. How does Plan-and-Execute differ from ReAct for agentic RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -290,9 +323,14 @@ Query ──────────► Plan module ──────► [Step 
 
 **Hybrid approach:** Use Plan-and-Execute for high-confidence plans, fall back to ReAct for uncertain paths.
 
+</details>
+
 ---
 
 ## Q8. How do you orchestrate a multi-agent RAG system where agents collaborate? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -386,9 +424,14 @@ def multi_agent_orchestration(query: str) -> str:
 - **Context passing** — Sub-agent results must be JSON-serializable.
 - **Error propagation** — If one agent fails, how does supervisor recover?
 
+</details>
+
 ---
 
 ## Q9. What guardrails prevent prompt injection attacks in agentic RAG? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -487,9 +530,14 @@ Answer based only on the documents above."""
 - **Least privilege** — restrict LLM tool access to only what's needed.
 - **Regular red-team testing** — test injection payloads against production systems.
 
+</details>
+
 ---
 
 ## Q10. How do you evaluate an agentic RAG system end-to-end? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -595,3 +643,5 @@ def evaluate_agentic_rag(trace: AgentTrace, reference_answer: str) -> Evaluation
 3. Run agent traces through evaluation harness weekly.
 4. Track metrics over time (detect regressions early).
 5. A/B test agent variants (ReAct vs. Plan-and-Execute, different tool sets).
+
+</details>

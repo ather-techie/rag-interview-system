@@ -23,9 +23,14 @@ Each question should follow this structure:
 ```markdown
 ## Q6. Your question here? `[Basic|Intermediate|Advanced]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 Your answer here. Use tables, code blocks, and bullet points where they aid clarity.
+
+</details>
 ```
 
 **Difficulty guidelines:**

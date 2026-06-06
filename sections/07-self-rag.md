@@ -6,6 +6,9 @@
 
 ## Q1. What is Self-RAG and how does it differ from standard RAG? `[Basic]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 **Self-RAG** (Asai et al., 2023) fine-tunes an LLM to control its own retrieval and generation through special **reflection tokens**:
@@ -24,9 +27,14 @@
 
 This results in more adaptive, higher-quality outputs — at the cost of requiring fine-tuning.
 
+</details>
+
 ---
 
 ## Q2. What are the four reflection token types in Self-RAG and what do they control? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -66,9 +74,14 @@ Generate: [Retrieve]?
                     Select best candidate (highest score(α))
 ```
 
+</details>
+
 ---
 
 ## Q3. How is Self-RAG trained? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -86,9 +99,14 @@ Self-RAG requires a **two-stage training pipeline**:
 
 **Result:** A single model that does both retrieval gating and generation quality assessment.
 
+</details>
+
 ---
 
 ## Q4. How does Self-RAG use reflection tokens at inference time to select the best output? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -108,9 +126,14 @@ score = α × P(IsSup=Fully supported) + (1-α) × P(IsUse=5)
 
 This makes Self-RAG controllable at inference time — increasing `α` emphasizes factuality; decreasing it emphasizes overall usefulness.
 
+</details>
+
 ---
 
 ## Q5. What are the practical limitations of Self-RAG for production deployment? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -124,9 +147,14 @@ This makes Self-RAG controllable at inference time — increasing `α` emphasize
 
 **Bottom line:** Self-RAG is most appropriate for specialized, high-accuracy domains (medical, legal) where the cost of fine-tuning is justified and factual grounding is critical. For general-purpose chatbots, prompted evaluation (CRAG-style) is more practical.
 
+</details>
+
 ---
 
 ## Q6. How do you approximate Self-RAG behavior without fine-tuning (prompted Self-RAG)? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -199,9 +227,14 @@ comparison_table = """
 """
 ```
 
+</details>
+
 ---
 
 ## Q7. What training datasets are used for Self-RAG and how are reflection labels generated? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -261,9 +294,14 @@ Training target:
 - Cost: ~$5–10K in critic LLM calls to annotate 600K examples.
 - Time: A few hours with parallel batch processing.
 
+</details>
+
 ---
 
 ## Q8. How does Self-RAG compare to RLHF-based factuality methods? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -308,9 +346,14 @@ Prompted Self-RAG       71%         $0           1.5x
 - **Self-RAG** — When you want explicit, interpretable factuality control without human annotations.
 - **Hybrid** — Use Self-RAG to generate candidates, then RLHF reward model to rank them.
 
+</details>
+
 ---
 
 ## Q9. What inference-time optimizations reduce Self-RAG latency? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -387,9 +430,14 @@ class AdaptiveSelfRAG:
         return result_fast
 ```
 
+</details>
+
 ---
 
 ## Q10. How do you evaluate a Self-RAG model beyond standard RAG benchmarks? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -528,3 +576,6 @@ class SelfRAGEvaluator:
 - Per-commit: automatic metrics on validation set (reflection accuracy, citation F1).
 - Weekly: sample 50 queries, manually verify reflection correctness.
 - Monthly: A/B test Self-RAG vs. prompted baselines on real user traffic.
+
+
+</details>

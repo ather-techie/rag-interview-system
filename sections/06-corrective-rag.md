@@ -6,6 +6,9 @@
 
 ## Q1. What is Corrective RAG (CRAG) and what problem does it address? `[Basic]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 **CRAG** (Shi et al., 2024) introduces a **retrieval evaluator** between the retrieval step and the generation step:
@@ -21,9 +24,14 @@ The evaluator scores each retrieved document as:
 
 The core problem CRAG addresses: **RAG systems blindly trust their retriever**. When the knowledge base doesn't contain the answer (out-of-distribution queries, stale data), the LLM either hallucinates or says "I don't know" even when the answer is publicly available.
 
+</details>
+
 ---
 
 ## Q2. How does the corrective fallback mechanism work in CRAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -38,9 +46,14 @@ When retrieved documents are scored as incorrect or ambiguous:
 
 This makes CRAG particularly powerful for **time-sensitive queries** where the local knowledge base may be outdated.
 
+</details>
+
 ---
 
 ## Q3. How is the retrieval evaluator in CRAG trained? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -52,9 +65,14 @@ The retrieval evaluator is a **lightweight retrieval evaluator model** (not the 
 
 In practice, many implementations replace the fine-tuned evaluator with a **prompted LLM judge** (e.g., "On a scale of 0–1, how relevant is this document to the query?") for simplicity.
 
+</details>
+
 ---
 
 ## Q4. How would you implement CRAG in a production system using LangGraph? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -86,9 +104,14 @@ Key implementation decisions:
 - Cache web search results to control costs.
 - Add a circuit breaker if both local retrieval and web search fail.
 
+</details>
+
 ---
 
 ## Q5. What are the cost and latency trade-offs of CRAG vs. standard RAG? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -106,9 +129,14 @@ Key implementation decisions:
 - Use a cheap small model or a rule-based heuristic as a pre-filter before the evaluator.
 - Set a daily budget cap on web search API calls.
 
+</details>
+
 ---
 
 ## Q6. How do you tune the confidence threshold for the retrieval evaluator? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -177,9 +205,14 @@ class ThresholdCalibration:
 # → Will trigger web search for ~22% of queries
 ```
 
+</details>
+
 ---
 
 ## Q7. What is knowledge decomposition and how does it filter out noise? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -256,9 +289,14 @@ def measure_relevance_retention(original_score: float, decomposed_score: float) 
     return decomposed_score / original_score if original_score > 0 else 0
 ```
 
+</details>
+
 ---
 
 ## Q8. How does CRAG compare to Self-RAG for corrective behavior? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -288,9 +326,14 @@ Retrieve → Generate with reflection tokens → If confidence low: continue ret
 - **Self-RAG** — You have the compute/data to fine-tune and want a unified model.
 - **Hybrid** — Use CRAG for filtering, then Self-RAG sampling for generation quality.
 
+</details>
+
 ---
 
 ## Q9. How do you implement a CRAG evaluator using a prompted LLM judge (no fine-tuning)? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -374,9 +417,14 @@ if decision["action"] == "web_search":
     documents = retrieved_docs + web_results
 ```
 
+</details>
+
 ---
 
 ## Q10. How does CRAG handle multi-turn conversations where a bad retrieval poisons later turns? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -510,3 +558,6 @@ Turn N+1:
 - Cache verified facts to avoid re-verifying across turns.
 - Flag low-confidence facts as unverified in the assistant response ("*According to retrieved data* ...").
 - Periodically re-verify facts as new information arrives (e.g., daily refresh of "current revenue").
+
+
+</details>

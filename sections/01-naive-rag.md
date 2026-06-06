@@ -6,6 +6,9 @@
 
 ## Q1. What is Naive RAG and how does it work at a high level? `[Basic]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 Naive RAG is the foundational form of retrieval-augmented generation, following a fixed three-step pipeline:
@@ -24,9 +27,14 @@ Docs → Chunker → Embedder ──► Vector DB
 Query → Embedder → ANN Search ────┘ → Top-k chunks → LLM → Answer
 ```
 
+</details>
+
 ---
 
 ## Q2. What are the key limitations of Naive RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -38,9 +46,14 @@ Query → Embedder → ANN Search ────┘ → Top-k chunks → LLM → A
 | No feedback loop | Retriever and generator are not jointly optimized |
 | Context stuffing | All chunks passed verbatim — no reranking or filtering |
 
+</details>
+
 ---
 
 ## Q3. What embedding strategies are commonly used in Naive RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -66,9 +79,14 @@ vectorstore = Chroma.from_documents(
 results = vectorstore.similarity_search(query, k=5)
 ```
 
+</details>
+
 ---
 
 ## Q4. How do you evaluate the quality of retrieval in a Naive RAG system? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -82,9 +100,14 @@ Common retrieval evaluation metrics:
 
 A common pitfall is optimizing only for recall (retrieve everything) at the cost of precision (retrieve junk).
 
+</details>
+
 ---
 
 ## Q5. In what scenarios would you still choose Naive RAG over more complex approaches? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -98,9 +121,14 @@ Naive RAG remains valid when:
 
 Always profile your specific use case before over-engineering — Naive RAG often gets you 80% of the way.
 
+</details>
+
 ---
 
 ## Q6. How do chunking strategies affect retrieval quality? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -144,9 +172,14 @@ semantic = RecursiveCharacterTextSplitter(
 )
 ```
 
+</details>
+
 ---
 
 ## Q7. How does approximate nearest neighbor (ANN) search work in vector DBs? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -178,9 +211,14 @@ Query routing: start at top, traverse down to nearest neighbor at each level, th
 
 Most vector DBs (Qdrant, Weaviate, Chroma) expose these knobs. A typical production setting: `M=16, ef=200, efConstruction=500` balances recall (~99%) and latency (<100ms).
 
+</details>
+
 ---
 
 ## Q8. How do you handle document updates and deletions in a Naive RAG system? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -210,9 +248,14 @@ results = vectorstore.similarity_search(query, k=10)
 filtered = [r for r in results if not r.metadata.get("deleted")]
 ```
 
+</details>
+
 ---
 
 ## Q9. What is semantic caching and how does it reduce Naive RAG latency? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -268,9 +311,14 @@ class SemanticCache:
 
 **Production systems (e.g., Anthropic's prompt caching)** use token-based caching at the LLM layer instead, which is more general but less semantic.
 
+</details>
+
 ---
 
 ## Q10. Build an end-to-end Naive RAG system in under 50 lines of Python `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -322,3 +370,5 @@ for doc in response["source_documents"]:
 - Persist the vector store to disk for reuse without re-embedding.
 
 To extend this to production: add reranking (Q2), query rewriting (Q2), or a custom retriever with filtering (Q3).
+
+</details>

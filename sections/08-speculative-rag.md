@@ -6,6 +6,9 @@
 
 ## Q1. What is Speculative RAG and what is the core insight behind it? `[Basic]`
 
+<details>
+<summary>💡 Show Answer</summary>
+
 **Answer:**
 
 **Speculative RAG** (Wang et al., 2024) is inspired by speculative decoding in LLMs. The core insight is:
@@ -38,9 +41,14 @@ Retrieved chunks (k=10)
                                    Final Answer
 ```
 
+</details>
+
 ---
 
 ## Q2. How does document partitioning work in Speculative RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -57,9 +65,14 @@ Rather than passing all retrieved chunks to a single model, Speculative RAG part
 
 The partitioning can be random, diversity-maximized (pick chunks that cover different subtopics), or evidence-ranked.
 
+</details>
+
 ---
 
 ## Q3. What is the role of the large generalist LLM in Speculative RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -81,9 +94,14 @@ Task: Select the most accurate, well-supported answer, or synthesize a better an
 
 Because it only reads candidate answers (not raw chunks), the large model's context is much shorter — typically 3–5x fewer tokens than standard RAG.
 
+</details>
+
 ---
 
 ## Q4. How does Speculative RAG compare to Speculative Decoding in standard LLM inference? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -100,9 +118,14 @@ Both share the **draft-then-verify** philosophy, but apply it differently:
 
 In Speculative Decoding, the large model *accepts or rejects* the small model's tokens. In Speculative RAG, the large model *selects among* the small model's answers. The analogy is intentional — both exploit the asymmetry between fast drafting and accurate verification.
 
+</details>
+
 ---
 
 ## Q5. When would Speculative RAG outperform Agentic RAG, and when would it not? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -120,9 +143,14 @@ In Speculative Decoding, the large model *accepts or rejects* the small model's 
 
 **In practice:** Speculative RAG is best for a well-scoped, document-heavy Q&A product. Agentic RAG is better for open-ended assistants and workflows. Many production systems combine both — use Speculative RAG for the retrieval-heavy path and Agentic RAG for complex, multi-step queries.
 
+</details>
+
 ---
 
 ## Q6. How do you select and fine-tune the small drafter model in Speculative RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -187,9 +215,14 @@ trainer.train()
 - +3pp fine-tuning on 5K examples.
 - +2pp quantization (4-bit) without quality loss.
 
+</details>
+
 ---
 
 ## Q7. Implement the Speculative RAG pipeline end-to-end in Python `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -310,9 +343,14 @@ result = asyncio.run(rag.query("What is the company revenue?"))
 print(result["final_answer"])
 ```
 
+</details>
+
 ---
 
 ## Q8. How do you tune the number of subsets (m) and subset size in Speculative RAG? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -415,9 +453,14 @@ pareto = tuner.find_pareto_frontier(configs)
 # m=10: 88% accuracy, 600ms latency (too slow)
 ```
 
+</details>
+
 ---
 
 ## Q9. How does Speculative RAG behave when no retrieved document is relevant? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -492,9 +535,14 @@ class RobustSpeculativeRAG(SpeculativeRAG):
         return result
 ```
 
+</details>
+
 ---
 
 ## Q10. What are the GPU/memory requirements for serving Speculative RAG in production? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -600,3 +648,6 @@ print(f"Max throughput at 100 QPS: {server.estimate_throughput(100)} concurrent"
 | <50 QPS | H100 (1 GPU) + API verifier | ~$3K |
 | 50-200 QPS | 2× A100 (drafter + verifier) | ~$10K |
 | >200 QPS | 4× H100 (2 drafters + 1 verifier + 1 reserve) | ~$20K |
+
+
+</details>
