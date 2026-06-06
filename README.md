@@ -7,18 +7,7 @@ A comprehensive collection of interview questions covering all major types of Re
 
 ## 🎯 Quick Reference
 
-| RAG Type | Key Differentiator | When to Use |
-|----------|--------------------|-------------|
-| **Naive** | Chunk → embed → retrieve → generate | Prototyping; clean, static corpora |
-| **Advanced** | Query rewriting + hybrid search + re-ranking | Production search over mixed content |
-| **Modular** | Swap any pipeline component independently | Custom pipelines needing flexibility |
-| **Agentic** | LLM decides when/how to retrieve dynamically | Multi-step reasoning; tool-heavy workflows |
-| **Graph** | Knowledge graph for entity-aware retrieval | Complex relationships; multi-hop queries |
-| **Corrective (CRAG)** | Evaluates retrieval quality; falls back to web | High-stakes grounding; potentially stale KB |
-| **Self-RAG** | Model reflects on and critiques its own output | Maximum accuracy; iterative refinement |
-| **Speculative** | Small model drafts; large model selects best | Cost-quality tradeoff at scale |
-| **Multimodal** | Cross-modal retrieval (text, image, table, audio) | Mixed-media corpora; vision-heavy tasks |
-| **Long-context** | Full docs stuffed into large context window | Documents where chunking breaks coherence |
+→ [CHEATSHEET.md](CHEATSHEET.md) — all 10 RAG types compared by mechanism, best fit, and when to avoid each.
 
 ---
 
@@ -96,15 +85,9 @@ Long-context RAG
 
 ## Contributing
 
-This repo grows best with real-world signal. If you were recently asked a RAG question in an interview — whether you answered brilliantly or blanked — **open a PR**.
+This repo grows best with real-world signal. If you were asked a RAG question in an interview, **open a PR** — real questions are prioritized over synthetically generated ones.
 
-**How to contribute:**
-1. Fork the repo and open the relevant `sections/XX-<type>.md` file
-2. Add your question under the appropriate difficulty tag (`[Basic]`, `[Intermediate]`, `[Advanced]`)
-3. Include a solid answer (or a starter and let the community refine it)
-4. Open a PR with the title: `Add: "<your question text>"`
-
-Questions from real interviews are prioritized over synthetically generated ones. Even a rough question with no answer is valuable — open the PR and we'll fill it in together.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to submit a question.
 
 ---
 
