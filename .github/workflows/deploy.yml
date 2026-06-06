@@ -80,13 +80,194 @@ jobs:
               code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
               pre { background: #f5f5f5; padding: 1rem; border-radius: 6px; overflow-x: auto; }
               .back { margin-bottom: 1.5rem; display: inline-block; }
+              .quiz-bar { margin-bottom: 2rem; padding: 1rem; background: #f9f9f9; border-radius: 6px; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+              .quiz-bar button { padding: 0.5rem 1rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 0.9em; }
+              .quiz-bar button:hover { background: #f0f0f0; }
+              .quiz-bar button.filter-btn.active { background: #0070f3; color: white; border-color: #0070f3; }
+              #main-content { transition: opacity 0.3s; }
+              #main-content.hidden { opacity: 0; pointer-events: none; height: 0; overflow: hidden; }
+              #quiz-panel { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 2px solid #0070f3; border-radius: 8px; padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+              #quiz-panel.visible { display: block; }
+              .quiz-panel-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+              .quiz-panel-overlay.visible { display: block; }
+              .quiz-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+              .quiz-progress { background: #f0f0f0; border-radius: 4px; height: 8px; margin: 1rem 0; overflow: hidden; }
+              .quiz-progress-bar { background: #0070f3; height: 100%; transition: width 0.3s; }
+              .difficulty-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.85em; font-weight: 500; margin-left: 0.5rem; }
+              .difficulty-badge.basic { background: #e8f5e9; color: #2e7d32; }
+              .difficulty-badge.intermediate { background: #fff3e0; color: #e65100; }
+              .difficulty-badge.advanced { background: #fce4ec; color: #c2185b; }
+              .quiz-question { font-size: 1.1em; margin: 1.5rem 0; line-height: 1.6; }
+              .quiz-answer { margin: 1.5rem 0; padding: 1rem; background: #f9f9f9; border-left: 4px solid #0070f3; border-radius: 4px; }
+              .quiz-answer details { margin-top: 0; }
+              .quiz-buttons { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
+              .quiz-buttons button { padding: 0.75rem 1.5rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-weight: 500; }
+              .quiz-buttons button:hover { background: #f0f0f0; }
+              .quiz-buttons button.primary { background: #0070f3; color: white; border-color: #0070f3; }
+              .quiz-summary { text-align: center; }
+              .quiz-summary h3 { font-size: 1.5em; margin: 1rem 0; }
+              .quiz-score { font-size: 2em; font-weight: bold; color: #0070f3; margin: 1.5rem 0; }
+              .quiz-summary button { padding: 0.75rem 2rem; background: #0070f3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; margin-top: 1rem; }
+              .quiz-summary button:hover { background: #0055cc; }
             </style>
           </head>
           <body>
           <a class="back" href="../index.html">← Back to Index</a>
+          <div class="quiz-bar">
+            <button id="quiz-start-btn" onclick="startQuiz()">▶ Start Quiz</button>
+            <span style="font-weight: 500;">Filter:</span>
+            <button class="filter-btn active" onclick="setFilter('All')">All</button>
+            <button class="filter-btn" onclick="setFilter('Basic')">Basic</button>
+            <button class="filter-btn" onclick="setFilter('Intermediate')">Intermediate</button>
+            <button class="filter-btn" onclick="setFilter('Advanced')">Advanced</button>
+          </div>
+          <div id="main-content">
           HTMLEOF
             marked "$f" >> "_site/sections/${name}.html"
-            echo "</body></html>" >> "_site/sections/${name}.html"
+            echo "          </div>" >> "_site/sections/${name}.html"
+            echo "          <div class=\"quiz-panel-overlay\" id=\"quiz-overlay\"></div>" >> "_site/sections/${name}.html"
+            echo "          <div id=\"quiz-panel\"></div>" >> "_site/sections/${name}.html"
+            cat >> "_site/sections/${name}.html" << 'SCRIPTEOF'
+          <script>
+            const allQuestions = [];
+            document.querySelectorAll('h2').forEach(h2 => {
+              if (!/^Q\d+\./.test(h2.textContent.trim())) return;
+              const codeEl = h2.querySelector('code');
+              let difficulty = 'Basic';
+              if (codeEl) {
+                const match = codeEl.textContent.match(/\[(Basic|Intermediate|Advanced)\]/);
+                if (match) difficulty = match[1];
+              }
+              const questionText = h2.textContent
+                .replace(/^Q\d+\.\s*/, '')
+                .replace(/\s*\[(Basic|Intermediate|Advanced)\]\s*$/, '')
+                .trim();
+              let el = h2.nextElementSibling;
+              while (el && el.tagName !== 'DETAILS') el = el.nextElementSibling;
+              const answerHTML = el ? el.innerHTML : '<summary>No answer found</summary>';
+              allQuestions.push({ questionText, difficulty, answerHTML });
+            });
+
+            let filtered = [], currentIndex = 0, correctCount = 0, reviewCount = 0, revealed = false;
+
+            function setFilter(level) {
+              document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+              event.target.classList.add('active');
+              if (level === 'All') {
+                filtered = [...allQuestions];
+              } else {
+                filtered = allQuestions.filter(q => q.difficulty === level);
+              }
+              if (currentIndex >= filtered.length) currentIndex = 0;
+              if (document.getElementById('quiz-panel').classList.contains('visible')) {
+                currentIndex = 0;
+                renderQuestion();
+              }
+            }
+
+            function startQuiz() {
+              filtered = [...allQuestions];
+              currentIndex = 0;
+              correctCount = 0;
+              reviewCount = 0;
+              document.getElementById('main-content').classList.add('hidden');
+              document.getElementById('quiz-overlay').classList.add('visible');
+              document.getElementById('quiz-panel').classList.add('visible');
+              renderQuestion();
+            }
+
+            function renderQuestion() {
+              revealed = false;
+              const q = filtered[currentIndex];
+              const progress = ((currentIndex + 1) / filtered.length * 100);
+              const diffClass = q.difficulty.toLowerCase();
+              const html = `
+                <div class="quiz-header">
+                  <div>
+                    <strong>Question ${currentIndex + 1} / ${filtered.length}</strong>
+                    <span class="difficulty-badge ${diffClass}">${q.difficulty}</span>
+                  </div>
+                  <button onclick="exitQuiz()" style="border: none; background: none; cursor: pointer; font-size: 1.2em;">✕</button>
+                </div>
+                <div class="quiz-progress">
+                  <div class="quiz-progress-bar" style="width: ${progress}%"></div>
+                </div>
+                <div class="quiz-question">${q.questionText}</div>
+                <div id="answer-container" style="display: none;">
+                  <div class="quiz-answer">${q.answerHTML}</div>
+                </div>
+                <div class="quiz-buttons">
+                  <button class="primary" onclick="showAnswer()">Show Answer</button>
+                  <button onclick="skipQuestion()">Skip →</button>
+                </div>
+              `;
+              document.getElementById('quiz-panel').innerHTML = html;
+            }
+
+            function showAnswer() {
+              revealed = true;
+              const container = document.getElementById('answer-container');
+              container.style.display = 'block';
+              const buttons = document.querySelector('.quiz-buttons');
+              buttons.innerHTML = `
+                <button class="primary" onclick="markCorrect()" style="background: #4caf50; border-color: #4caf50;">✓ Got it</button>
+                <button onclick="markReview()">✗ Review again</button>
+              `;
+            }
+
+            function markCorrect() {
+              correctCount++;
+              nextQuestion();
+            }
+
+            function markReview() {
+              reviewCount++;
+              nextQuestion();
+            }
+
+            function skipQuestion() {
+              nextQuestion();
+            }
+
+            function nextQuestion() {
+              currentIndex++;
+              if (currentIndex < filtered.length) {
+                renderQuestion();
+              } else {
+                showSummary();
+              }
+            }
+
+            function showSummary() {
+              const percentage = Math.round((correctCount / filtered.length) * 100);
+              const html = `
+                <div class="quiz-summary">
+                  <h3>Quiz Complete! 🎉</h3>
+                  <p style="font-size: 1.1em; margin: 1.5rem 0;">You got <strong>${correctCount} out of ${filtered.length}</strong> correct.</p>
+                  <div class="quiz-score">${percentage}%</div>
+                  <p style="color: #666; margin: 1rem 0;">${reviewCount} to review</p>
+                  <button onclick="restartQuiz()">← Try Again</button>
+                  <button onclick="exitQuiz()" style="background: #666; border-color: #666; margin-left: 1rem;">Exit Quiz</button>
+                </div>
+              `;
+              document.getElementById('quiz-panel').innerHTML = html;
+            }
+
+            function restartQuiz() {
+              currentIndex = 0;
+              correctCount = 0;
+              reviewCount = 0;
+              renderQuestion();
+            }
+
+            function exitQuiz() {
+              document.getElementById('quiz-panel').classList.remove('visible');
+              document.getElementById('quiz-overlay').classList.remove('visible');
+              document.getElementById('main-content').classList.remove('hidden');
+            }
+          </script>
+          SCRIPTEOF
+            echo "          </body></html>" >> "_site/sections/${name}.html"
           done
 
           # Cheatsheet page
