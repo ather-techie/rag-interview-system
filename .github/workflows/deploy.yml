@@ -60,7 +60,7 @@ jobs:
           echo "</body></html>" >> _site/index.html
 
           # Generate a page for each section
-          for f in sections/*.md; do
+          for f in 02_interview_bank/*.md 03_failure_modes/*.md; do
             name=$(basename "$f" .md)
             cat > "_site/sections/${name}.html" << 'HTMLEOF'
           <!DOCTYPE html>
@@ -294,7 +294,7 @@ SCRIPTEOF
           <body>
           <a class="back" href="index.html">← Back to Index</a>
           HTMLEOF
-          marked CHEATSHEET.md >> _site/cheatsheet.html
+          marked cheatsheets/CHEATSHEET.md >> _site/cheatsheet.html
           echo "</body></html>" >> _site/cheatsheet.html
 
       - name: Upload artifact

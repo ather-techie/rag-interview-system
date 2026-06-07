@@ -40,7 +40,7 @@ Each axis maps to a different set of failure modes and trade-offs. Mastering the
 | Naive RAG | Static | Text-only | None | Single-hop | No | Fast (<200ms) | Stable (since 2020) |
 | Advanced RAG | Static | Text-only | None | Single-hop | No | Fast (<200ms) | Stable (mature) |
 | Modular RAG | Static | Text-only | None | Single-hop | No | Fast (<200ms) | Stable (mature) |
-| Adaptive RAG | Dynamic | Text-only | None | Single-hop | No | Fast (<200ms) | Emerging (2023+) |
+| Adaptive RAG | Dynamic | Text-only | None | Single-hop or Multi-hop | No | Fast (<200ms) | Emerging (2023+) |
 | Agentic RAG | Agent-driven | Text-only | Self-critique | Multi-hop | No | Slow (>1s) | Emerging (2023+) |
 | Corrective RAG | Dynamic | Text-only | Self-critique | Single-hop | No | Medium (200ms–1s) | Emerging (2023+) |
 | Self-RAG | Agent-driven | Text-only | External signal | Iterative | **Yes** | Medium (200ms–1s) | Cutting-edge (2023+) |
@@ -48,7 +48,7 @@ Each axis maps to a different set of failure modes and trade-offs. Mastering the
 | Graph RAG | Agent-driven | Graph | Self-critique | Multi-hop | No | Slow (>1s) | Emerging (2024+) |
 | Structured RAG | Dynamic | Structured | None | Single-hop | No | Medium (200ms–1s) | Stable (growing) |
 | Multimodal RAG | Static | Multimodal | None | Single-hop | No | Medium (200ms–1s) | Emerging (2023+) |
-| Long-Context RAG | Static | Text-only | None | Single-hop | No | Fast (<200ms) | Stable (2024+) |
+| Long-Context RAG | Static | Text-only | None | Single-hop | No | High (>1s) | Stable (2024+) |
 
 ---
 

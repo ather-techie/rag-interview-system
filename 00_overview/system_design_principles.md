@@ -324,7 +324,7 @@ Understanding cost drivers lets you optimize intelligently.
    - Self-hosted (Qdrant on disk): ~$5/month (storage cost only)
 
 3. **LLM Inference Cost** (per-token, generation-time)
-   - GPT-4 Turbo: $0.01 per 1K input tokens, $0.03 per 1K output tokens
+   - GPT-4 Turbo: $0.01 per 1K input tokens, $0.03 per 1K output tokens *(verify current pricing at platform.openai.com/pricing before using these figures — LLM pricing changes frequently)*
    - At 10K QPS × 1000 input tokens (context + query) × $0.01/1K = $100/day input
    - At 10K QPS × 200 output tokens × $0.03/1K = $60/day output
 

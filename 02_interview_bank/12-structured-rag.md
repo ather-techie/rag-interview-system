@@ -363,10 +363,13 @@ BIRD (BigIssue in Relation Data) is a large-scale text-to-SQL benchmark with 12.
 
 **Evaluation setup:**
 
-1. **Download dataset** — Obtain BIRD from its official repository (HuggingFace or the paper's source).
+1. **Download dataset** — Obtain BIRD from its official repository (not on HuggingFace; GitHub only).
    ```python
-   from datasets import load_dataset
-   bird = load_dataset("google/bird")
+   # Download from https://bird-bench.github.io/
+   # git clone https://github.com/AlibabaResearch/DAMO-ConvAI
+   import json
+   with open("bird/train/train.json") as f:
+       bird_data = json.load(f)
    ```
 
 2. **Database setup** — BIRD includes SQLite databases. Set up local instances or cloud databases (PostgreSQL, MySQL) to match the schema.
@@ -386,11 +389,12 @@ BIRD (BigIssue in Relation Data) is a large-scale text-to-SQL benchmark with 12.
 **Benchmark protocol:**
 
 ```python
-from datasets import load_dataset
+# BIRD dataset: download from https://bird-bench.github.io/
+import json
 from sqlalchemy import create_engine
-import subprocess
 
-bird = load_dataset("google/bird")["train"]
+with open("bird/train/train.json") as f:
+    bird = json.load(f)
 
 correct = 0
 valid_sql = 0

@@ -368,7 +368,7 @@ Multi-agent systems decompose a complex query into sub-tasks handled by speciali
 
 ```python
 from langchain.agents import AgentExecutor, initialize_agent, Tool
-from langchain.llms import ChatOpenAI
+from langchain_openai import ChatOpenAI
 import json
 
 # Define specialist agents

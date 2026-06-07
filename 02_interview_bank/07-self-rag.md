@@ -290,8 +290,8 @@ Training target:
 ```
 
 **Data efficiency:**
-- Typical Self-RAG: ~600K examples (large but manageable with critic LLM bulk processing).
-- Cost: ~$5–10K in critic LLM calls to annotate 600K examples.
+- Typical Self-RAG: ~150K examples (Asai et al. paper; manageable with critic LLM bulk processing).
+- Cost: ~$1–3K in critic LLM calls to annotate 150K examples.
 - Time: A few hours with parallel batch processing.
 
 </details>
@@ -577,8 +577,8 @@ class SelfRAGEvaluator:
 - Weekly: sample 50 queries, manually verify reflection correctness.
 - Monthly: A/B test Self-RAG vs. prompted baselines on real user traffic.
 
-
 </details>
+
 ---
 
 ## Q11. How do you calculate the amortized cost of Self-RAG fine-tuning against inference savings, and when does it become cost-effective compared to prompted alternatives? `[Intermediate]`

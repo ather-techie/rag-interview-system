@@ -175,8 +175,8 @@ Stage 4: Synthesis
 **Implementation:**
 
 ```python
-from langchain.graphs import Neo4jGraph
-from langchain.vectorstores import Chroma
+from langchain_community.graphs import Neo4jGraph
+from langchain_community.vectorstores import Chroma
 import networkx as nx
 
 class HybridGraphVectorRetriever:

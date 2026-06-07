@@ -57,7 +57,7 @@ Query → Embedder → ANN Search ────┘ → Top-k chunks → LLM → A
 
 **Answer:**
 
-- **Dense embeddings** — Models like `text-embedding-ada-002`, `BGE-large`, or `E5-mistral` map text to dense float vectors.
+- **Dense embeddings** — Models like `text-embedding-3-small`, `BGE-large`, or `E5-mistral` map text to dense float vectors.
 - **Sparse embeddings** — BM25 or TF-IDF produce sparse keyword-weighted vectors, better for exact-match queries.
 - **Chunk overlap** — A sliding window (e.g., 50-token overlap) reduces boundary cutoff artifacts.
 - **Sentence-level chunking** — Using sentence or paragraph boundaries instead of fixed token counts preserves semantic units.
@@ -423,7 +423,7 @@ Embedding 10M documents upfront:
    # Original: 1536 dims × 4 bytes = 6144 bytes
    # Quantized: 1536 dims × 1 byte = 1536 bytes (4x savings)
    
-   vector_quantized = np.quantize(vector, dtype=np.int8)
+   vector_quantized = vector.astype(np.int8)
    ```
    Trade-off: slight loss in retrieval quality (~1-3% F1 drop).
 

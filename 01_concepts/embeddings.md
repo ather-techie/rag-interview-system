@@ -70,7 +70,7 @@ Training Example:
 | `text-embedding-3-small` | 512 | 8,192 | Proprietary | 62.3 | General-purpose (Recommended starting point) |
 | `text-embedding-3-large` | 3,072 | 8,192 | Proprietary | 64.6 | High-precision retrieval; supports Matryoshka |
 | `BGE-large-en-v1.5` | 1,024 | 512 | Apache 2.0 | 64.2 | Open-source alternative to OpenAI; good for English |
-| `E5-mistral-7b-instruct` | 768 | 32,768 | MIT | 61.5 | Long-context support; multilingual |
+| `E5-mistral-7b-instruct` | 4,096 | 32,768 | MIT | 61.5 | Long-context support; multilingual |
 | `Cohere Embed v3` | 1,024 | 512 | Proprietary | 63.9 | Built-in search_type parameter (separate embeddings for retrieval vs. search) |
 | `nomic-embed-text` | 768 | 8,192 | CC-BY-SA | 62.4 | Open-source; competitive with OpenAI; uses Matryoshka |
 
@@ -86,17 +86,26 @@ MTEB (Massive Text Embedding Benchmark) evaluates embeddings on 56 datasets acro
 OpenAI's `text-embedding-3` models support Matryoshka embeddings. The key insight: you can truncate the embedding to fewer dimensions with minimal quality loss.
 
 ```python
-from sentence_transformers import SentenceTransformer
+from openai import OpenAI
 
-model = SentenceTransformer('text-embedding-3-small')
+client = OpenAI()
 
-# Full 512-dim embedding
-full_embedding = model.encode("What is RAG?")  # shape: (512,)
+# Full 512-dim embedding via the dimensions parameter
+response = client.embeddings.create(
+    model="text-embedding-3-small",
+    input="What is RAG?",
+    dimensions=512
+)
+full_embedding = response.data[0].embedding  # length: 512
 
-# Truncate to 256 dims without re-training
-truncated = full_embedding[:256]  # shape: (256,)
+# Truncate to 256 dims — OpenAI handles this server-side
+response_truncated = client.embeddings.create(
+    model="text-embedding-3-small",
+    input="What is RAG?",
+    dimensions=256
+)
+truncated = response_truncated.data[0].embedding  # length: 256
 
-# Truncated embedding still correlates with full embedding
 # Saves 50% storage + 50% retrieval latency with ~1% recall loss
 ```
 

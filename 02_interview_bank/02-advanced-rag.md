@@ -161,9 +161,9 @@ Multi-query retrieval generates multiple reformulations of the original query an
 - Index bloat: potentially retrieve more redundant chunks.
 
 ```python
-from langchain.llms import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.retrievers.multi_query import MultiQueryRetriever
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores import Chroma
 
 llm = ChatOpenAI(model="gpt-4o-mini")
 retriever = MultiQueryRetriever.from_llm(
@@ -380,7 +380,7 @@ Here is a complete end-to-end Advanced RAG architecture:
 
 ```python
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores import Chroma
 from langchain.retrievers import MultiQueryRetriever, ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
 from langchain.retrievers.bm25 import BM25Retriever

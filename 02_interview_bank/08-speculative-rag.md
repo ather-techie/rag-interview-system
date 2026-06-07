@@ -231,7 +231,7 @@ Here's a complete implementation:
 ```python
 import asyncio
 from typing import List
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores import Chroma
 from langchain_openai import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
@@ -653,10 +653,10 @@ print(f"Max throughput at 100 QPS: {server.estimate_throughput(100)} concurrent"
 </details>
 ---
 
-## Q11. How do you architect and orchestrate a multi-GPU serving cluster for Speculative RAG to maximize drafter parallelism while keeping verifier utilization high? [Intermediate]
+## Q11. How do you architect and orchestrate a multi-GPU serving cluster for Speculative RAG to maximize drafter parallelism while keeping verifier utilization high? `[Intermediate]`
 
 <details>
-<summary>?? Show Answer</summary>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -684,10 +684,10 @@ Use 2 drafters on A100s, 1 verifier on H100, batch verification of 2 drafts at a
 
 ---
 
-## Q12. How can adversarial inputs exploit systematic disagreement between the drafter and verifier models, and what detection and mitigation strategies prevent this from degrading answer quality? [Advanced]
+## Q12. How can adversarial inputs exploit systematic disagreement between the drafter and verifier models, and what detection and mitigation strategies prevent this from degrading answer quality? `[Advanced]`
 
 <details>
-<summary>?? Show Answer</summary>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
