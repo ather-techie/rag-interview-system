@@ -1,11 +1,17 @@
 # RAG Interview Questions & Answers
 
+
 <!-- ![CI](https://github.com/ather-techie/rag-interview-questions/actions/workflows/deploy.yml/badge.svg) -->
 [![Stars](https://img.shields.io/github/stars/ather-techie/rag-interview-questions?style=social)](https://github.com/ather-techie/rag-interview-questions/stargazers)
 [![License: MIT](https://img.shields.io/github/license/ather-techie/rag-interview-questions)](LICENSE)
 ![Last Commit](https://img.shields.io/github/last-commit/ather-techie/rag-interview-questions)
 ![Questions](https://img.shields.io/badge/questions-140-blue)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+
+
+<p align="center">
+  <img src="screenshots/image.png" alt="RAG Interview Questions Banner" width="800" />
+</p>
 
 A comprehensive collection of interview questions covering all major types of Retrieval-Augmented Generation (RAG) architectures.
 
