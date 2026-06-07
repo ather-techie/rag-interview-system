@@ -14,12 +14,6 @@
 
 A comprehensive collection of interview questions covering all major types of Retrieval-Augmented Generation (RAG) architectures.
 
-## 🎯 Quick Reference
-
-→ [CHEATSHEET.md](CHEATSHEET.md) — all 12 RAG types compared by mechanism, best fit, and when to avoid each.
-
----
-
 ## 📚 Sections
 
 ### 📖 Overview & Concepts
@@ -55,14 +49,42 @@ A comprehensive collection of interview questions covering all major types of Re
 | 02.11 | [Adaptive RAG](./02_interview_bank/11-adaptive-rag.md) | 10 |
 | 02.12 | [Structured / SQL RAG](./02_interview_bank/12-structured-rag.md) | 10 |
 
-**Total: 140 questions**
+**RAG Architectures Total: 140 questions**
 
-**Difficulty distribution: 13 Basic, 58 Intermediate, 69 Advanced**
+### ⚠️ Failure Modes & Production Issues
+
+| # | Topic | Questions |
+|---|-------|-----------|
+| 03.01 | [Hallucination Despite Context](./03_failure_modes/01-hallucination_despite_context.md) | 10 |
+| 03.02 | [Retrieval Failure](./03_failure_modes/02-retrieval_failure.md) | 10 |
+| 03.03 | [Embedding Mismatch](./03_failure_modes/03-embedding_mismatch.md) | 10 |
+| 03.04 | [Stale Index Problem](./03_failure_modes/04-stale_index_problem.md) | 10 |
+| 03.05 | [Context Window Overflow](./03_failure_modes/05-context_window_overflow.md) | 10 |
+| 03.06 | [Reranker Failure](./03_failure_modes/06-reranker_failure.md) | 10 |
+
+**Failure Modes Total: 60 questions**
+
+**Grand Total: 200 questions**
+
+**Difficulty distribution: 13 Basic, 58 Intermediate, 129 Advanced**
+
+### 🔄 Coming Soon
+
+| # | Section | Status |
+|---|---------|--------|
+| 04 | Patterns | Planned |
+| 05 | Graphs | Planned |
+| 06 | Labs | Planned |
+| 07 | Simulator | Planned |
+| 08 | Evaluation | Planned |
+| 09 | Tools | Planned |
+| 10 | Decision System | Planned |
 
 ---
 
 ## 🗺️ RAG Landscape Overview
 
+**RAG Architectures (12 types):**
 ```
 Naive RAG
   └── Chunk → Embed → Store → Retrieve → Generate
@@ -101,11 +123,32 @@ Structured / SQL RAG
   └── Text-to-SQL generation for relational database retrieval
 ```
 
+**Production Failure Modes (6 critical issues):**
+```
+Hallucination Despite Context
+  └── LLM ignores retrieved docs, generates false claims
+
+Retrieval Failure
+  └── Relevant chunks never surface due to semantic gap
+
+Embedding Mismatch
+  └── Query-doc embeddings in different semantic spaces
+
+Stale Index Problem
+  └── Index contains outdated information, answers are wrong
+
+Context Window Overflow
+  └── Too many/large chunks exceed context, forcing truncation
+
+Reranker Failure
+  └── Cross-encoder mis-ranks results, buries correct answers
+```
+
 ---
 
 ## 💡 How to Use
 
-**Three content types:**
+**Four content types:**
 
 1. **Overview & Concepts (00_overview/, 01_concepts/)** — Reference material, not Q&A
    - Read these first to build foundational understanding
@@ -118,24 +161,19 @@ Structured / SQL RAG
    - Sections 11–12: 10 questions each (newer RAG types)
    - Questions are tagged with difficulty: `[Basic]` `[Intermediate]` `[Advanced]`
 
-3. **CHEATSHEET (CHEATSHEET.md)** — Quick reference
+3. **Failure Modes (03_failure_modes/)** — 10 questions per failure pattern
+   - Six critical production failure scenarios with diagnostic Q&A
+   - Use for system design rounds and production-readiness discussions
+
+4. **CHEATSHEET (cheatsheets/CHEATSHEET.md)** — Quick reference
    - All 12 RAG types compared in one table
    - Use during phone screens or quick prep
 
 **Study path:**
 - **1-week prep:** Start with `00_overview/learning_path.md` → pick a track → follow the schedule
-- **Phone screen:** `CHEATSHEET.md` + Q1–Q5 from relevant architectures
-- **System design round:** `00_overview/system_design_principles.md` + Q9–Q12 from all files
+- **Phone screen:** `cheatsheets/CHEATSHEET.md` + Q1–Q5 from relevant architectures
+- **System design round:** `00_overview/system_design_principles.md` + Q9–Q12 from all files + `03_failure_modes/` for production readiness
 - **Deep prep:** Read `01_concepts/` files + all `02_interview_bank/` Q&A
-
----
-
-## 🔗 Related Topics
-
-- Vector Databases (Pinecone, Weaviate, Chroma, FAISS)
-- Embedding Models (OpenAI, BGE, E5, Cohere)
-- LLM Frameworks (LangChain, LlamaIndex, Haystack)
-- Evaluation Frameworks (RAGAS, TruLens, DeepEval)
 
 ---
 
@@ -171,6 +209,6 @@ For issues, questions, or general feedback:
 [license-shield]: https://img.shields.io/github/license/ather-techie/rag-interview-questions
 [license-url]: LICENSE
 [commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-questions
-[questions-shield]: https://img.shields.io/badge/questions-140-blue
+[questions-shield]: https://img.shields.io/badge/questions-200-blue
 [prs-shield]: https://img.shields.io/badge/PRs-welcome-brightgreen
 [prs-url]: CONTRIBUTING.md
