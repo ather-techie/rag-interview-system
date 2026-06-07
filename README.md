@@ -1,4 +1,4 @@
-# RAG Interview Questions & Answers
+# RAG Interview System
 
 
 [![Stargazers][stars-shield]][stars-url]
@@ -12,7 +12,7 @@
   <img src="assets/logos/image.png" alt="RAG Interview Questions Banner" width="800" />
 </p>
 
-A comprehensive collection of interview questions covering all major types of Retrieval-Augmented Generation (RAG) architectures.
+A complete collection of RAG interview questions, answers, system design scenarios, architecture patterns, and production-ready concepts.
 
 ## 📚 Sections
 
