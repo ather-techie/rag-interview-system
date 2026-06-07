@@ -1,6 +1,6 @@
 # RAG Interview Questions & Answers
 
-![CI](https://github.com/ather-techie/rag-interview-questions/actions/workflows/deploy.yml/badge.svg)
+<!-- ![CI](https://github.com/ather-techie/rag-interview-questions/actions/workflows/deploy.yml/badge.svg) -->
 [![Stars](https://img.shields.io/github/stars/ather-techie/rag-interview-questions?style=social)](https://github.com/ather-techie/rag-interview-questions/stargazers)
 [![License: MIT](https://img.shields.io/github/license/ather-techie/rag-interview-questions)](LICENSE)
 ![Last Commit](https://img.shields.io/github/last-commit/ather-techie/rag-interview-questions)
