@@ -351,7 +351,7 @@ Step 2: For each winner, retrieve "their papers about neural networks"
 Result: Geoffrey Hinton is the answer
 ```
 
-### FLARE (Shi et al., 2023)
+### FLARE (Jiang et al., 2023)
 
 **Mechanism:** Generate tentatively. When uncertain, pause and re-retrieve.
 

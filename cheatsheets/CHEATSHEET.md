@@ -19,6 +19,55 @@
 
 ---
 
+## Cost / Latency / Complexity by Architecture
+
+Relative ratings for a typical mid-size deployment (●○○ low → ●●● high). Per-query cost assumes comparable answer quality targets.
+
+| Type | Per-query cost | Latency | Build complexity | Ops complexity | Main cost driver |
+|---|---|---|---|---|---|
+| Naive RAG | ●○○ | ●○○ | ●○○ | ●○○ | LLM generation tokens |
+| Advanced RAG | ●●○ | ●●○ | ●●○ | ●●○ | HyDE generation + reranker inference |
+| Modular RAG | ●●○ | ●●○ | ●●● | ●●○ | Router + active modules |
+| Agentic RAG | ●●● | ●●● | ●●● | ●●● | Multiple LLM calls per loop |
+| Graph RAG | ●●○ | ●●○ | ●●● | ●●● | KG construction (index-time, LLM-heavy) |
+| Corrective RAG | ●●○ | ●●○ | ●●○ | ●●○ | Retrieval evaluator LLM per query |
+| Self-RAG | ●○○* | ●●○ | ●●● | ●●○ | *Up-front fine-tuning; cheap at inference |
+| Speculative RAG | ●●○ | ●○○ | ●●● | ●●● | Parallel drafter GPUs + verifier scoring |
+| Multi-modal RAG | ●●○ | ●●○ | ●●● | ●●○ | Image embedding at index time, vision LLM |
+| Long-context RAG | ●●● | ●●● | ●○○ | ●○○ | Context tokens (linear in stuffed docs) |
+| Adaptive RAG | ●○○ | ●○○ | ●●○ | ●●○ | Classifier (tiny); saves cost on easy queries |
+| Structured RAG | ●●○ | ●●○ | ●●○ | ●●○ | Schema-in-prompt tokens + retry loops |
+
+---
+
+## Failure Modes: Symptom → Likely Cause → First Fix
+
+| Symptom | Likely cause | First fix | Deep dive |
+|---|---|---|---|
+| Answer contradicts the retrieved docs | LLM ignores context (parametric memory wins) | Harden prompt ("answer ONLY from context"), measure faithfulness | [Hallucination](../03_failure_modes/01-hallucination_despite_context.md) |
+| Relevant doc exists but never retrieved | Semantic gap between query and chunk wording | Hybrid search (BM25 + dense), query rewriting | [Retrieval Failure](../03_failure_modes/02-retrieval_failure.md) |
+| Recall collapsed after a model/pipeline change | Query and docs embedded with different models/versions | Re-embed entire corpus with one model; version-stamp vectors | [Embedding Mismatch](../03_failure_modes/03-embedding_mismatch.md) |
+| Confidently wrong answers about recent facts | Index lags source-of-truth updates | Incremental indexing + TTL/versioning; freshness alerts | [Stale Index](../03_failure_modes/04-stale_index_problem.md) |
+| Answers degrade as k or doc size grows | Context overflow → truncation or lost-in-the-middle | Rerank then cut to top 3–5; compress context | [Context Overflow](../03_failure_modes/05-context_window_overflow.md) |
+| Good docs retrieved but ranked below junk | Reranker domain mismatch or score miscalibration | Evaluate reranker on domain pairs; swap or fine-tune | [Reranker Failure](../03_failure_modes/06-reranker_failure.md) |
+
+---
+
+## Chunking Quick-Pick
+
+| Content type | Strategy | Typical size | Notes |
+|---|---|---|---|
+| Uniform prose (articles, wikis) | Recursive splitting | 256–512 tokens, 10–20% overlap | Sensible default; respect paragraph boundaries |
+| Long structured docs (manuals, contracts) | Parent-child | Child 200–300, parent 1,000+ | Retrieve on child precision, generate with parent context |
+| Q&A / FAQ content | One Q&A pair per chunk | Natural unit | Never split an answer from its question |
+| Code | Function/class boundary | Natural unit | Syntax-aware splitters; keep signatures with bodies |
+| Tables | Whole table + caption per chunk | Natural unit | Serialize to markdown; never split rows from headers |
+| Mixed/unknown | Semantic chunking | Variable | Embedding-similarity breakpoints; costs an embedding pass |
+
+Calibrate on your own data: build a small labeled probe set, sweep chunk size/overlap, measure Recall@5 — see [chunking_strategies.md](../01_concepts/chunking_strategies.md).
+
+---
+
 ## Evaluation Metrics
 
 | Metric | What it measures | Tool |
@@ -30,6 +79,8 @@
 | MRR | Rank of first relevant result | Custom |
 | NDCG | Quality of ranked retrieval results | Custom |
 | Latency P95 | 95th percentile end-to-end response time | Infrastructure |
+
+Production-side evaluation (LLM-as-judge, online metrics, drift alerts): see [observability_and_evaluation_ops.md](../01_concepts/observability_and_evaluation_ops.md).
 
 ---
 
@@ -108,3 +159,35 @@ Start
   └─ Prototyping or simple use case?
         └─ YES → Naive RAG
 ```
+
+---
+
+## Common Pitfalls Checklist
+
+Run through this before any RAG interview (or production launch):
+
+**Retrieval**
+- [ ] Pure dense retrieval misses exact terms (IDs, SKUs, names) — hybrid search is the default answer
+- [ ] Query and corpus MUST use the same embedding model and version — re-embed everything on model change
+- [ ] Top-k similarity scores being "high" doesn't mean results are relevant — scores are not calibrated probabilities
+- [ ] Highly selective metadata filters can degrade HNSW recall — know pre- vs. post-filtering trade-offs
+
+**Chunking & Context**
+- [ ] Bigger k is not better — irrelevant chunks dilute attention and increase hallucination
+- [ ] Chunks that split mid-table or mid-sentence poison retrieval — validate chunk boundaries on real docs
+- [ ] Lost-in-the-middle: order matters; put the strongest evidence first or last
+
+**Generation**
+- [ ] No citation/grounding mechanism = no way to audit answers — always attribute chunks
+- [ ] Retrieved content is untrusted input — delimit it and defend against indirect prompt injection
+- [ ] "I don't know" must be a designed behavior, not an accident — define the no-answer path
+
+**Evaluation & Ops**
+- [ ] No golden dataset = no way to know if a change helped — build one before optimizing
+- [ ] Offline metrics passing ≠ production healthy — track online signals (regeneration rate, escalations)
+- [ ] Index freshness needs an SLA and an alert — stale answers look identical to correct ones
+
+**Security & Access**
+- [ ] ACL filtering must happen in the retrieval layer, not after caching/reranking — filtered docs must never re-enter
+- [ ] Multi-tenant: a metadata filter bug = cross-tenant data leak — test with cross-tenant probes in CI
+- [ ] LLM-generated SQL needs read-only roles + allowlisted views, not just "injection-safe" prompts

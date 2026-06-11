@@ -33,6 +33,9 @@ A complete collection of RAG interview questions, answers, system design scenari
 | 01e | [Reranking](./01_concepts/reranking.md) | Cross-encoders and precision filtering |
 | 01f | [Evaluation Metrics](./01_concepts/evaluation_metrics.md) | RAGAS, NDCG, and production monitoring |
 | 01g | [Prompt Injection Risks](./01_concepts/prompt_injection_risks.md) | Security and defense strategies |
+| 01h | [Fine-Tuning for RAG](./01_concepts/fine_tuning.md) | When and how to fine-tune embeddings and rerankers |
+| 01i | [Observability & Evaluation Ops](./01_concepts/observability_and_evaluation_ops.md) | LLM-as-judge, online metrics, tracing, drift alerts |
+| 01j | [Multi-Tenancy & Access Control](./01_concepts/multi_tenancy_access_control.md) | Tenant isolation, document ACLs, leakage surfaces |
 
 ### ❓ Interview Question Banks
 
@@ -48,10 +51,10 @@ A complete collection of RAG interview questions, answers, system design scenari
 | 02.08 | [Speculative RAG](./02_interview_bank/08-speculative-rag.md) | 12 |
 | 02.09 | [Multi-modal RAG](./02_interview_bank/09-multimodal-rag.md) | 12 |
 | 02.10 | [Long-context RAG](./02_interview_bank/10-long-context-rag.md) | 12 |
-| 02.11 | [Adaptive RAG](./02_interview_bank/11-adaptive-rag.md) | 10 |
-| 02.12 | [Structured / SQL RAG](./02_interview_bank/12-structured-rag.md) | 10 |
+| 02.11 | [Adaptive RAG](./02_interview_bank/11-adaptive-rag.md) | 12 |
+| 02.12 | [Structured / SQL RAG](./02_interview_bank/12-structured-rag.md) | 12 |
 
-**RAG Architectures Total: 140 questions**
+**RAG Architectures Total: 144 questions**
 
 ### ⚠️ Failure Modes & Production Issues
 
@@ -66,21 +69,25 @@ A complete collection of RAG interview questions, answers, system design scenari
 
 **Failure Modes Total: 60 questions**
 
-**Grand Total: 200 questions**
+**Grand Total: 204 questions**
 
-**Difficulty distribution: 13 Basic, 58 Intermediate, 129 Advanced**
+**Difficulty distribution: 25 Basic, 84 Intermediate, 95 Advanced**
+
+All cited papers with arXiv/DOI links: [REFERENCES.md](./REFERENCES.md)
 
 ### 🔄 Coming Soon
 
+Each planned section has a stub README describing what it will contain and how to contribute.
+
 | # | Section | Status |
 |---|---------|--------|
-| 04 | Patterns | Planned |
-| 05 | Graphs | Planned |
-| 06 | Labs | Planned |
-| 07 | Simulator | Planned |
-| 08 | Evaluation | Planned |
-| 09 | Tools | Planned |
-| 10 | Decision System | Planned |
+| 04 | [Patterns](./04_patterns/README.md) | Planned |
+| 05 | [Graphs](./05_graphs/README.md) | Planned |
+| 06 | [Labs](./06_labs/README.md) | Planned |
+| 07 | [Simulator](./07_simulator/README.md) | Planned |
+| 08 | [Evaluation](./08_evaluation/README.md) | Planned |
+| 09 | [Tools](./09_tools/README.md) | Planned |
+| 10 | [Decision System](./10_decision_system/README.md) | Planned |
 
 ---
 
@@ -157,10 +164,9 @@ Reranker Failure
    - Comparison tables, ASCII diagrams, code examples, and system design patterns
    - Use to answer conceptual questions and understand mechanisms deeply
 
-2. **Interview Questions (02_interview_bank/)** — 10–12 questions per architecture
+2. **Interview Questions (02_interview_bank/)** — 12 questions per architecture
    - Each section contains interview-style Q&A with detailed answers
-   - Sections 01–10: 12 questions each (original 10 + Q11 on cost optimization + Q12 on security)
-   - Sections 11–12: 10 questions each (newer RAG types)
+   - Every section: original 10 questions + Q11 on cost optimization + Q12 on security
    - Questions are tagged with difficulty: `[Basic]` `[Intermediate]` `[Advanced]`
 
 3. **Failure Modes (03_failure_modes/)** — 10 questions per failure pattern
@@ -211,6 +217,6 @@ For issues, questions, or general feedback:
 [license-shield]: https://img.shields.io/github/license/ather-techie/rag-interview-questions
 [license-url]: LICENSE
 [commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-questions
-[questions-shield]: https://img.shields.io/badge/questions-200-blue
+[questions-shield]: https://img.shields.io/badge/questions-204-blue
 [prs-shield]: https://img.shields.io/badge/PRs-welcome-brightgreen
 [prs-url]: CONTRIBUTING.md

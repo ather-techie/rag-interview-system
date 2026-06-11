@@ -272,6 +272,8 @@ Five failure modes that manifest in production RAG systems, with diagnostic test
 
 When off-the-shelf embeddings don't work, fine-tune them on your domain.
 
+> See [Fine-Tuning for RAG](./fine_tuning.md) for when and how to fine-tune embedding models and rerankers.
+
 ### Data Requirements
 
 - **Minimum:** 1,000 (query, relevant_doc) pairs

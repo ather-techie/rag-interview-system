@@ -101,6 +101,8 @@ Self-RAG requires a **two-stage training pipeline**:
 
 </details>
 
+> Related: [Fine-Tuning for RAG](../01_concepts/fine_tuning.md) — embedding/reranker fine-tuning as a lighter-weight alternative to Self-RAG's full model training.
+
 ---
 
 ## Q4. How does Self-RAG use reflection tokens at inference time to select the best output? `[Advanced]`

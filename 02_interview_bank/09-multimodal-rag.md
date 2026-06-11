@@ -48,7 +48,18 @@ The key challenge is **cross-modal retrieval** — a text query should be able t
 3. Run ANN search across the combined index — returns both relevant text chunks AND relevant images.
 4. Pass top results (images + text) to a vision-language model (GPT-4V, LLaVA, Gemini) for generation.
 
-**Limitation:** CLIP was trained on web images; performance degrades on domain-specific diagrams, medical imaging, or technical schematics without fine-tuning.
+**Limitations:** CLIP was trained on web images; performance degrades on domain-specific diagrams, medical imaging, or technical schematics without fine-tuning. Two structural weaknesses matter in interviews: the text encoder has a **77-token limit** (long queries/captions get truncated), and CLIP is **weak on dense text inside images** (slides, scanned pages, charts with labels) — it sees text as texture, not content.
+
+**How CLIP compares to the broader multimodal embedding landscape:**
+
+| Approach | Architecture | Strengths | Weaknesses | Best for | Storage / latency |
+|---|---|---|---|---|---|
+| **CLIP (ViT-L/14)** | Dual-encoder trained with contrastive (softmax) loss; one vector per image or text | Fast single-vector ANN search; huge ecosystem; strong zero-shot on natural images | 77-token text limit; weak on dense in-image text; web-photo bias | Natural images, product photos, short captions | 1 vector per image (~768d); cheapest queries |
+| **SigLIP / SigLIP-2** | Dual-encoder with **sigmoid loss** (pairwise, no batch-wide softmax normalization) | Sigmoid loss scales better with batch size → better zero-shot accuracy than CLIP at the same size; SigLIP-2 adds improved localization and multilingual support | Still single-vector; still degrades on document-style images | Drop-in CLIP upgrade for general image retrieval | Same profile as CLIP — 1 vector per image |
+| **ColPali / ColQwen2** | VLM backbone (PaliGemma / Qwen2-VL) emits **multi-vector embeddings over page-image patches**; ColBERT-style late interaction (MaxSim) at query time | SOTA document/PDF retrieval; **no OCR/layout/chunking pipeline** — index page screenshots directly; captures text + tables + figures + layout jointly | **Heavy multi-vector storage** (~1K patch vectors per page); MaxSim scoring costs more than one ANN lookup; needs a multi-vector-capable store (Vespa, Qdrant) | PDFs, slides, scanned docs where layout and embedded text carry meaning | 100–1000× vectors per page vs CLIP; mitigate with binary quantization + patch pooling; higher query latency |
+| **Captioning-based indexing** | Multimodal LLM (GPT-4o, Claude) writes a caption/description per image; embed that **text** with your existing text embedding model | Simple; reuses the mature text stack (hybrid search, rerankers, filters); captions are human-auditable; prompt can be domain-tuned ("describe this schematic, list labeled components") | **Lossy** — you can only retrieve what the caption mentions; VLM cost per image at index time; caption quality bounds recall | Teams with a working text RAG stack adding moderate image volume | Text-vector storage only (cheapest); indexing cost = 1 VLM call per image |
+
+**Rule of thumb:** natural images → SigLIP; PDF/slide/scanned-document retrieval → ColPali/ColQwen2; low image volume on an existing text pipeline → captioning-based indexing; CLIP remains the baseline everyone benchmarks against.
 
 </details>
 
@@ -141,6 +152,59 @@ User query
 - Store **original image URLs** alongside embeddings so the UI can display the source diagram.
 - Build a **citation layer** — each part of the answer should cite which chunk or diagram it came from.
 - Use **Unstructured.io** or **LlamaParse** for robust PDF parsing that preserves layout context.
+
+**Hybrid text+image retrieval — query both indexes, fuse with weighted RRF, prompt a vision LLM:**
+
+```python
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
+clip_model = SentenceTransformer("clip-ViT-L-14")        # queries the image index
+text_model = SentenceTransformer("all-MiniLM-L6-v2")     # queries the text-chunk index
+
+def weighted_rrf(ranked_lists: list[list[str]], weights: list[float], k: int = 60):
+    """Merge ranked ID lists with weighted Reciprocal Rank Fusion."""
+    scores = {}
+    for ids, w in zip(ranked_lists, weights):
+        for rank, doc_id in enumerate(ids):
+            scores[doc_id] = scores.get(doc_id, 0.0) + w / (k + rank + 1)
+    return sorted(scores, key=scores.get, reverse=True)
+
+def hybrid_retrieve(query: str, image_index, text_index, k: int = 5):
+    # 1. CLIP *text* encoder against the image index (cross-modal search)
+    q_clip = clip_model.encode(query)
+    image_hits = image_index.search(q_clip, k=10)        # ranked image IDs
+
+    # 2. Text embedding model against the text-chunk index
+    q_text = text_model.encode(query)
+    text_hits = text_index.search(q_text, k=10)          # ranked chunk IDs
+
+    # 3. Fuse on RANKS, not raw scores — CLIP-space and text-space
+    #    cosine similarities are not on a comparable scale.
+    fused = weighted_rrf([text_hits, image_hits], weights=[0.6, 0.4])
+    return [lookup(doc_id) for doc_id in fused[:k]]      # docs with type/url/text metadata
+
+def answer(query: str, results: list[dict]) -> str:
+    # 4. Assemble an interleaved multimodal prompt for a vision LLM
+    content = [{"type": "text", "text": f"Question: {query}\n\nContext:"}]
+    for r in results:
+        if r["type"] == "image":
+            content.append({"type": "image_url", "image_url": {"url": r["url"]}})
+            content.append({"type": "text",
+                            "text": f"(Figure from {r['source']}, page {r['page']})"})
+        else:
+            content.append({"type": "text", "text": r["text"]})
+    content.append({"type": "text",
+                    "text": "Answer using only the context above. "
+                            "Cite each chunk or figure you rely on."})
+    return vision_llm.chat(messages=[{"role": "user", "content": content}])
+
+results = hybrid_retrieve("How does the auth flow handle token refresh?",
+                          image_index, text_index)
+print(answer("How does the auth flow handle token refresh?", results))
+```
+
+Tuning notes: the RRF weights (0.6/0.4) are query-time knobs — raise the image weight for diagram-heavy corpora; enforce a per-modality quota (e.g., always include the top image) if text floods the fused list.
 
 </details>
 
@@ -247,7 +311,7 @@ results = video_rag.retrieve_video_content("How do I set up the system?")
 
 **Answer:**
 
-Two strategies for combining multi-modal data in retrieval:
+Three strategies for combining multi-modal data in retrieval:
 
 **Early Fusion — Combine before retrieval:**
 ```
@@ -277,15 +341,36 @@ Text retrieval      Image retrieval
      Final merged top-k
 ```
 
+**Hierarchical / two-stage fusion — cheap broad retrieval, then expensive multimodal precision:**
+```
+Stage 1 (cheap, recall-oriented)
+  Text retrieval over captions / OCR text / page text → top-100 candidates
+             ▼
+Stage 2 (expensive, precision-oriented)
+  Multimodal rerank of candidates only:
+    - VLM or cross-encoder scores (query, image) pairs, OR
+    - page-level → patch-level (ColPali: retrieve pages, then
+      MaxSim over patch vectors to score/rerank)
+             ▼
+       Final top-k (3–5)
+```
+
 **Comparison:**
 
-| Aspect | Early Fusion | Late Fusion |
-|--------|-------------|-----------|
-| **Index size** | Single large index | Multiple smaller indexes |
-| **Query latency** | Single ANN search | Parallel searches, then merge |
-| **Flexibility** | Hard to add new modalities | Easy to add new modalities |
-| **Cross-modal search** | Native (embeddings share space) | Requires cross-modal bridge |
-| **Ranking control** | Fixed at indexing time | Tunable at query time (RRF weights) |
+| Aspect | Early Fusion | Late Fusion | Hierarchical / Two-stage |
+|--------|-------------|-----------|--------------------------|
+| **Index size** | Single large index | Multiple smaller indexes | Cheap first-stage index + heavy second-stage artifacts (patch vectors, rerank model) |
+| **Query latency** | Single ANN search | Parallel searches, then merge | Two sequential stages — highest latency, but stage 2 only touches ~100 candidates |
+| **Recall** | Bounded by shared-space quality (CLIP misses what it can't embed) | Best raw recall — each modality searched with its strongest model | Bounded by stage-1 recall: if the caption/OCR misses it, the reranker never sees it |
+| **Infra complexity** | Lowest — one index, one encoder pair | Medium — per-modality indexes + fusion layer to tune | Highest — two pipelines, candidate handoff, rerank serving |
+| **Cross-modal search** | Native (embeddings share space) | Requires cross-modal bridge | Stage 1 is usually text-only; stage 2 supplies the cross-modal signal |
+| **Score handling** | One score scale | Scores NOT comparable across modalities — must use rank fusion or normalize | Stage 2 produces a single comparable score for all candidates |
+| **Ranking control** | Fixed at indexing time | Tunable at query time (RRF weights) | Tunable at both stages (candidate count k1, rerank cutoff) |
+
+**Two failure modes interviewers probe:**
+
+1. **Modality imbalance (text dominates):** in a shared space, text-to-text similarities are systematically higher than text-to-image similarities (the "modality gap" — image and text embeddings occupy separate cones in CLIP space). A naive merged index returns mostly text. Mitigations: retrieve per-modality quotas (e.g., always take top-2 images), apply a per-modality score offset/temperature, or use late fusion with explicit weights.
+2. **Score normalization across modalities:** cosine scores from different encoders (CLIP space vs. a text embedding model) live on different scales and distributions — never sum raw scores. Use rank-based fusion (RRF), per-modality z-score/min-max normalization, or a learned fusion layer trained on click/relevance data.
 
 **Early fusion example (CLIP-based):**
 ```python
@@ -307,6 +392,7 @@ merged = reciprocal_rank_fusion([text_results, image_results], weights=[0.6, 0.4
 **Recommendation:**
 - Use **early fusion** when modalities are naturally comparable (text + images in CLIP space).
 - Use **late fusion** for heterogeneous data (structured tables + unstructured text + images).
+- Use **hierarchical/two-stage** when precision matters and a VLM rerank is affordable — or when using ColPali-style page→patch retrieval over document corpora.
 
 </details>
 
@@ -735,7 +821,7 @@ Use **LoRA fine-tuning** over full fine-tuning to avoid forgetting. Target 5–1
 
 **Example cost structure (1M images):**
 
-Baseline: 1M � .003 inference + 1M � 768 � 4 bytes = .5K indexing + .7K storage = .2K/month.
+Baseline: 1M � .003 inference + 1M � 768 � 4 bytes = .5K indexing + .7K storage = .2K/month.
 
 Optimized (batching + quantization + selective): 30% image indexing, int8 storage = .5K + .2K = .7K/month (76% savings).
 

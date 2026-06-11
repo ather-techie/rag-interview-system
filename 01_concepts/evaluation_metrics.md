@@ -2,6 +2,8 @@
 
 > You cannot improve what you cannot measure — the complete metric reference for RAG systems.
 
+> See [Observability & Evaluation Ops](./observability_and_evaluation_ops.md) for LLM-as-judge, online metrics, tracing, and drift alerting in production.
+
 ---
 
 ## The Two Evaluation Planes

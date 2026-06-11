@@ -11,7 +11,7 @@
 
 **Answer:**
 
-Adaptive RAG is a retrieval strategy that dynamically routes queries to different retrieval depths based on an estimated complexity classifier, rather than applying a uniform pipeline to all queries.
+**Adaptive-RAG** (Jeong et al., 2024, arXiv:2403.14403) is a retrieval strategy that dynamically routes queries to different retrieval depths based on a query-complexity classifier (a trained T5-large in the original paper), rather than applying a uniform pipeline to all queries.
 
 **Fixed-pipeline RAG** executes the same retrieval strategy (e.g., always retrieve top-k, always do multi-hop) regardless of the query. **Adaptive RAG** uses a learned classifier to predict query complexity and routes accordingly:
 
@@ -47,6 +47,16 @@ A query complexity classifier predicts whether a given query is simple, moderate
 
 **Training data** — Typically 500–2000 labeled (query, complexity, answer quality with/without retrieval) triplets from past user interactions or synthetic data.
 
+**Silver labels (the Adaptive-RAG paper approach):** Instead of manual annotation, label each query by the *cheapest strategy that actually answered it correctly*. Run all three strategies offline on a benchmark set:
+
+```
+If no-retrieval output matches gold answer        → label A (simple)
+Else if single-step retrieval matches gold answer → label B (moderate)
+Else                                              → label C (complex)
+```
+
+For queries where no strategy succeeds, the paper falls back to dataset-bias labels (queries from single-hop datasets like SQuAD/NQ → B; from multi-hop datasets like HotpotQA/MuSiQue → C). The paper then fine-tunes a **T5-large** classifier on these silver labels — no human annotation needed, and labels reflect *your actual system's* capability, not abstract query difficulty.
+
 The classifier runs *before* retrieval, so it must be fast (<10ms overhead to be practical).
 
 </details>
@@ -73,6 +83,41 @@ The three strategies and their selection criteria are:
 1. Classifier produces a complexity score (0–1) for the input query.
 2. Use threshold-based routing: if score < t1 → no-retrieval; if t1 ≤ score < t2 → single-hop; if score ≥ t2 → multi-hop.
 3. Thresholds are tuned on a held-out validation set balancing latency, cost, and answer quality.
+
+**Threshold tuning methodology:**
+
+1. Hold out 500–1000 queries with gold answers.
+2. **Precompute once, offline:** run all three strategies on every held-out query and record (quality, cost, latency) per strategy. This makes the sweep free — no re-running pipelines per threshold candidate.
+3. Sweep (t1, t2) over a grid and compute expected quality/cost under each setting:
+
+```python
+import itertools
+
+results = []
+for t1, t2 in itertools.product(grid, grid):
+    if t1 >= t2:
+        continue
+    route = lambda s: "none" if s < t1 else ("single" if s < t2 else "multi")
+    quality = mean(q[route(score(q))].f1 for q in heldout)
+    cost = mean(q[route(score(q))].cost for q in heldout)
+    results.append((t1, t2, quality, cost))
+```
+
+4. Plot the **cost vs. quality frontier** (each (t1, t2) pair is a point; keep only Pareto-optimal points). Pick the knee of the curve, or the max-quality point under a cost/latency budget:
+
+```
+F1
+0.86 │                          ●  (t1=0.2, t2=0.5)  ← quality-max
+0.84 │              ●  (t1=0.3, t2=0.6)  ← knee, usually best
+0.80 │      ●  (t1=0.4, t2=0.8)
+0.74 │  ●  (t1=0.6, t2=0.9)  ← cost-min
+     └──────────────────────────── Cost/query
+       $0.005  $0.012  $0.020  $0.03
+```
+
+5. Re-run the sweep whenever the classifier is retrained or the query distribution shifts — thresholds tuned for one score distribution are stale after recalibration.
+
+**Misclassification asymmetry:** routing a complex query to no-retrieval destroys answer quality; routing a simple query to multi-hop only wastes money. So bias t1 *low* (escalate when in doubt) and rely on cost controls rather than quality controls for the upper tier.
 
 **End-to-end flow:**
 
@@ -132,11 +177,10 @@ Combining Adaptive (upfront routing) + FLARE (runtime uncertainty) yields the be
 **Training data collection:**
 
 1. Sample 500–2000 queries from your production logs or a representative dataset.
-2. Manually annotate each query with a complexity label: Simple (0), Moderate (1), or Complex (2).
-   - Simple: facts, definitions, single-entity questions.
-   - Moderate: comparisons, aggregations, single-hop reasoning.
-   - Complex: multi-hop reasoning, temporal reasoning, constraint satisfaction.
-3. Optionally, also log the ground-truth retrieval depth required to answer each query well.
+2. Label each query with a complexity class: Simple (0), Moderate (1), or Complex (2). Two complementary sources:
+   - **Manual annotation** — Simple: facts, definitions, single-entity questions. Moderate: comparisons, aggregations, single-hop reasoning. Complex: multi-hop reasoning, temporal reasoning, constraint satisfaction.
+   - **Silver labels from past system behavior** (cheaper, scales better) — replay logged queries through all three strategies offline and label each with the *cheapest strategy whose answer was correct* (exact match / F1 vs. gold, or LLM-judge vs. the accepted production answer). This is the Adaptive-RAG paper's labeling scheme and automatically reflects your LLM's parametric knowledge: a query is "simple" only if *your* model answers it without retrieval.
+3. Deduplicate near-identical queries and stratify the train/test split by class — production logs skew heavily toward simple queries, and an unstratified split under-trains the complex class.
 
 **Classifier architecture:**
 
@@ -162,6 +206,32 @@ clf.fit(X_train, y_train)
 
 accuracy = clf.score(X_test, y_test)
 ```
+
+**Calibration (do not skip this):**
+
+Routing thresholds only mean something if the classifier's probabilities are calibrated — a raw softmax score of 0.9 from an overconfident neural classifier may correspond to only 70% empirical accuracy. Apply **temperature scaling** on a held-out calibration set:
+
+```python
+import numpy as np
+from scipy.optimize import minimize_scalar
+
+def nll(T, logits, labels):
+    probs = np.exp(logits / T) / np.exp(logits / T).sum(axis=1, keepdims=True)
+    return -np.log(probs[np.arange(len(labels)), labels]).mean()
+
+T_opt = minimize_scalar(nll, bounds=(0.5, 5.0), method="bounded",
+                        args=(val_logits, val_labels)).x
+# Serve calibrated probs: softmax(logits / T_opt)
+```
+
+Verify with a reliability diagram or Expected Calibration Error (ECE) before and after. Then add a **confidence gate**: if the calibrated max-class probability is below a floor (e.g., 0.6), do not trust the prediction — route to the safe middle tier (single-hop) instead.
+
+**Fallback behavior on misclassification:**
+
+- **Complex → simple misroutes** (quality risk): catch at runtime with generation-confidence escape hatches — if the no-retrieval answer's token-level confidence is low or FLARE triggers (see Q4/Q6), escalate to retrieval rather than returning the answer.
+- **Simple → complex misroutes** (cost risk): tolerate them; they only waste money. Cap multi-hop iterations and log them for retraining.
+- **Classifier unavailable or low-confidence**: default everything to single-hop — it is the strategy with the best worst-case quality/cost balance.
+- Log every escalation (predicted tier ≠ tier that finally produced the answer) — these are free hard-negative training examples for the next classifier version.
 
 **Evaluation metrics:**
 
@@ -511,5 +581,204 @@ Load Balancer (nginx / AWS ALB)
 - Classifier outage → default to single-hop for all queries (safe fallback).
 - Retrieval timeout → escalate to multi-hop or return LLM-only answer with lower confidence flag.
 - Multi-hop timeout (>5s) → return best-effort answer from intermediate steps.
+
+</details>
+
+---
+
+## Q11. How do you quantify and reduce the cost of running a query-complexity classifier on every request, and when does routing overhead outweigh its savings? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Adaptive RAG pays the classifier cost on **every** query in exchange for savings on the *fraction* of queries it downgrades to cheaper tiers. The system is only worth running when:
+
+```
+C_classifier + E[cost of misroutes] < E[savings from cheaper routing]
+```
+
+**Cost of classifier options:**
+
+| Classifier | Cost/query | Latency | Hardware | Routing accuracy (typical) |
+|---|---|---|---|---|
+| Logistic regression on features | ~$0.000001 | <1ms | CPU | 75–82% |
+| Small BERT (DistilBERT-class) | ~$0.00001 | 5–10ms | CPU/GPU | 82–88% |
+| T5-large (paper's choice) | ~$0.0001 | 20–50ms | GPU | 85–90% |
+| LLM-based router (prompted small LLM) | $0.0002–0.001 | 300–800ms | API | 85–92% |
+
+The LLM-based router is 100–1000x more expensive per query than a small BERT and adds visible latency to every request — it only makes sense for low-traffic, high-value workloads or for *bootstrapping labels* to train a cheap classifier.
+
+**Amortization math — worked example (1M queries/month):**
+
+Baseline: always-multi-hop at $0.075/query → **$75,000/month**.
+
+Adaptive with a small BERT classifier, 50/30/20 routing (no-ret $0 / single-hop $0.015 / multi-hop $0.075):
+
+```
+Classifier:   1M × $0.00001                  =     $10
+No-retrieval: 500K × $0.00                   =      $0
+Single-hop:   300K × $0.015                  =  $4,500
+Multi-hop:    200K × $0.075                  = $15,000
+Total                                        ≈ $19,510/month  (74% savings)
+```
+
+The classifier itself is **0.05% of total spend** — its inference cost is noise. The real costs to watch are:
+
+1. **Misroute cost** — at 87% routing accuracy, ~13% of queries are misrouted. Simple→complex misroutes waste money (~upper bound: 13% × $0.075 × 1M ≈ $9.7K worst case); complex→simple misroutes cost *quality*, which can dwarf dollar costs (bad answers, escalations, lost trust). Always quality-adjust the savings claim.
+2. **GPU amortization** — a dedicated T4 at ~$0.50/hr serving the classifier is ~$360/month regardless of volume. At 1M queries/month that's $0.00036/query; at 100M it's negligible. Self-hosted classifiers have a *fixed floor*, API-based ones scale to zero.
+3. **Maintenance** — labeling, retraining, threshold re-sweeps: budget engineer-hours, not just compute.
+
+**When routing overhead outweighs savings:**
+
+- **Homogeneous workloads** — if 95% of queries are genuinely complex (e.g., a research-assistant product), the classifier saves on only 5% of traffic; a fixed multi-hop pipeline is simpler and nearly as cheap.
+- **Cheap downstream pipeline** — if single-hop costs $0.001/query, even perfect routing saves fractions of a cent; an LLM-based router would cost *more than the pipeline it gates*.
+- **Strict latency budgets** — an LLM router adding 500ms to a 600ms pipeline is an 80% latency tax on every request, including the ones it doesn't help.
+- **Low traffic** — below ~100K queries/month, fixed costs (GPU floor, retraining, monitoring) usually exceed the routed savings.
+
+**Caching routing decisions:**
+
+```python
+import hashlib
+
+def route_with_cache(query: str) -> str:
+    # Exact-match cache on normalized query
+    key = hashlib.sha256(normalize(query).encode()).hexdigest()
+    if key in route_cache:
+        return route_cache[key]                      # ~free
+
+    # Semantic cache: reuse route for near-paraphrases
+    emb = embed(query)                               # cheap model, ~1ms
+    hit = semantic_cache.search(emb, min_sim=0.95)
+    if hit:
+        return hit.route
+
+    route = classifier.predict(query)
+    route_cache[key] = route
+    semantic_cache.add(emb, route)
+    return route
+```
+
+- Production query streams are repetitive: 20–40% exact/semantic hit rates are common, cutting classifier load proportionally.
+- Cache the **route**, not the answer — the answer may be stale, but "this query shape needs single-hop" is stable.
+- Set a TTL and **flush the cache when the classifier is retrained or thresholds change**, otherwise old routing decisions outlive the model that made them.
+
+**Rule of thumb:** keep classifier cost under ~1% of average per-query pipeline cost. A small supervised model nearly always satisfies this; an LLM-as-router rarely does at scale.
+
+</details>
+
+---
+
+## Q12. How can adversaries manipulate the query-complexity classifier to force misrouting, and what defenses keep Adaptive RAG robust? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The routing classifier is a new, externally reachable decision surface: every user-controlled query passes through it, and its output changes both *answer quality* and *money spent*. That makes it a target for two opposite attack classes.
+
+**Attack 1: Downgrade attack (force no-retrieval → elicit hallucinations)**
+
+The attacker phrases knowledge-dependent questions in the surface form of simple factoid queries, so the classifier routes them to the no-retrieval path and the LLM answers from (insufficient) parametric knowledge:
+
+```
+Honest query:      "What does our 2026 enterprise SLA say about refunds
+                    for multi-region outages?"          → multi-hop (grounded)
+
+Adversarial query: "Define the refund policy."          → no-retrieval
+                   "What is the 2026 SLA refund rule?"  → no-retrieval (factoid shape)
+
+LLM answers confidently from parametric guesswork → hallucinated policy text.
+```
+
+Why it matters: the attacker can harvest authoritative-sounding fabrications (to screenshot, to mislead other users in shared channels, or to probe what the base model "believes" about private topics), and the system skips exactly the grounding step that would have caught it. Classifiers trained on surface features (length, question words, entity count) are especially easy to steer this way.
+
+**Attack 2: Complexity-inflation attack (cost / resource DoS)**
+
+The opposite direction — stuff queries with multi-hop trigger features ("compare", "across", "considering", many named entities, nested clauses) so every query lands on the most expensive path:
+
+```
+"Compare X and Y across A, B, and C, considering D, E, and F,
+ and how each evolved relative to G..."   → multi-hop, every time
+
+Economics: cheap path $0.00/query vs. multi-hop $0.075/query (~50–100x).
+10K adversarial queries/day × $0.075 ≈ $750/day ≈ $22K/month of attacker-
+controlled spend — an economic DoS that also saturates multi-hop
+orchestrator capacity and degrades latency for legitimate complex queries.
+```
+
+**Attack 3: Boundary probing**
+
+Tier latencies differ by an order of magnitude (~100ms vs. ~2s), so response time is a **timing side channel** revealing which tier ran. An attacker can binary-search query phrasings to map the routing thresholds, then reliably sit just on the cheap side (for downgrades) or expensive side (for inflation) of the boundary.
+
+**Defenses:**
+
+**1. Calibrated confidence thresholds + fallback to the safe path**
+
+Never act on a low-confidence routing decision, and make the *uncertain* default the grounded middle tier — not the cheap tier:
+
+```python
+def route(query: str) -> str:
+    probs = calibrated_classifier.predict_proba(query)  # temperature-scaled
+    label, conf = probs.argmax(), probs.max()
+
+    if conf < 0.60:
+        return "single_hop"          # uncertain → safe, grounded default
+    if label == "simple" and conf < 0.80:
+        return "single_hop"          # extra-strict bar for skipping retrieval
+    return TIERS[label]
+```
+
+The asymmetric bar matters: a downgrade attack must now push the classifier to ≥0.8 calibrated confidence on "simple", not merely win the argmax.
+
+**2. Policy overlay before the classifier**
+
+Rules outrank the model. Queries touching dynamic, private, or high-stakes domains (policies, pricing, anything post-training-cutoff, anything matching tenant document namespaces) are **never eligible for no-retrieval**, regardless of classifier output. The downgrade attack then can't reach the vulnerable path at all for the content that matters.
+
+**3. Cost guards against inflation**
+
+- Per-user / per-tenant **budget caps and rate limits on the multi-hop tier** specifically (not just global QPS).
+- Hard cap on hops and per-query token budget; degrade to single-hop with a "partial answer" flag rather than looping.
+- Require account trust level (age, payment status) for unmetered multi-hop access; route anonymous traffic to capped tiers.
+
+**4. Monitor routing-distribution drift**
+
+A routing attack *is* a distribution shift. Track tier shares per window and per user segment against a trusted baseline, e.g., with Population Stability Index:
+
+```python
+def psi(baseline: dict, current: dict) -> float:
+    return sum(
+        (current[t] - baseline[t]) * math.log(current[t] / baseline[t])
+        for t in ["none", "single", "multi"]
+    )
+
+# baseline = {"none": 0.50, "single": 0.30, "multi": 0.20}
+# PSI > 0.2 on an hourly window → alert.
+# Slice by user/tenant/IP: a single tenant at 95% multi-hop share is a
+# stronger signal than a global shift.
+```
+
+Also alert on: spike in no-retrieval share for queries containing tenant-document entities (downgrade signature), and spike in escalations (FLARE/confidence triggers firing after a "simple" route — the classifier is being beaten).
+
+**5. Adversarial training and consistency checks**
+
+- Add attack-shaped examples (factoid-phrased private-knowledge questions labeled *complex*; keyword-stuffed simple questions labeled *simple*) to the classifier's training set each retraining cycle.
+- **Paraphrase consistency test:** route 2–3 cheap paraphrases of suspicious queries; if routes disagree, take the most conservative route and log the query.
+
+**6. Catch successful downgrades post-hoc**
+
+Defense-in-depth for when the classifier is beaten anyway: on the no-retrieval path, run a lightweight groundedness/confidence check on the generated answer (token-probability floor, or FLARE-style uncertainty trigger from Q4/Q6) and escalate to retrieval before returning. The attacker must now fool the classifier *and* the generation-time gate.
+
+**Attack → defense map:**
+
+| Attack | Primary defense | Backstop |
+|---|---|---|
+| Downgrade (force no-retrieval) | High confidence bar + policy overlay | Generation-time confidence gate, escalate |
+| Complexity inflation (cost DoS) | Per-tenant multi-hop budgets, hop caps | Routing-share monitoring per segment |
+| Boundary probing | Calibrated thresholds, paraphrase consistency | Jitter/normalize response timing; rate-limit probers |
+
+The principle: the classifier is an *optimization*, never a *safety control*. Quality and cost guarantees must hold even when the router gives the worst possible answer.
 
 </details>
