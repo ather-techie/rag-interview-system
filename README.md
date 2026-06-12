@@ -1,14 +1,12 @@
 # RAG Interview Questions & Answers (2026) — Retrieval-Augmented Generation Interview Prep
 
 
-<p align="center">
 [![Stargazers][stars-shield]][stars-url]
 [![Forks][forks-shield]][forks-url]
 [![License: MIT][license-shield]][license-url]
 ![Last Commit][commits-shield]
 ![Questions][questions-shield]
 [![PRs Welcome][prs-shield]][prs-url]
-</p>
 
 
 <p align="center">
