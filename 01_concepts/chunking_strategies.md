@@ -551,3 +551,92 @@ def chunk_multilingual(text: str, language: str, tokenizer) -> list[str]:
 3. **Measure retrieval quality on a labeled probe set.** Don't guess chunk sizes.
 4. **Parent-child chunking is worth it for long documents.** But measure the value first.
 5. **Document-aware chunking is critical for code and tables.** Don't apply naive chunking.
+
+---
+
+## Strategy 9: Late Chunking
+
+*Introduced by JinaAI (2024). Requires an embedding model that exposes token-level outputs.*
+
+### What It Is
+
+All 8 strategies above embed chunks independently — each chunk is encoded without knowledge of what surrounds it. **Late Chunking** inverts this: embed the **entire document first** with a long-context embedding model, then pool the resulting token-level embeddings into chunk-sized windows.
+
+```
+Standard chunking:
+  Document → [Chunk 1] → Embed → vector_1
+             [Chunk 2] → Embed → vector_2   ← Chunk 2 has no context from Chunk 1
+
+Late Chunking:
+  Document → Full-document embedding (token-level) → [token_1, token_2, ..., token_N]
+           → Pool tokens for Chunk 1 window → vector_1  ← Contains cross-chunk context
+           → Pool tokens for Chunk 2 window → vector_2  ← Also contains full-doc context
+```
+
+### Why It Preserves Cross-Chunk Context
+
+Standard chunking splits "The growth rate improved to 23%" into a chunk that doesn't mention *which company* or *which quarter* — forcing the embedding model to work with a decontextualized fragment.
+
+In Late Chunking, when encoding "The growth rate improved to 23%", the model has already attended to the full document including "Acme Corp Q3 2024" — so the token embeddings for this passage reflect the company and quarter, even though those words aren't in the chunk.
+
+### Requirements
+
+| Requirement | Detail |
+|---|---|
+| **Embedding model** | Must expose token-level outputs (not just the [CLS] pooled vector) |
+| **Compatible models** | JinaAI Embeddings v3, `nomic-embed-text`, long-context bi-encoders |
+| **Context window** | Document must fit in the embedding model's context (JinaAI v3: 8,192 tokens) |
+
+### Trade-offs
+
+| | Standard Chunking | Late Chunking |
+|---|---|---|
+| **Cross-chunk context** | None — each chunk encoded in isolation | Full — each chunk sees entire document |
+| **Update cost** | Re-embed only changed chunks | Must re-embed entire document when any chunk changes |
+| **Max doc size** | No limit (chunk independently) | Limited by embedding model context window |
+| **Model requirement** | Any embedding model | Requires token-level output support |
+| **Latency (index)** | Low per chunk | Higher — full document encoded once per update |
+| **Retrieval quality** | Lower for context-dependent queries | Higher for queries using document-level vocabulary |
+
+### When to Use
+
+- Corpus where individual chunks frequently omit necessary context (entity names, dates, document titles appear only at the top of the document).
+- Queries that use vocabulary from the document header, not the specific chunk.
+- Already using JinaAI or nomic-embed-text — token-level outputs are available at no extra cost.
+
+### Implementation Sketch
+
+```python
+from transformers import AutoTokenizer, AutoModel
+import torch
+
+model_name = "jinaai/jina-embeddings-v3"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+
+def late_chunk_embed(document: str, chunk_boundaries: list[tuple[int, int]]):
+    """
+    chunk_boundaries: list of (start_char, end_char) for each chunk
+    Returns: list of embeddings, one per chunk
+    """
+    inputs = tokenizer(document, return_tensors="pt",
+                       return_offsets_mapping=True, truncation=True,
+                       max_length=8192)
+    offset_mapping = inputs.pop("offset_mapping")[0]  # (num_tokens, 2)
+
+    with torch.no_grad():
+        outputs = model(**inputs)
+    
+    token_embeddings = outputs.last_hidden_state[0]  # (num_tokens, hidden_dim)
+    
+    chunk_embeddings = []
+    for start_char, end_char in chunk_boundaries:
+        # Find token indices that fall within this chunk's character span
+        mask = (offset_mapping[:, 0] >= start_char) & (offset_mapping[:, 1] <= end_char)
+        chunk_tokens = token_embeddings[mask]
+        # Mean pool over the chunk's tokens
+        chunk_emb = chunk_tokens.mean(dim=0)
+        chunk_embeddings.append(chunk_emb.numpy())
+    
+    return chunk_embeddings
+```

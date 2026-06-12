@@ -418,3 +418,85 @@ Question 4: Is latency critical (<200ms)?
 3. **Use HyDE for short or vague queries.** LLM-generated hypotheses often outrank original query.
 4. **MMR is worth it for diverse results.** Don't use unless you specifically need it.
 5. **Multi-hop requires multi-query or FLARE.** Single retrieval can't bridge reasoning gaps.
+
+---
+
+## ColBERT: Multi-Vector Late Interaction Retrieval
+
+*Introduced by Omar Khattab et al. (Stanford, 2020); significantly improved in ColBERTv2 (2022). Practical deployment via RAGatouille library.*
+
+### What It Is
+
+Standard bi-encoders compress an entire document into a **single vector**. ColBERT takes a different approach: encode the query and document into **one vector per token**, then score them with a **MaxSim** operation at query time.
+
+```
+Standard bi-encoder:
+  Query "memory leak Python" → [0.2, 0.8, ...] (1 vector, 1536 dims)
+  Document                  → [0.3, 0.7, ...] (1 vector, 1536 dims)
+  Score = dot_product(query_vec, doc_vec)
+
+ColBERT:
+  Query "memory leak Python" → [[q1], [q2], [q3]] (3 token vectors)
+  Document                  → [[d1], [d2], ..., [dN]] (N token vectors)
+  Score = Σ_i max_j(cosine(qi, dj))  ← MaxSim: each query token finds its best matching doc token
+```
+
+### Why It Outperforms Bi-Encoders on Specialized Domains
+
+Single-vector bi-encoders must compress all semantic information into one fixed-size vector. For short queries or domain-specific terms, this compression loses nuance.
+
+ColBERT's per-token representation allows precise matching: if the query contains the technical term "CUDA memory leak", each token's vector finds the best matching token in the document — even if the document uses "GPU memory exhaustion" (synonymous but different tokens).
+
+**Benchmark improvements (BEIR benchmark):**
+- General-domain: ColBERT ≈ bi-encoder (similar)
+- Domain-specific (medical, legal, scientific): ColBERT outperforms by 8–15% Recall@10
+
+### Architecture
+
+| Stage | ColBERT | Bi-encoder |
+|---|---|---|
+| **Indexing** | Encode every token in every document; store all token vectors | Encode each document as one vector |
+| **Storage** | O(N × avg_tokens × dim) — ~100–200× more storage than bi-encoder | O(N × dim) |
+| **Query encoding** | Encode query tokens (fast, done at query time) | Encode query as one vector |
+| **Scoring** | MaxSim over all (query_token, doc_token) pairs for top-k candidates | Dot product of single vectors |
+| **Latency** | Higher (MaxSim is expensive for large candidate sets) | Lower |
+
+### Practical Deployment: RAGatouille
+
+[RAGatouille](https://github.com/answerdotai/ragatouille) wraps ColBERT in a simple API:
+
+```python
+from ragatouille import RAGPretrainedModel
+
+# Load a pre-trained ColBERT model
+RAG = RAGPretrainedModel.from_pretrained("colbert-ir/colbertv2.0")
+
+# Index documents
+RAG.index(
+    collection=["Document 1 text...", "Document 2 text...", ...],
+    index_name="my_index",
+    max_document_length=256,  # Tokens per document chunk
+    split_documents=True
+)
+
+# Retrieve
+results = RAG.search(query="Python memory leak in Django", k=5)
+# Returns: list of {content, score, rank, document_id}
+```
+
+### When to Use ColBERT
+
+| Scenario | Use ColBERT | Use Bi-encoder |
+|---|---|---|
+| Domain-specific vocabulary (medical, legal, code) | ✓ | |
+| High-precision retrieval is critical | ✓ | |
+| Storage cost is a constraint (large corpus) | | ✓ |
+| Latency < 100ms is required | | ✓ (ColBERT can be slow) |
+| General-domain open QA | | ✓ (bi-encoder sufficient) |
+| Already using a reranker | | ✓ (reranker closes the gap) |
+
+### Trade-off Summary
+
+- **Storage:** A 1M-document corpus with avg 100 tokens/doc requires ~150B vectors. At 128 dims × 2 bytes = 256 bytes/vector: ~38 TB. Compression (scalar quantization) brings this to ~5–10 TB — significant but feasible for high-value use cases.
+- **Latency:** ColBERT with PLAID (efficient indexing) achieves <100ms for 1M docs. Vanilla ColBERT is slower.
+- **Quality ceiling:** On benchmarks where a good reranker closes the gap (general domain), the storage and latency cost of ColBERT may not be worth it. On specialized domains without large reranker training data, ColBERT's advantage persists.

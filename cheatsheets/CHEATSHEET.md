@@ -16,6 +16,12 @@
 | 10 | **Long-context RAG** | Full documents in context | Complex documents, small corpus | Large corpora, cost-sensitive |
 | 11 | **Adaptive RAG** | Query classifier routes to no-retrieval / single-hop / multi-hop | Mixed-complexity query traffic, latency-sensitive | Homogeneous query distribution |
 | 12 | **Structured RAG** | Text-to-SQL generation with schema linking | Relational databases, tabular data | Schema-free, unstructured data |
+| 13 | **RAPTOR** | UMAP + GMM clustering → per-cluster LLM summaries → multi-level tree | Multi-hop questions, hierarchical docs | Frequently updated corpora (tree rebuild is expensive) |
+| 14 | **Contextual RAG** | LLM prepends 1–2 sentence context prefix to each chunk before embedding | Dense corpora with ambiguous or short chunks | Token-budget-constrained indexing pipelines |
+| 15 | **LightRAG** | Entity-relationship graph + dual local (entity) / global (community) retrieval | Queries mixing relational and semantic needs | Simple single-topic factoid Q&A |
+| 16 | **RAFT** | Fine-tunes LLM generator on oracle docs + K distractor docs + CoT answers | Closed-domain high-stakes (medical, legal, internal KB) | Frequently changing corpus or when fine-tuning is off the table |
+| 17 | **Cache-Augmented Generation (CAG)** | Precomputes KV cache for entire corpus; zero retrieval step at inference | Stable, bounded corpus that fits in context window | Large, dynamic, or multi-tenant corpora |
+| 18 | **RAG-Fusion** | N query reformulations → N parallel retrievals → RRF merge → generation | Ambiguous queries, broad topic coverage | Hard latency budget (N× retrieval cost) |
 
 ---
 
@@ -37,6 +43,12 @@ Relative ratings for a typical mid-size deployment (●○○ low → ●●● 
 | Long-context RAG | ●●● | ●●● | ●○○ | ●○○ | Context tokens (linear in stuffed docs) |
 | Adaptive RAG | ●○○ | ●○○ | ●●○ | ●●○ | Classifier (tiny); saves cost on easy queries |
 | Structured RAG | ●●○ | ●●○ | ●●○ | ●●○ | Schema-in-prompt tokens + retry loops |
+| RAPTOR | ●○○* | ●○○ | ●●● | ●●○ | *Up-front LLM summarization per cluster; cheap at query time |
+| Contextual RAG | ●●○* | ●○○ | ●●○ | ●●○ | *One LLM call per chunk at index time (prompt caching cuts ~94%) |
+| LightRAG | ●●○ | ●●○ | ●●● | ●●● | Entity/relationship extraction at build time; graph ops at query time |
+| RAFT | ●○○* | ●○○ | ●●● | ●●○ | *Up-front fine-tuning cost; inference same as base model |
+| CAG | ●●●* | ●○○ | ●○○ | ●●○ | *High cold-start KV cache load; zero retrieval latency per query |
+| RAG-Fusion | ●●○ | ●●○ | ●●○ | ●●○ | N × (reformulation + retrieval); parallelizable |
 
 ---
 
@@ -50,6 +62,7 @@ Relative ratings for a typical mid-size deployment (●○○ low → ●●● 
 | Confidently wrong answers about recent facts | Index lags source-of-truth updates | Incremental indexing + TTL/versioning; freshness alerts | [Stale Index](../03_failure_modes/04-stale_index_problem.md) |
 | Answers degrade as k or doc size grows | Context overflow → truncation or lost-in-the-middle | Rerank then cut to top 3–5; compress context | [Context Overflow](../03_failure_modes/05-context_window_overflow.md) |
 | Good docs retrieved but ranked below junk | Reranker domain mismatch or score miscalibration | Evaluate reranker on domain pairs; swap or fine-tune | [Reranker Failure](../03_failure_modes/06-reranker_failure.md) |
+| Multi-turn answers degrade; wrong context retrieved after topic change or pronoun use | Conversation history poisons the retrieval query (coreference, implicit carry-over) | Query condensation: rewrite history + new turn into a standalone query before retrieval | [Conversational Context Drift](../03_failure_modes/07-conversational_context_drift.md) |
 
 ---
 
@@ -63,6 +76,7 @@ Relative ratings for a typical mid-size deployment (●○○ low → ●●● 
 | Code | Function/class boundary | Natural unit | Syntax-aware splitters; keep signatures with bodies |
 | Tables | Whole table + caption per chunk | Natural unit | Serialize to markdown; never split rows from headers |
 | Mixed/unknown | Semantic chunking | Variable | Embedding-similarity breakpoints; costs an embedding pass |
+| Cross-chunk context critical (references span chunks) | Late Chunking | Variable | Embed full doc first → pool token embeddings into windows; requires token-level model (JinaAI v3, nomic-embed-text) |
 
 Calibrate on your own data: build a small labeled probe set, sweep chunk size/overlap, measure Recall@5 — see [chunking_strategies.md](../01_concepts/chunking_strategies.md).
 
@@ -91,6 +105,8 @@ Production-side evaluation (LLM-as-judge, online metrics, drift alerts): see [ob
 - `BGE-large-en-v1.5` (BAAI, open-source)
 - `E5-mistral-7b-instruct` (Microsoft, open-source)
 - `Cohere Embed v3`
+- `jina-embeddings-v3` (JinaAI — token-level output, required for Late Chunking)
+- `nomic-embed-text` (open-source, token-level output, ColBERT / Late Chunking compatible)
 
 ### Vector Databases
 - **Pinecone** — managed, production-grade
@@ -101,9 +117,11 @@ Production-side evaluation (LLM-as-judge, online metrics, drift alerts): see [ob
 
 ### RAG Frameworks
 - **LangChain** — general LLM orchestration
-- **LlamaIndex** — data-centric RAG
+- **LlamaIndex** — data-centric RAG; has RAPTOR and Contextual Retrieval integrations
 - **Haystack** — modular, open-source
 - **LangGraph** — stateful agentic workflows
+- **RAGatouille** — ColBERT / late-interaction retrieval (one-line index + retrieve)
+- **LightRAG** — graph-based dual retrieval (pip install lightrag-hku)
 
 ### Evaluation Frameworks
 - **RAGAS** — retrieval + generation metrics
@@ -126,13 +144,17 @@ Start
   ├─ Is the primary data source a relational database or tabular store?
   │     └─ YES → Structured RAG
   │
+  ├─ Is your corpus stable, bounded, and fits in a context window?
+  │     └─ YES → Cache-Augmented Generation (CAG)  ← no retrieval step needed
+  │
   ├─ Is your corpus relational / entity-heavy (graph-structured)?
-  │     └─ YES → Graph RAG
+  │     ├─ Large corpus, mandatory global summaries needed → Graph RAG (Microsoft)
+  │     └─ Lower build cost, dual local+global retrieval → LightRAG
   │
   ├─ Does query complexity vary widely (trivial to multi-hop)?
   │     └─ YES → Adaptive RAG
   │
-  ├─ Does your query require multiple retrieval steps?
+  ├─ Does your query require multiple retrieval steps or tool calls?
   │     └─ YES → Agentic RAG
   │
   ├─ Does your corpus include images/tables?
@@ -141,8 +163,18 @@ Start
   ├─ Is your corpus small (<50 docs) and complex?
   │     └─ YES → Long-context RAG
   │
-  ├─ Is retrieval accuracy critical in a specialized domain?
-  │     └─ YES → Self-RAG (if you can fine-tune)
+  ├─ Is your corpus hierarchical or multi-level (needs multi-hop summaries)?
+  │     └─ YES → RAPTOR
+  │
+  ├─ Are chunks short / ambiguous and retrieval recall is low?
+  │     └─ YES → Contextual RAG  ← LLM-generated context prefix per chunk
+  │
+  ├─ Are queries often ambiguous or benefit from multiple phrasings?
+  │     └─ YES → RAG-Fusion  ← N reformulations + RRF merge
+  │
+  ├─ Is retrieval accuracy critical in a closed, specialized domain?
+  │     ├─ Can fine-tune the LLM generator → RAFT
+  │     └─ Cannot fine-tune → Self-RAG (if reflection tokens available)
   │
   ├─ Is your knowledge base potentially outdated/incomplete?
   │     └─ YES → Corrective RAG

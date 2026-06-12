@@ -10,10 +10,10 @@
 
 
 <p align="center">
-  <img src="assets/logos/image.png" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 204 Q&A covering 12 architectures and production failure modes" width="800" />
+  <img src="assets/logos/image.png" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 286 Q&A covering 18 architectures and production failure modes" width="800" />
 </p>
 
-**204 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 12 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
+**286 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 18 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
 
 ⭐ **Star this repo** if it helps your interview prep — it keeps the project growing.
 
@@ -30,14 +30,14 @@
 
 ## 📚 Sections
 
-[Overview & Concepts](#-overview--concepts) · [RAG Architecture Interview Questions](#-rag-architecture-interview-questions-12-types) · [Failure Modes & Production Issues](#-failure-modes--production-issues) · [Coming Soon](#-coming-soon)
+[Overview & Concepts](#-overview--concepts) · [RAG Architecture Interview Questions](#-rag-architecture-interview-questions-18-types) · [Failure Modes & Production Issues](#-failure-modes--production-issues) · [Coming Soon](#-coming-soon)
 
 ### 📖 Overview & Concepts
 
 | # | Topic | Purpose |
 |---|-------|---------|
 | 00a | [Roadmap](./00_overview/roadmap.md) | RAG maturity model, skill progression, and interview prep pathway |
-| 00b | [RAG Taxonomy](./00_overview/rag_taxonomy.md) | Classification framework for all 12 architectures |
+| 00b | [RAG Taxonomy](./00_overview/rag_taxonomy.md) | Classification framework for all 18 architectures |
 | 00c | [Learning Path](./00_overview/learning_path.md) | Structured curriculum and study plans |
 | 00d | [System Design Principles](./00_overview/system_design_principles.md) | Production-grade architecture patterns |
 | 01a | [Embeddings](./01_concepts/embeddings.md) | Embedding models, similarity metrics, and fine-tuning |
@@ -51,7 +51,7 @@
 | 01i | [Observability & Evaluation Ops](./01_concepts/observability_and_evaluation_ops.md) | LLM-as-judge, online metrics, tracing, drift alerts |
 | 01j | [Multi-Tenancy & Access Control](./01_concepts/multi_tenancy_access_control.md) | Tenant isolation, document ACLs, leakage surfaces |
 
-### ❓ RAG Architecture Interview Questions (12 Types)
+### ❓ RAG Architecture Interview Questions (18 Types)
 
 | # | Topic | Questions |
 |---|-------|-----------|
@@ -67,8 +67,14 @@
 | 02.10 | [Long-context RAG](./02_interview_bank/10-long-context-rag.md) | 12 |
 | 02.11 | [Adaptive RAG](./02_interview_bank/11-adaptive-rag.md) | 12 |
 | 02.12 | [Structured / SQL RAG](./02_interview_bank/12-structured-rag.md) | 12 |
+| 02.13 | [RAPTOR](./02_interview_bank/13-raptor.md) | 12 |
+| 02.14 | [Contextual RAG](./02_interview_bank/14-contextual-rag.md) | 12 |
+| 02.15 | [LightRAG](./02_interview_bank/15-lightrag.md) | 12 |
+| 02.16 | [RAFT](./02_interview_bank/16-raft.md) | 12 |
+| 02.17 | [Cache-Augmented Generation (CAG)](./02_interview_bank/17-cache-augmented-generation.md) | 12 |
+| 02.18 | [RAG-Fusion](./02_interview_bank/18-rag-fusion.md) | 12 |
 
-**RAG Architectures Total: 144 questions**
+**RAG Architectures Total: 216 questions**
 
 ### ⚠️ Failure Modes & Production Issues
 
@@ -80,12 +86,13 @@
 | 03.04 | [Stale Index Problem](./03_failure_modes/04-stale_index_problem.md) | 10 |
 | 03.05 | [Context Window Overflow](./03_failure_modes/05-context_window_overflow.md) | 10 |
 | 03.06 | [Reranker Failure](./03_failure_modes/06-reranker_failure.md) | 10 |
+| 03.07 | [Conversational Context Drift](./03_failure_modes/07-conversational_context_drift.md) | 10 |
 
-**Failure Modes Total: 60 questions**
+**Failure Modes Total: 70 questions**
 
-**Grand Total: 204 questions**
+**Grand Total: 286 questions**
 
-**Difficulty distribution: 25 Basic, 84 Intermediate, 95 Advanced**
+**Difficulty distribution: ~30 Basic, ~105 Intermediate, ~151 Advanced**
 
 All cited papers with arXiv/DOI links: [REFERENCES.md](./REFERENCES.md)
 
@@ -105,9 +112,9 @@ Each planned section has a stub README describing what it will contain and how t
 
 ---
 
-## 🗺️ RAG Architecture Types Explained (12 Patterns + 6 Failure Modes)
+## 🗺️ RAG Architecture Types Explained (18 Patterns + 7 Failure Modes)
 
-**RAG Architectures (12 types):**
+**RAG Architectures (18 types):**
 ```
 Naive RAG
   └── Chunk → Embed → Store → Retrieve → Generate
@@ -144,9 +151,27 @@ Adaptive RAG
 
 Structured / SQL RAG
   └── Text-to-SQL generation for relational database retrieval
+
+RAPTOR  [NEW]
+  └── Recursively clusters and summarizes chunks into a multi-level tree
+
+Contextual RAG  [NEW]
+  └── LLM-generated context prefix prepended to each chunk before embedding
+
+LightRAG  [NEW]
+  └── Entity-relationship graph + dual-level (local + global) retrieval
+
+RAFT  [NEW]
+  └── Fine-tunes the LLM generator on oracle + distractor documents
+
+Cache-Augmented Generation (CAG)  [NEW]
+  └── Preloads entire corpus into KV cache — no retrieval step at inference
+
+RAG-Fusion  [NEW]
+  └── N query reformulations → N parallel retrievals → RRF merge → generation
 ```
 
-**Production Failure Modes (6 critical issues):**
+**Production Failure Modes (7 critical issues):**
 ```
 Hallucination Despite Context
   └── LLM ignores retrieved docs, generates false claims
@@ -165,6 +190,9 @@ Context Window Overflow
 
 Reranker Failure
   └── Cross-encoder mis-ranks results, buries correct answers
+
+Conversational Context Drift  [NEW]
+  └── Multi-turn history poisons the retrieval query via unresolved references
 ```
 
 ---
@@ -184,11 +212,11 @@ Reranker Failure
    - Questions are tagged with difficulty: `[Basic]` `[Intermediate]` `[Advanced]`
 
 3. **Failure Modes (03_failure_modes/)** — 10 questions per failure pattern
-   - Six critical production failure scenarios with diagnostic Q&A
+   - Seven critical production failure scenarios with diagnostic Q&A
    - Use for system design rounds and production-readiness discussions
 
 4. **CHEATSHEET (cheatsheets/CHEATSHEET.md)** — Quick reference
-   - All 12 RAG types compared in one table
+   - All 18 RAG types compared in one table
    - Use during phone screens or quick prep
 
 **Study path:**
@@ -239,6 +267,6 @@ For issues, questions, or general feedback:
 [license-shield]: https://img.shields.io/github/license/ather-techie/rag-interview-questions
 [license-url]: LICENSE
 [commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-questions
-[questions-shield]: https://img.shields.io/badge/questions-204-blue
+[questions-shield]: https://img.shields.io/badge/questions-286-blue
 [prs-shield]: https://img.shields.io/badge/PRs-welcome-brightgreen
 [prs-url]: CONTRIBUTING.md
