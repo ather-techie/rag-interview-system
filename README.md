@@ -1,22 +1,38 @@
-# RAG Interview System
+# RAG Interview Questions & Answers (2026) — Retrieval-Augmented Generation Interview Prep
 
 
+<p align="center">
 [![Stargazers][stars-shield]][stars-url]
+[![Forks][forks-shield]][forks-url]
 [![License: MIT][license-shield]][license-url]
 ![Last Commit][commits-shield]
 ![Questions][questions-shield]
 [![PRs Welcome][prs-shield]][prs-url]
+</p>
 
 
 <p align="center">
-  <img src="assets/logos/image.png" alt="RAG Interview Questions Banner" width="800" />
+  <img src="assets/logos/image.png" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 204 Q&A covering 12 architectures and production failure modes" width="800" />
 </p>
 
-A complete collection of RAG interview questions, answers, system design scenarios, architecture patterns, and production-ready concepts.
+**204 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 12 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
+
+⭐ **Star this repo** if it helps your interview prep — it keeps the project growing.
+
+## What is RAG?
+
+**Retrieval-Augmented Generation (RAG)** is an LLM architecture that grounds model responses in external knowledge: documents are chunked, embedded, and stored in a vector database; at query time the most relevant chunks are retrieved via vector search and passed to the LLM as context for generation. RAG reduces hallucination, keeps answers current without retraining, and is the most common production pattern for enterprise LLM applications — which is why it dominates AI engineer and GenAI system design interviews.
+
+## Who is this for?
+
+- **AI / ML engineers** preparing for RAG, LLM, or GenAI interview rounds
+- **Software engineers** moving into LLM application development
+- **Data scientists** facing RAG system design interviews
+- **Hiring managers and interviewers** building question sets for GenAI roles
 
 ## 📚 Sections
 
-[Overview & Concepts](#-overview--concepts) · [Interview Question Banks](#-interview-question-banks) · [Failure Modes & Production Issues](#-failure-modes--production-issues) · [Coming Soon](#-coming-soon)
+[Overview & Concepts](#-overview--concepts) · [RAG Architecture Interview Questions](#-rag-architecture-interview-questions-12-types) · [Failure Modes & Production Issues](#-failure-modes--production-issues) · [Coming Soon](#-coming-soon)
 
 ### 📖 Overview & Concepts
 
@@ -37,7 +53,7 @@ A complete collection of RAG interview questions, answers, system design scenari
 | 01i | [Observability & Evaluation Ops](./01_concepts/observability_and_evaluation_ops.md) | LLM-as-judge, online metrics, tracing, drift alerts |
 | 01j | [Multi-Tenancy & Access Control](./01_concepts/multi_tenancy_access_control.md) | Tenant isolation, document ACLs, leakage surfaces |
 
-### ❓ Interview Question Banks
+### ❓ RAG Architecture Interview Questions (12 Types)
 
 | # | Topic | Questions |
 |---|-------|-----------|
@@ -91,7 +107,7 @@ Each planned section has a stub README describing what it will contain and how t
 
 ---
 
-## 🗺️ RAG Landscape Overview
+## 🗺️ RAG Architecture Types Explained (12 Patterns + 6 Failure Modes)
 
 **RAG Architectures (12 types):**
 ```
@@ -185,6 +201,12 @@ Reranker Failure
 
 ---
 
+## 🏷️ Topics Covered
+
+Embeddings · Chunking strategies · Vector databases (FAISS, Pinecone, Weaviate, pgvector) · Hybrid search (BM25 + dense) · Reranking & cross-encoders · RAG evaluation (RAGAS, NDCG) · Agentic RAG · Graph RAG · Self-RAG & Corrective RAG · Multi-modal RAG · Text-to-SQL · Prompt injection & RAG security · Hallucination mitigation · LLM observability · Multi-tenancy & access control
+
+---
+
 ## Contributing
 
 This repo grows best with real-world signal. If you were asked a RAG question in an interview, **open a PR** — real questions are prioritized over synthetically generated ones.
@@ -212,8 +234,10 @@ For issues, questions, or general feedback:
 *See [Contributing](#contributing) to add your interview experience to the repo.*
 
 <!-- Badge References -->
-[stars-shield]: https://img.shields.io/github/stars/ather-techie/rag-interview-questions?style=social
+[stars-shield]: https://img.shields.io/github/stars/ather-techie/rag-interview-questions?style=flat-square
 [stars-url]: https://github.com/ather-techie/rag-interview-questions/stargazers
+[forks-shield]: https://img.shields.io/github/forks/ather-techie/rag-interview-questions?style=flat-square
+[forks-url]: https://github.com/ather-techie/rag-interview-questions/network/members
 [license-shield]: https://img.shields.io/github/license/ather-techie/rag-interview-questions
 [license-url]: LICENSE
 [commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-questions
