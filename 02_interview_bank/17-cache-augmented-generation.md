@@ -568,3 +568,15 @@ A KV cache computed for model version X may not be compatible with model version
 - **Mitigation:** Tie the KV cache version to the model checkpoint hash. Automatically invalidate cache on model version change.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Cache-Augmented Generation Fits |
+|---|---|---|
+| High-traffic documentation assistant (e.g., cloud provider CLI docs) | DevTools / Cloud | Millions of queries against a stable API reference corpus — caching the KV representation eliminates repeated encoding costs at scale |
+| Shared legal / compliance corpus assistant | Legal / Enterprise | Regulatory documents update quarterly; caching the stable corpus between updates slashes inference cost for thousands of daily users |
+| LLM-powered customer service for a fixed product catalog | Retail / E-commerce | Product specs and FAQs are stable for weeks; KV-cached corpus means each query pays only for the dynamic user question, not the full context |
+| Educational platform with fixed curriculum content | EdTech | Textbook chapters are stable for a semester; caching them lets the platform serve thousands of students at a fraction of the uncached cost |
+| Enterprise "always-on" knowledge base copilot | Enterprise | Large internal wikis that change infrequently benefit from persistent KV caches — updates trigger selective cache invalidation, not full recompute |

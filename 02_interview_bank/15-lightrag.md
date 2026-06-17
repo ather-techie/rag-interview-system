@@ -501,3 +501,15 @@ In local mode, graph traversal can surface chunks that are semantically distant 
 - **Mitigation:** Apply chunk-level ACL checks on all nodes returned via graph traversal, not just on directly retrieved chunks.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why LightRAG Fits |
+|---|---|---|
+| On-device mobile assistant (e.g., Apple Intelligence, on-device LLM apps) | Consumer / Mobile | Dual local/global retrieval modes work within tight memory and compute budgets without a separate cloud vector store |
+| IoT edge knowledge system (factory floor, remote sites) | Industrial / Edge | Edge devices with intermittent connectivity need self-contained graph + vector retrieval; LightRAG's lightweight design avoids cloud dependency |
+| Personal knowledge management app (e.g., Obsidian AI, Logseq AI) | Productivity | Users' personal note graphs benefit from entity-aware retrieval across local markdown files, with no server-side infrastructure required |
+| Privacy-first enterprise assistant | Healthcare / Legal | Sensitive corpora that cannot leave the premises are served by LightRAG running entirely on-premises on commodity hardware |
+| Small-business chatbot with limited budget | SMB / Startup | Simple, cost-efficient dual-mode retrieval delivers good enough quality for SMB corpora without the overhead of a full advanced RAG stack |

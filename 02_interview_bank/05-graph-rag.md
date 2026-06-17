@@ -966,3 +966,15 @@ class VersionedKnowledgeGraph:
 Combined, these layers make graph poisoning expensive and detectable.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Graph RAG Fits |
+|---|---|---|
+| Drug discovery & biomedical knowledge graph (e.g., BioGPT, Elsevier's Life Sciences KG) | Pharma / Biotech | Entities (genes, proteins, diseases, drugs) have dense relationships; graph traversal surfaces indirect connections that text search misses |
+| Legal knowledge assistant | Legal | Case law is inherently graph-structured (citations, precedents, statutes); multi-hop reasoning finds how one ruling affects another |
+| Fraud detection explainability | FinTech | Entity graph (accounts, transactions, people) enables "why was this flagged?" queries via relationship traversal |
+| Enterprise organizational knowledge (org charts, project dependencies) | Enterprise | Who-knows-what and who-reports-to-whom queries require relationship traversal, not just document retrieval |
+| Supply chain risk analysis | Manufacturing / Logistics | Supplier → component → product dependency graphs enable queries like "which products are affected if Supplier X fails?" |

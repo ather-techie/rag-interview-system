@@ -782,3 +782,15 @@ Defense-in-depth for when the classifier is beaten anyway: on the no-retrieval p
 The principle: the classifier is an *optimization*, never a *safety control*. Quality and cost guarantees must hold even when the router gives the worst possible answer.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Adaptive RAG Fits |
+|---|---|---|
+| General-purpose AI assistant (e.g., ChatGPT with browsing, Claude with tools) | Consumer / Enterprise | Query complexity varies enormously — a "what's 2+2?" needs no retrieval while "summarize this year's AI papers" needs deep multi-hop search |
+| Enterprise help desk / IT self-service portal | Enterprise IT | Simple password-reset questions skip retrieval; complex "why is my VPN failing after the latest update?" routes to full agentic search |
+| E-learning platform with adaptive tutoring | EdTech | Simple recall questions are answered from parametric knowledge; novel problem-solving routes to retrieved worked examples |
+| Customer success platform (e.g., Zendesk AI) | SaaS / Support | Quick FAQs answered immediately; nuanced billing disputes route to policy retrieval and escalation logic |
+| Internal developer tool (code Q&A + generation) | DevTools | Simple syntax questions need no retrieval; architecture-level questions trigger full codebase search and retrieval |

@@ -764,3 +764,15 @@ def sanitize_for_reflection(docs):
 Combining these prevents attackers from easily manipulating `[IsSup]` and `[IsUse]` predictions.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Self-RAG Fits |
+|---|---|---|
+| Clinical decision support system | Healthcare | `[IsSup]` token ensures answers are grounded in retrieved clinical guidelines; hallucinated drug dosages are caught before reaching clinicians |
+| Legal advice chatbot | Legal | Self-critique prevents the model from citing invented case law; `[IsRel]` skips passages that don't match the jurisdiction in the query |
+| Academic writing assistant | Education | Model self-assesses whether retrieved papers actually support a claim before including them in a literature review |
+| Insurance underwriting Q&A | Insurance | High-stakes answers require self-evaluation of retrieval quality; `[IsUse]` prevents low-relevance policy clauses from diluting the answer |
+| Automated report generation (earnings, ESG) | Finance / Corporate | Model reflection tokens gate inclusion of each retrieved data point, preventing factually unsupported statements in published reports |

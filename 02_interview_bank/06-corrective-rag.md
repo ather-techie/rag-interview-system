@@ -882,3 +882,17 @@ def test_evaluator_stability(query, docs):
 An attacker must fool multiple layers to successfully manipulate the evaluator. Combining these defences makes poisoning CRAG much harder.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Corrective RAG Fits |
+|---|---|---|
+| Medical information platform (e.g., symptom checkers, clinical Q&A) | Healthcare | Self-correcting retrieval prevents stale or mismatched clinical guidelines from reaching the LLM; web fallback fetches current CDC/WHO guidance |
+| Regulatory compliance assistant | Finance / Legal | Evaluator flags when retrieved internal policies don't match the query scope and triggers external regulatory database search |
+| News fact-checking tool | Media / Journalism | Retrieved context is scored for relevance; low-quality results trigger a corrective web search for primary sources |
+| Academic research assistant | Education / R&D | When retrieved chunks score poorly against a query (e.g., outdated study), CRAG retries with refined terms and up-to-date databases |
+| Customer-facing warranty & returns bot | Retail / E-commerce | Policy documents change frequently; evaluator catches when retrieved chunks are outdated and retrieves a refreshed version |
+
+</details>

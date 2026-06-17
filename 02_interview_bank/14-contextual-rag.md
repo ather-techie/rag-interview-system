@@ -544,3 +544,15 @@ async def index_document(doc):
 ```
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Contextual RAG Fits |
+|---|---|---|
+| Personalized learning assistant (e.g., Khan Academy Khanmigo) | EdTech | Prepending document context to chunks allows the model to understand that a retrieved math chunk belongs to "Chapter 3: Calculus" — reducing cross-chapter confusion |
+| Context-aware customer support bot | SaaS / E-commerce | Product documentation chunks are annotated with product version and category context, improving retrieval precision for version-specific questions |
+| Knowledge management platform (e.g., Guru, Tettra) | Enterprise | Articles about company processes are contextually embedded so "Q4 onboarding" retrieves correctly even when the chunk doesn't repeat those words |
+| Contract intelligence platform | Legal | Clause chunks are prefixed with contract type and party context so retrieval understands "this indemnity clause belongs to an SaaS agreement" |
+| Technical documentation search | DevTools / Cloud | API reference chunks are contextualized with service name and version, so "authentication" retrieves the right service's auth docs |

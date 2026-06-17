@@ -863,3 +863,15 @@ Attacker injects text into images (via OCR-detectable overlay) that, when retrie
 Combining these defences prevents adversarial images from poisoning the retrieval layer.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Multimodal RAG Fits |
+|---|---|---|
+| E-commerce visual + text search (e.g., Pinterest, Amazon visual search) | Retail | Users upload a photo to find similar products; multimodal retrieval matches image embeddings against catalogue images + product descriptions |
+| Radiology report assistant | Healthcare | Retrieves similar chest X-rays and their associated radiologist reports to assist with differential diagnosis |
+| Document understanding / invoice processing (e.g., AWS Textract-based apps) | Finance / Operations | Mixed PDFs contain tables, charts, and text; multimodal RAG retrieves the right page-image and interprets layout-sensitive content |
+| Manufacturing defect detection Q&A | Industrial / QA | Engineers query visual defect libraries: "show me welds with this type of crack" retrieves annotated image-text pairs |
+| Educational content platform (textbook Q&A) | EdTech | Students ask questions about diagrams or charts; image-text retrieval fetches the relevant figure and its surrounding explanation |

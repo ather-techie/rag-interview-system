@@ -927,3 +927,15 @@ Partitioning spreads A/A'/A'' across 3 of 4 subsets
 **Defence-in-depth:** dedupe + provenance weighting break consensus manufacturing (Attack 1); calibration + the disagree-protocol prevent confident selection among noise (Attack 2); ingestion controls + monitoring catch the poisoning that rationale gaming depends on (Attack 3). An attacker must defeat all layers simultaneously.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Speculative RAG Fits |
+|---|---|---|
+| High-throughput customer service bot (e.g., airline, telco) | Consumer / SaaS | Parallel drafting from a small model + verification by a large model cuts P95 latency by ~40% while keeping accuracy on par with full LLM retrieval |
+| Real-time live chat support | E-commerce | Draft-then-verify pattern lets the system respond faster than single-model RAG at peak load without sacrificing answer quality |
+| Financial news summarization at scale | Media / FinTech | Thousands of simultaneous queries benefit from speculative decoding; large model verifies only the drafts that need correction |
+| Call center copilot (agent assist) | Telecom / BPO | Speculative RAG provides fast preliminary answers to human agents while a more capable model verifies claims in the background |
+| Government citizen Q&A portal | Public sector | High daily query volume benefits from cost reduction via speculative drafting; verifier ensures compliance-sensitive answers are accurate |

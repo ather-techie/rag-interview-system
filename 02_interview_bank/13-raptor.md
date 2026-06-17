@@ -463,3 +463,15 @@ When the summarization LLM processes this cluster, the injected instruction may 
 5. **Principle of least privilege for summarization model:** Use a model with output constraints (structured output, max tokens, explicit format) to limit what the LLM can write in a summary.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why RAPTOR Fits |
+|---|---|---|
+| Comprehensive research synthesis tool (e.g., Elicit, Consensus) | Academia / R&D | Hundreds of papers are hierarchically summarized; broad "what is the state of X?" queries hit high-level summaries while precise questions drill to leaf chunks |
+| Policy and regulatory analysis platform | Government / Legal | Dense legislation is recursively summarized by section → chapter → act; users can ask both executive-level and clause-level questions |
+| Book-length document Q&A (e.g., board reports, strategy documents) | Enterprise | C-suite queries need high-level synthesized answers; detailed questions from analysts need precise paragraph-level retrieval |
+| Scientific patent analysis | IP / Legal | Patent corpora are large and hierarchically structured; RAPTOR enables both "what does this portfolio cover?" and "what are the claims in patent X?" |
+| Clinical guideline synthesis | Healthcare | Treatment guidelines from multiple bodies are summarized at the condition → treatment → dosage hierarchy for different query depths |

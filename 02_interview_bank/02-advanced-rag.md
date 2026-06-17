@@ -747,3 +747,15 @@ Combine multiple layers:
 An attacker must craft queries that fool multiple retrieval modalities, which is much harder than fooling a single dense or sparse retriever.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Advanced RAG Fits |
+|---|---|---|
+| Enterprise knowledge search (e.g., Notion AI, Confluence AI) | Enterprise productivity | HyDE + hybrid search surfaces relevant docs even when employees use informal language that doesn't match exact headings |
+| Developer documentation copilot (e.g., Stripe Docs AI) | DevTools | Query rewriting handles abbreviations and jargon; reranking ensures the most precise API reference snippet surfaces first |
+| Technical support tier-1 agent | IT / SaaS | Multi-query retrieval captures edge cases across a large ticket history; context compression keeps latency under SLA |
+| Legal document research assistant | Legal / Compliance | Hybrid BM25 + dense search handles both exact statute citations and semantic "what does this clause mean?" queries |
+| Healthcare patient portal Q&A | Healthcare | Reranking and deduplication prevent similar-sounding but distinct clinical terms from colliding in the context window |

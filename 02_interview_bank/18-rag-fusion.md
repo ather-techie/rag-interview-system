@@ -552,3 +552,15 @@ With N=4 queries, there are N opportunities for a poisoned document to surface i
 - **Mitigation:** Document-level deduplication and source trust scoring — apply higher scrutiny to documents that consistently rank in the top-3 across multiple query variants.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why RAG Fusion Fits |
+|---|---|---|
+| Comprehensive web search assistant (e.g., Perplexity, You.com) | Search / Knowledge | Generating multiple query reformulations and fusing results surfaces diverse, high-quality sources that a single query misses |
+| News aggregation and briefing tool | Media | Different phrasings of the same event retrieve articles from different outlets; RRF fusion deduplicates and surfaces the most-cited facts |
+| Academic literature discovery | Research / Academia | Synonymous research terms (e.g., "LLM", "large language model", "transformer-based language model") retrieve different papers; fusion covers them all |
+| E-commerce intent-ambiguous search | Retail | A query like "apple watch band" could mean replacement bands or full watches; multiple reformulations retrieve both and fusion re-ranks by relevance |
+| Enterprise policy & compliance search | Enterprise / Legal | Employees use different terminology for the same policy; RAG Fusion ensures "PTO", "vacation time", and "leave policy" all retrieve the same canonical doc |

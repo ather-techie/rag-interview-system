@@ -947,3 +947,15 @@ def monitor_module_behavior(module_name, input, output, execution_time):
 An attacker must defeat multiple layers, making successful attacks much harder.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Modular RAG Fits |
+|---|---|---|
+| Multi-tenant enterprise assistant (e.g., Glean, Microsoft Copilot for M365) | Enterprise | Different departments need different retrievers (SharePoint, Jira, Salesforce) — modular design lets each tenant swap retriever + reranker without touching generation |
+| E-commerce conversational search | Retail | Product, review, and policy corpora require distinct retrieval strategies; a router module dispatches to the right index per query intent |
+| Regulated industry knowledge platform (finance, pharma) | Compliance | Modules can be individually audited, versioned, and replaced as regulations change without rewriting the whole pipeline |
+| Multilingual customer support | Global SaaS | Language-detection module gates to a locale-specific retriever and translation module, all without forking the pipeline |
+| Research literature assistant | Academia / R&D | Abstract-only retrieval, full-text retrieval, and citation-graph retrieval are separate swappable modules depending on query depth |

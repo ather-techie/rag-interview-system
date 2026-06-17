@@ -514,3 +514,15 @@ RAFT introduces security considerations at both training time and inference time
    - **Mitigation:** Ensure IDK training examples (oracle-absent) are included in training data; evaluate IDK accuracy before deployment.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why RAFT Fits |
+|---|---|---|
+| Medical clinical assistant (e.g., specialized EHR Q&A) | Healthcare | Fine-tuned model ignores distractor medical passages and cites only the relevant clinical guideline — critical in high-stakes settings |
+| Legal research assistant for a specific jurisdiction | Legal | Model fine-tuned on jurisdiction-specific case law learns to extract holdings and ignore non-applicable precedents in retrieved results |
+| Financial product advisor (e.g., internal mortgage/insurance Q&A) | Finance | Fine-tuning on product-specific documents trains the model to answer from policy docs and ignore superficially similar but irrelevant clauses |
+| Enterprise IT helpdesk with proprietary runbooks | IT / DevOps | RAFT adapts the model to a company's specific infrastructure docs; it learns to reason over internal playbooks rather than generic internet knowledge |
+| Domain-specific coding assistant (e.g., SAP, Salesforce APEX) | Enterprise DevTools | Fine-tuned on proprietary API documentation, the model cites the correct SDK method and ignores distractor examples from generic Python docs |

@@ -647,3 +647,15 @@ Track:
 - Documents with high contradiction flags.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Naive RAG Fits |
+|---|---|---|
+| Internal HR / Policy chatbot | Enterprise | Static policy docs are updated infrequently; a fixed chunk-embed-retrieve pipeline is easy to maintain and audit |
+| E-commerce product FAQ bot | Retail | Product specs and FAQs are structured, short, and don't require multi-hop reasoning — single-shot retrieval is sufficient |
+| University knowledge base Q&A | Education | Course catalogues and FAQs have low query complexity; Naive RAG is fast to prototype and deploy on limited budgets |
+| Customer support first-line triage | SaaS / Support | Answers common "how do I?" questions from documentation before escalating to agents |
+| Small-team documentation search | Startups / DevTools | When the corpus is < 10k chunks, Naive RAG delivers adequate precision without orchestration overhead |

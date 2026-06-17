@@ -784,8 +784,20 @@ LLM attends to injected content instead.
 
 Max 10 documents in context, each compressed to 500 tokens max. Filter by relevance >0.7. Total context: ~5K tokens.
 
-Attacker can inject at most 10 docs × 500 tokens = 5K tokens. But these are low-relevance (0.3 score), filtered out before prompt construction.
+Attacker can inject at most 10 docs ï¿½ 500 tokens = 5K tokens. But these are low-relevance (0.3 score), filtered out before prompt construction.
 
 Combining content, structural, and model-level controls prevents context stuffing.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Long-Context RAG Fits |
+|---|---|---|
+| Legal contract review (e.g., Harvey AI, Ironclad AI) | Legal | Full contracts (50â€“200 pages) must be analyzed holistically; long-context window preserves cross-clause dependencies that chunk-based RAG fragments |
+| Book or report analysis | Publishing / Research | Authors and analysts query against entire manuscripts or annual reports where section interdependencies matter |
+| Large codebase Q&A (e.g., Sourcegraph Cody) | DevTools | Repository-level questions ("where does authentication flow through?") require reasoning across many files simultaneously |
+| Clinical trial protocol analysis | Pharma / Regulatory | Trial protocols are long, structured documents; retrieving complete sections preserves eligibility criteria and procedure details intact |
+| M&A document room assistant | Investment Banking | Due diligence corpora span thousands of pages; long-context windows allow the LLM to reason across related documents without losing thread |

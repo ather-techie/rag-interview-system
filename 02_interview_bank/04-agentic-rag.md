@@ -1033,3 +1033,15 @@ def run_adversarial_tests():
 A sophisticated attacker must bypass all layers, making successful injection attacks much harder in production systems with these controls.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Agentic RAG Fits |
+|---|---|---|
+| AI coding assistant (e.g., GitHub Copilot Workspace, Cursor) | DevTools | Agent searches codebase, reads related files, runs tests, and iterates — a fixed pipeline cannot handle open-ended "fix this bug" tasks |
+| Deep research agent (e.g., Perplexity Pro, OpenAI Deep Research) | Knowledge work | Multi-hop queries require iterating: retrieve → read → formulate follow-up query → retrieve again until sufficient evidence is gathered |
+| Financial due diligence assistant | Finance / Legal | Agent issues queries across SEC filings, news, and internal notes, decides when retrieved evidence is sufficient, and cites sources per claim |
+| Scientific literature synthesis | Pharma / Academia | Agent chains PubMed searches, reads abstracts, decides whether to fetch full papers, and aggregates findings across dozens of documents |
+| IT incident response copilot | DevOps / SRE | Agent queries runbooks, metrics dashboards (via tool calls), and past incident tickets to recommend a root-cause fix under time pressure |

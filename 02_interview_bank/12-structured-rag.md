@@ -1406,3 +1406,15 @@ Periodically replay a sample of logged (question, SQL) pairs through an LLM-as-j
 The design principle: **prompt-level defenses are advisory; database-enforced controls are the security boundary.** Assume the LLM will eventually emit the worst query an attacker can describe, and build the system so that query is harmless when it arrives.
 
 </details>
+
+---
+
+## Real-World Applications
+
+| Application | Domain | Why Structured RAG Fits |
+|---|---|---|
+| Business intelligence chatbot (e.g., ThoughtSpot Sage, Tableau Pulse AI) | Analytics / BI | Users ask "what were Q3 sales by region?" — answers require SQL generation over structured tables, not free-text document retrieval |
+| Financial analytics assistant | Finance | Earnings data, balance sheets, and KPIs live in structured databases; NL-to-SQL is the correct retrieval primitive |
+| E-commerce product catalog search | Retail | Faceted queries ("show me red running shoes under $100 in size 10") map cleanly to SQL filters, not vector similarity |
+| EHR clinical data assistant (e.g., patient stats queries) | Healthcare | "What is the average A1C for patients in cohort X over the last 6 months?" requires SQL over structured EHR tables |
+| Log analytics and observability (e.g., natural language over Datadog/Splunk) | DevOps / SRE | Engineers query structured log data in natural language; Structured RAG translates to query DSL and retrieves relevant log slices |
