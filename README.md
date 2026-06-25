@@ -10,10 +10,10 @@
 
 
 <p align="center">
-  <img src="assets/logos/image.png" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 286 Q&A covering 18 architectures and production failure modes" width="800" />
+  <img src="assets/logos/image.png" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 418 Q&A covering 29 architectures and production failure modes" width="800" />
 </p>
 
-**286 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 18 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
+**418 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 29 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
 
 ⭐ **Star this repo** if it helps your interview prep — it keeps the project growing.
 
@@ -37,7 +37,7 @@
 | # | Topic | Purpose |
 |---|-------|---------|
 | 00a | [Roadmap](./00_overview/roadmap.md) | RAG maturity model, skill progression, and interview prep pathway |
-| 00b | [RAG Taxonomy](./00_overview/rag_taxonomy.md) | Classification framework for all 18 architectures |
+| 00b | [RAG Taxonomy](./00_overview/rag_taxonomy.md) | Classification framework for all 29 architectures |
 | 00c | [Learning Path](./00_overview/learning_path.md) | Structured curriculum and study plans |
 | 00d | [System Design Principles](./00_overview/system_design_principles.md) | Production-grade architecture patterns |
 | 01a | [Embeddings](./01_concepts/embeddings.md) | Embedding models, similarity metrics, and fine-tuning |
@@ -51,7 +51,7 @@
 | 01i | [Observability & Evaluation Ops](./01_concepts/observability_and_evaluation_ops.md) | LLM-as-judge, online metrics, tracing, drift alerts |
 | 01j | [Multi-Tenancy & Access Control](./01_concepts/multi_tenancy_access_control.md) | Tenant isolation, document ACLs, leakage surfaces |
 
-### ❓ RAG Architecture Interview Questions (18 Types)
+### ❓ RAG Architecture Interview Questions (29 Types)
 
 | # | Topic | Questions |
 |---|-------|-----------|
@@ -73,8 +73,19 @@
 | 02.16 | [RAFT](./02_interview_bank/16-raft.md) | 12 |
 | 02.17 | [Cache-Augmented Generation (CAG)](./02_interview_bank/17-cache-augmented-generation.md) | 12 |
 | 02.18 | [RAG-Fusion](./02_interview_bank/18-rag-fusion.md) | 12 |
+| 02.19 | [Iterative / Multi-hop RAG](./02_interview_bank/19-iterative-multihop-rag.md) | 12 |
+| 02.20 | [HippoRAG](./02_interview_bank/20-hipporag.md) | 12 |
+| 02.21 | [Memory / Conversational RAG](./02_interview_bank/21-memory-conversational-rag.md) | 12 |
+| 02.22 | [HyDE (Hypothetical Document Embeddings)](./02_interview_bank/22-hyde-rag.md) | 12 |
+| 02.23 | [FLARE (Forward-Looking Active Retrieval)](./02_interview_bank/23-flare-rag.md) | 12 |
+| 02.24 | [KAG (Knowledge Augmented Generation)](./02_interview_bank/24-kag.md) | 12 |
+| 02.25 | [GraphReader / GNN-RAG](./02_interview_bank/25-graphreader-gnn-rag.md) | 12 |
+| 02.26 | [REALM](./02_interview_bank/26-realm.md) | 12 |
+| 02.27 | [RETRO](./02_interview_bank/27-retro.md) | 12 |
+| 02.28 | [Atlas](./02_interview_bank/28-atlas.md) | 12 |
+| 02.29 | [Fusion-in-Decoder (FiD)](./02_interview_bank/29-fusion-in-decoder.md) | 12 |
 
-**RAG Architectures Total: 216 questions**
+**RAG Architectures Total: 348 questions**
 
 ### ⚠️ Failure Modes & Production Issues
 
@@ -90,9 +101,9 @@
 
 **Failure Modes Total: 70 questions**
 
-**Grand Total: 286 questions**
+**Grand Total: 418 questions**
 
-**Difficulty distribution: ~30 Basic, ~105 Intermediate, ~151 Advanced**
+**Difficulty distribution: ~41 Basic, ~154 Intermediate, ~223 Advanced**
 
 All cited papers with arXiv/DOI links: [REFERENCES.md](./REFERENCES.md)
 
@@ -112,9 +123,9 @@ Each planned section has a stub README describing what it will contain and how t
 
 ---
 
-## 🗺️ RAG Architecture Types Explained (18 Patterns + 7 Failure Modes)
+## 🗺️ RAG Architecture Types Explained (29 Patterns + 7 Failure Modes)
 
-**RAG Architectures (18 types):**
+**RAG Architectures (29 types):**
 ```
 Naive RAG
   └── Chunk → Embed → Store → Retrieve → Generate
@@ -169,6 +180,39 @@ Cache-Augmented Generation (CAG)  [NEW]
 
 RAG-Fusion  [NEW]
   └── N query reformulations → N parallel retrievals → RRF merge → generation
+
+Iterative / Multi-hop RAG  [NEW]
+  └── Retrieve → reason → retrieve loops (IRCoT, Self-Ask) until a stopping criterion
+
+HippoRAG  [NEW]
+  └── Personalized PageRank over an LLM-built knowledge graph for single-step multi-hop
+
+Memory / Conversational RAG  [NEW]
+  └── Tiered memory + history-aware query rewriting for multi-turn dialogue
+
+HyDE  [NEW]
+  └── Embed an LLM-generated hypothetical answer to close the query-document gap
+
+FLARE  [NEW]
+  └── Retrieve mid-generation when next-sentence tokens fall below a confidence threshold
+
+KAG (Knowledge Augmented Generation)  [NEW]
+  └── Logical-form reasoning + KG/text mutual indexing for professional domains
+
+GraphReader / GNN-RAG  [NEW]
+  └── Agentic graph-of-notes traversal / GNN-retrieved reasoning subgraphs
+
+REALM  [NEW]  (training-time)
+  └── Retriever learned end-to-end during masked-LM pre-training
+
+RETRO  [NEW]  (training-time)
+  └── Chunked cross-attention over a trillion-token frozen datastore
+
+Atlas  [NEW]  (training-time)
+  └── Jointly-trained Contriever + FiD; few-shot knowledge learning
+
+Fusion-in-Decoder (FiD)  [NEW]  (training-time)
+  └── Encode passages separately, fuse them in the decoder
 ```
 
 **Production Failure Modes (7 critical issues):**
@@ -216,7 +260,7 @@ Conversational Context Drift  [NEW]
    - Use for system design rounds and production-readiness discussions
 
 4. **CHEATSHEET (cheatsheets/CHEATSHEET.md)** — Quick reference
-   - All 18 RAG types compared in one table
+   - All 29 RAG types compared in one table
    - Use during phone screens or quick prep
 
 **Study path:**

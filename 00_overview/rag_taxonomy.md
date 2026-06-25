@@ -1,6 +1,6 @@
 # RAG Taxonomy: Classification and Architecture Mapping
 
-> All 12 RAG architectures mapped by mechanism, data source, retrieval control, and production fit.
+> All 29 RAG architectures mapped by mechanism, data source, retrieval control, and production fit.
 
 ---
 
@@ -33,7 +33,7 @@ Each axis maps to a different set of failure modes and trade-offs. Mastering the
 
 ---
 
-## The Full Taxonomy: All 12 Architectures
+## The Full Taxonomy: All 29 Architectures
 
 | Architecture | Retrieval Control | Data Modality | Feedback Loop | Scope | Fine-tune Required? | Latency Class | Production Maturity |
 |---|---|---|---|---|---|---|---|
@@ -49,12 +49,39 @@ Each axis maps to a different set of failure modes and trade-offs. Mastering the
 | Structured RAG | Dynamic | Structured | None | Single-hop | No | Medium (200ms–1s) | Stable (growing) |
 | Multimodal RAG | Static | Multimodal | None | Single-hop | No | Medium (200ms–1s) | Emerging (2023+) |
 | Long-Context RAG | Static | Text-only | None | Single-hop | No | High (>1s) | Stable (2024+) |
+| RAPTOR | Static | Text-only | None | Multi-hop (tree) | No | Fast (query-time) | Emerging (2024+) |
+| Contextual RAG | Static | Text-only | None | Single-hop | No | Fast (<200ms) | Emerging (2024+) |
+| LightRAG | Agent-driven | Graph | None | Multi-hop | No | Medium (200ms–1s) | Emerging (2024+) |
+| RAFT | Static | Text-only | None | Single-hop | **Yes** | Fast (<200ms) | Emerging (2024+) |
+| CAG | Static | Text-only | None | Single-hop | No | Fast (<200ms)* | Emerging (2024+) |
+| RAG-Fusion | Static | Text-only | None | Single-hop (N-query) | No | Medium (200ms–1s) | Emerging (2024+) |
+| Iterative / Multi-hop RAG | Dynamic | Text-only | Self-critique (optional) | Iterative / Multi-hop | No | Slow (>1s) | Emerging (2023+) |
+| HippoRAG | Agent-driven | Graph | None | Multi-hop (single pass) | No | Fast (query-time)* | Research-frontier (2024+) |
+| Memory / Conversational RAG | Dynamic | Text-only | None | Single- or Multi-hop | No | Medium (200ms–1s) | Stable (growing) |
+| HyDE | Static | Text-only | None | Single-hop | No | Medium (200ms–1s) | Stable (2022+) |
+| FLARE | Agent-driven | Text-only | Self-critique | Iterative | No | Slow (>1s) | Emerging (2023+) |
+| KAG | Dynamic | Graph + Text | Self-critique (logical) | Multi-hop | No | Medium (200ms–1s) | Emerging (2024+) |
+| GraphReader | Agent-driven | Graph (notes) | Self-critique | Iterative / Multi-hop | No | Slow (>1s) | Emerging (2024+) |
+| GNN-RAG | Static (learned) | Graph | None | Multi-hop | **Yes** (GNN) | Fast (query-time) | Emerging (2024+) |
+| REALM †| Static (learned) | Text-only | None | Single-hop | **Yes** | Fast (<200ms) | Foundational (2020) |
+| RETRO †| Static (frozen) | Text-only | None | Per-chunk | **Yes** | Medium (200ms–1s) | Foundational (2021) |
+| Atlas †| Static (learned) | Text-only | None | Single-hop | **Yes** | Medium (200ms–1s) | Foundational (2022) |
+| Fusion-in-Decoder †| Static | Text-only | None | Single-hop (many passages) | **Yes** (reader) | Medium (200ms–1s) | Foundational (2020) |
+
+\* Query-time latency is low; HippoRAG and CAG pay a large up-front (index-build / KV-cache) cost instead.
+† **Training-time / parametric** architectures: retrieval is integrated into pre-training or the model architecture (and the retriever/reader is trained), rather than bolted on at inference. They form a distinct branch from the inference-time architectures above.
 
 ---
 
 ## Taxonomy Tree Diagram
 
-Here's how all 12 architectures relate. Every path from root to leaf is a valid RAG system.
+Here's how the core architectures relate (the tree shows the original 12 base types; the
+17 newer architectures in the table above are specializations or compositions of these — e.g.
+HippoRAG, LightRAG, KAG, GraphReader and GNN-RAG extend the Graph branch; FLARE and Iterative
+RAG extend the iterative-scope branch; HyDE is a query-transformation layer over any static
+retriever; and REALM/RETRO/Atlas/FiD form a separate **training-time / parametric** branch where
+retrieval is baked into pre-training or architecture rather than added at inference). Every path
+from root to leaf is a valid RAG system.
 
 ```
                           RAG
@@ -134,7 +161,7 @@ Most production systems combine two or more patterns. For example, a system that
 
 ## Hybrid Systems in Practice
 
-Most production RAG systems are not pure. They combine two or more of the 12 architectures.
+Most production RAG systems are not pure. They combine two or more of the 29 architectures.
 
 | Common Combination | Why It's Done | Trade-off |
 |---|---|---|

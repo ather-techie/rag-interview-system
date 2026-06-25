@@ -22,6 +22,17 @@
 | 16 | **RAFT** | Fine-tunes LLM generator on oracle docs + K distractor docs + CoT answers | Closed-domain high-stakes (medical, legal, internal KB) | Frequently changing corpus or when fine-tuning is off the table |
 | 17 | **Cache-Augmented Generation (CAG)** | Precomputes KV cache for entire corpus; zero retrieval step at inference | Stable, bounded corpus that fits in context window | Large, dynamic, or multi-tenant corpora |
 | 18 | **RAG-Fusion** | N query reformulations → N parallel retrievals → RRF merge → generation | Ambiguous queries, broad topic coverage | Hard latency budget (N× retrieval cost) |
+| 19 | **Iterative / Multi-hop RAG** | Retrieve → reason → retrieve loops (IRCoT, Self-Ask, ITER-RETGEN) until a stopping criterion | Compositional multi-hop questions needing fact chaining | Simple single-fact queries; tight latency (sequential hops) |
+| 20 | **HippoRAG** | Personalized PageRank over an LLM-built KG + synonym edges for single-step multi-hop | Entity-rich multi-hop on a stable, high-volume corpus | Entity-poor/abstract queries; fast-changing corpora |
+| 21 | **Memory / Conversational RAG** | Tiered memory (working/summary/long-term) + history-aware query rewriting | Multi-turn assistants needing reference resolution and recall | Single-turn lookups; stateless-by-requirement domains |
+| 22 | **HyDE** | Embed an LLM-generated hypothetical *answer* instead of the query | Zero-shot/unsupervised encoders, vocabulary-mismatched or cross-lingual queries | Fine-tuned in-domain retrievers; entity/factoid lookups |
+| 23 | **FLARE** | Retrieve mid-generation when next-sentence token confidence < θ (forward-looking) | Long-form generation where information needs evolve | Short factoid answers; APIs without token logprobs |
+| 24 | **KAG** | Logical-form-guided reasoning + KG↔text mutual indexing | Professional domains needing rule-following deduction + provenance (medical, legal, e-gov) | Open-domain/similarity-answerable Qs; fast-changing corpora |
+| 25 | **GraphReader / GNN-RAG** | Agentic graph-of-notes traversal (GraphReader) / GNN-retrieved reasoning subgraphs (GNN-RAG) | Long-context multi-hop (GraphReader); KGQA over dense KGs (GNN-RAG) | Single-hop or similarity-answerable; no KG (GNN-RAG) |
+| 26 | **REALM** *(training-time)* | Retriever learned end-to-end via masked-LM pre-training (latent-variable marginalization) | Research/learned-retrieval; updatable-corpus QA | When a frozen off-the-shelf retriever suffices |
+| 27 | **RETRO** *(training-time)* | Chunked cross-attention over a trillion-token frozen datastore | Parameter-efficient LMs; large-scale knowledge LM | Most apps without trillion-scale datastore infra |
+| 28 | **Atlas** *(training-time)* | Jointly-trained Contriever + FiD, attention-distillation | Few-shot knowledge tasks with scarce labels | When strong LLM + inference-time RAG already suffices |
+| 29 | **Fusion-in-Decoder (FiD)** *(training-time)* | Encode each passage separately, fuse in the decoder | Generative reading/fusing of many retrieved passages | Single-passage reads; very tight decoder-latency budgets |
 
 ---
 
@@ -49,6 +60,18 @@ Relative ratings for a typical mid-size deployment (●○○ low → ●●● 
 | RAFT | ●○○* | ●○○ | ●●● | ●●○ | *Up-front fine-tuning cost; inference same as base model |
 | CAG | ●●●* | ●○○ | ●○○ | ●●○ | *High cold-start KV cache load; zero retrieval latency per query |
 | RAG-Fusion | ●●○ | ●●○ | ●●○ | ●●○ | N × (reformulation + retrieval); parallelizable |
+| Iterative / Multi-hop RAG | ●●● | ●●● | ●●○ | ●●○ | One LLM reasoning call per hop (sequential, not parallelizable) |
+| HippoRAG | ●○○* | ●○○ | ●●● | ●●● | *Up-front OpenIE over whole corpus; query-time retrieval is LLM-free PageRank |
+| Memory / Conversational RAG | ●●○ | ●●○ | ●●○ | ●●● | Query-rewriting LLM call + memory store reads/writes per turn |
+| HyDE | ●●○ | ●●○ | ●○○ | ●○○ | Extra LLM generation (the hypothetical) before retrieval |
+| FLARE | ●●○ | ●●● | ●●○ | ●●○ | Re-generation of low-confidence sentences + interleaved retrievals |
+| KAG | ●●○* | ●●○ | ●●● | ●●● | *Heavy KG build + extraction; multi-step parse/execute/compose per query |
+| GraphReader | ●●● | ●●● | ●●○ | ●●○ | LLM call per exploration step (sequential agentic traversal) |
+| GNN-RAG | ●○○* | ●○○ | ●●● | ●●● | *Up-front GNN training + KG upkeep; cheap GNN pass + one LLM call at query |
+| REALM | ●○○ | ●○○ | ●●● | ●●● | *Heavy training (async index refresh); inference is RAG-like |
+| RETRO | ●●○ | ●●○ | ●●● | ●●● | Per-chunk retrieval + huge frozen datastore storage/serving |
+| Atlas | ●●○ | ●●○ | ●●● | ●●● | Joint training + index refresh; FiD encoder cost linear in passages |
+| Fusion-in-Decoder | ●●○ | ●●○ | ●●○ | ●●○ | Decoder cross-attention over all passage tokens (grows with k) |
 
 ---
 

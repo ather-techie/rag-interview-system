@@ -4,7 +4,7 @@
 
 ## What this section will cover
 
-Reusable RAG design patterns that cut across the 12 architectures in [`02_interview_bank/`](../02_interview_bank/):
+Reusable RAG design patterns that cut across the 29 architectures in [`02_interview_bank/`](../02_interview_bank/):
 
 - **Composition patterns** — router + fallback, retrieve-then-verify, cascade (cheap model first), fan-out/fan-in retrieval
 - **Migration patterns** — upgrading Naive → Advanced → Modular → Agentic RAG without a rewrite
