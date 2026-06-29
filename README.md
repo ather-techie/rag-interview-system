@@ -290,7 +290,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to submit a question.
 For issues, questions, or general feedback:
 
 - Open an issue on [GitHub](https://github.com/ather-techie/rag-interview-questions/issues)
-- Join the [Discord community](https://discord.gg/kSUE3CA9P)
+- Join the [Discord community](https://discord.gg/FqEFjRT3Y)
 - Contact: [ather.techie@gmail.com](mailto:ather.techie@gmail.com)
 
 ---
