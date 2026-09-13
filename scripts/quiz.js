@@ -1,32 +1,75 @@
-const allQuestions = [];
-document.querySelectorAll('h2').forEach(h2 => {
-  if (!/^Q\d+\./.test(h2.textContent.trim())) return;
-  const codeEl = h2.querySelector('code');
-  let difficulty = 'Basic';
-  if (codeEl) {
-    const match = codeEl.textContent.match(/\[(Basic|Intermediate|Advanced)\]/);
-    if (match) difficulty = match[1];
-  }
-  const questionText = h2.textContent
-    .replace(/^Q\d+\.\s*/, '')
-    .replace(/\s*\[(Basic|Intermediate|Advanced)\]\s*$/, '')
-    .trim();
-  let el = h2.nextElementSibling;
-  while (el && el.tagName !== 'DETAILS') el = el.nextElementSibling;
-  const answerHTML = el ? el.innerHTML : '<summary>No answer found</summary>';
-  allQuestions.push({ questionText, difficulty, answerHTML });
-});
+function scrapeFromDom() {
+  const items = [];
+  document.querySelectorAll('h2').forEach(h2 => {
+    if (!/^Q\d+\./.test(h2.textContent.trim())) return;
+    const codeEl = h2.querySelector('code');
+    let difficulty = 'Basic';
+    if (codeEl) {
+      const match = codeEl.textContent.match(/\[(Basic|Intermediate|Advanced)\]/);
+      if (match) difficulty = match[1];
+    }
+    const questionText = h2.textContent
+      .replace(/^Q\d+\.\s*/, '')
+      .replace(/\s*\[(Basic|Intermediate|Advanced)\]\s*$/, '')
+      .trim();
+    let el = h2.nextElementSibling;
+    while (el && el.tagName !== 'DETAILS') el = el.nextElementSibling;
+    const answerHTML = el ? el.innerHTML : '<summary>No answer found</summary>';
+    items.push({ questionText, difficulty, answerHTML, section: null, sectionGroup: null, href: null });
+  });
+  return items;
+}
 
-let filtered = [], currentIndex = 0, correctCount = 0, reviewCount = 0, revealed = false;
+function loadQuestions() {
+  const dataEl = document.getElementById('quiz-data');
+  if (!dataEl) return scrapeFromDom();
+  const raw = JSON.parse(dataEl.textContent);
+  return raw.map(item => ({
+    questionText: item.question,
+    difficulty: item.difficulty,
+    answerHTML: item.answer,
+    section: item.section || null,
+    sectionGroup: item.sectionGroup || null,
+    href: item.href || null,
+  }));
+}
 
-function setFilter(level) {
-  document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-  event.target.classList.add('active');
-  if (level === 'All') {
-    filtered = [...allQuestions];
-  } else {
-    filtered = allQuestions.filter(q => q.difficulty === level);
+const allQuestions = loadQuestions();
+
+let filtered = [], currentIndex = 0, correctCount = 0, reviewCount = 0;
+let difficultyFilter = 'All';
+
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
+  return a;
+}
+
+function applyFilters() {
+  let result = allQuestions;
+  if (difficultyFilter !== 'All') {
+    result = result.filter(q => q.difficulty === difficultyFilter);
+  }
+  const sectionSelect = document.getElementById('section-select');
+  if (sectionSelect && sectionSelect.value !== 'All') {
+    result = result.filter(q => q.section === sectionSelect.value);
+  }
+  const shuffleToggle = document.getElementById('shuffle-toggle');
+  if (shuffleToggle && shuffleToggle.checked) {
+    result = shuffleArray(result);
+  }
+  return result;
+}
+
+function setFilter(level, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  const target = btn || (typeof event !== 'undefined' ? event.target : null);
+  if (target) target.classList.add('active');
+  difficultyFilter = level;
+  filtered = applyFilters();
   if (currentIndex >= filtered.length) currentIndex = 0;
   if (document.getElementById('quiz-panel').classList.contains('visible')) {
     currentIndex = 0;
@@ -34,8 +77,24 @@ function setFilter(level) {
   }
 }
 
+function onSectionChange() {
+  filtered = applyFilters();
+  currentIndex = 0;
+  if (document.getElementById('quiz-panel').classList.contains('visible')) {
+    renderQuestion();
+  }
+}
+
+function onShuffleChange() {
+  filtered = applyFilters();
+  currentIndex = 0;
+  if (document.getElementById('quiz-panel').classList.contains('visible')) {
+    renderQuestion();
+  }
+}
+
 function startQuiz() {
-  filtered = [...allQuestions];
+  filtered = applyFilters();
   currentIndex = 0;
   correctCount = 0;
   reviewCount = 0;
@@ -46,10 +105,24 @@ function startQuiz() {
 }
 
 function renderQuestion() {
-  revealed = false;
+  if (filtered.length === 0) {
+    document.getElementById('quiz-panel').innerHTML = `
+      <div class="quiz-header">
+        <div><strong>No questions match these filters</strong></div>
+        <button onclick="exitQuiz()" style="border: none; background: none; cursor: pointer; font-size: 1.2em;">✕</button>
+      </div>
+    `;
+    return;
+  }
   const q = filtered[currentIndex];
   const progress = ((currentIndex + 1) / filtered.length * 100);
   const diffClass = q.difficulty.toLowerCase();
+  const sectionLine = q.section
+    ? `<div class="quiz-section">${q.section}</div>`
+    : '';
+  const openLink = (q.section && q.href)
+    ? `<a class="quiz-open" href="${q.href}">Open in section page ↗</a>`
+    : '';
   const html = `
     <div class="quiz-header">
       <div>
@@ -61,9 +134,11 @@ function renderQuestion() {
     <div class="quiz-progress">
       <div class="quiz-progress-bar" style="width: ${progress}%"></div>
     </div>
+    ${sectionLine}
     <div class="quiz-question">${q.questionText}</div>
     <div id="answer-container" style="display: none;">
       <div class="quiz-answer">${q.answerHTML}</div>
+      ${openLink}
     </div>
     <div class="quiz-buttons">
       <button class="primary" onclick="showAnswer()">Show Answer</button>
@@ -74,7 +149,6 @@ function renderQuestion() {
 }
 
 function showAnswer() {
-  revealed = true;
   const container = document.getElementById('answer-container');
   container.style.display = 'block';
   const buttons = document.querySelector('.quiz-buttons');

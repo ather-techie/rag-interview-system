@@ -754,10 +754,10 @@ result = router.query_with_adaptive_routing(corpus_docs, user_query)
 </details>
 ---
 
-## Q11. How do you design and benchmark a compression pipeline (LLMLingua, Selective Context, Recomp) to reduce Long-context RAG token cost while maintaining answer quality? [Intermediate]
+## Q11. How do you design and benchmark a compression pipeline (LLMLingua, Selective Context, Recomp) to reduce Long-context RAG token cost while maintaining answer quality? `[Intermediate]`
 
 <details>
-<summary>?? Show Answer</summary>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -793,10 +793,10 @@ Typical: 60-70% compression with 5-10% F1 drop. Reduces token cost by 60-70%.
 
 ---
 
-## Q12. How does a context window stuffing attack work against Long-context RAG, and what content-level, structural, and model-level controls prevent it? [Advanced]
+## Q12. How does a context window stuffing attack work against Long-context RAG, and what content-level, structural, and model-level controls prevent it? `[Advanced]`
 
 <details>
-<summary>?? Show Answer</summary>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 

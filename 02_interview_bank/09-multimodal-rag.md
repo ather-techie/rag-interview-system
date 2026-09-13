@@ -842,10 +842,10 @@ Use **LoRA fine-tuning** over full fine-tuning to avoid forgetting. Target 5–1
 </details>
 ---
 
-## Q11. How do you estimate and reduce the cost of CLIP inference at index time and multi-modal embedding storage at scale for a production Multi-modal RAG system? [Intermediate]
+## Q11. How do you estimate and reduce the cost of CLIP inference at index time and multi-modal embedding storage at scale for a production Multi-modal RAG system? `[Intermediate]`
 
 <details>
-<summary>?? Show Answer</summary>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 
@@ -879,10 +879,10 @@ Optimized (batching + quantization + selective): 30% image indexing, int8 storag
 
 ---
 
-## Q12. How do adversarial image inputs and cross-modal injection attacks threaten Multi-modal RAG, and what defences apply at the embedding, retrieval, and generation layers? [Advanced]
+## Q12. How do adversarial image inputs and cross-modal injection attacks threaten Multi-modal RAG, and what defences apply at the embedding, retrieval, and generation layers? `[Advanced]`
 
 <details>
-<summary>?? Show Answer</summary>
+<summary>💡 Show Answer</summary>
 
 **Answer:**
 

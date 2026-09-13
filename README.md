@@ -20,7 +20,7 @@
 | Link | Use it for |
 |---|---|
 | 🧾 [Cheatsheet](cheatsheets/CHEATSHEET.md) | All 52 RAG types compared in one table — best for a phone screen the same day |
-| 🕹️ [Interactive Quiz Site][pages-url] | Flip through every Q&A as flashcards with a difficulty filter, right in the browser |
+| 🕹️ [Interactive Quiz Site][quiz-url] | Flip through every Q&A as flashcards with a difficulty and section filter, right in the browser |
 | 🗺️ [Learning Path](00_overview/learning_path.md) | Structured curriculum if you have more than a few days to prepare |
 | ▶️ [Run Lab 01 in Colab](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/01_naive_rag.ipynb) | Build a working RAG pipeline in your browser, no local setup |
 
@@ -339,7 +339,7 @@ Hands-on Jupyter notebooks and composition pattern guides:
 | 1 | Core concepts ([`01_concepts/`](01_concepts)) + Labs 01–02 |
 | 2 | Full interview bank ([`02_interview_bank/`](02_interview_bank)) — all 52 architectures |
 | 3 | Failure modes + [`08_evaluation/`](08_evaluation) + Labs 03–04 |
-| 4 | Agentic RAG deep dive ([`01_concepts/agentic_orchestration.md`](01_concepts/agentic_orchestration.md)) + Lab 05 + mock interviews using the [Interactive Quiz Site][pages-url] |
+| 4 | Agentic RAG deep dive ([`01_concepts/agentic_orchestration.md`](01_concepts/agentic_orchestration.md)) + Lab 05 + mock interviews using the [Interactive Quiz Site][quiz-url] |
 
 ---
 
@@ -425,3 +425,4 @@ For issues, questions, or general feedback:
 [prs-shield]: https://img.shields.io/badge/PRs-welcome-brightgreen
 [prs-url]: CONTRIBUTING.md
 [pages-url]: https://ather-techie.github.io/rag-interview-system/
+[quiz-url]: https://ather-techie.github.io/rag-interview-system/quiz.html

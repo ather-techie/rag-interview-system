@@ -28,6 +28,7 @@ const SITE_CSS = readFileSync(path.join(ROOT, 'scripts', 'site.css'), 'utf8');
 const QUIZ_JS = readFileSync(path.join(ROOT, 'scripts', 'quiz.js'), 'utf8');
 
 const QUIZ_DIRS = new Set(['02_interview_bank', '03_failure_modes']);
+const QUIZ_GROUP_LABELS = { '02_interview_bank': 'Architectures', '03_failure_modes': 'Failure Modes' };
 
 let warnings = 0;
 let brokenLinks = 0;
@@ -147,6 +148,48 @@ function rewriteLinks(html, srcDirRel, srcRel) {
   });
 }
 
+/**
+ * Re-bases relative href/src attribute values that are already relative to
+ * srcDirRel so they instead resolve from the repo root (used when lifting a
+ * fragment of a page, e.g. an answer block, out into a root-level page).
+ */
+function rebaseRelativeUrls(html, srcDirRel) {
+  return html.replace(/(\s(?:href|src)=)"([^"]*)"/g, (_match, pre, val) => {
+    const unescaped = val.replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+    if (isExternalOrIgnorable(unescaped)) return `${pre}"${val}"`;
+    const hashIdx = unescaped.indexOf('#');
+    const pathPart = hashIdx === -1 ? unescaped : unescaped.slice(0, hashIdx);
+    const frag = hashIdx === -1 ? '' : unescaped.slice(hashIdx);
+    const rebased = srcDirRel ? path.posix.normalize(path.posix.join(srcDirRel, pathPart)) : pathPart;
+    const escaped = (rebased + frag).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    return `${pre}"${escaped}"`;
+  });
+}
+
+const QUESTION_RE =
+  /<h2 id="([^"]+)">(Q\d+\.[\s\S]*?)<\/h2>\s*<details>\s*(?:<summary>[\s\S]*?<\/summary>)?([\s\S]*?)<\/details>/g;
+
+/** Pulls {id, question, difficulty, answer} quiz items out of a rendered quiz-page fragment. */
+function extractQuizItems(html, { srcDirRel, pageHref, srcRel }) {
+  const items = [];
+  for (const match of html.matchAll(QUESTION_RE)) {
+    const [, id, headingHtml, answerHtml] = match;
+    const diffMatch = headingHtml.match(/<code>\[(Basic|Intermediate|Advanced)\]<\/code>/);
+    const difficulty = diffMatch ? diffMatch[1] : 'Basic';
+    const question = headingHtml
+      .replace(/<code>\[(Basic|Intermediate|Advanced)\]<\/code>\s*$/, '')
+      .replace(/^Q\d+\.\s*/, '')
+      .trim();
+    const answer = rebaseRelativeUrls(answerHtml.trim(), srcDirRel);
+    items.push({ id, question, difficulty, answer, href: `${pageHref}#${id}` });
+  }
+  if (items.length === 0) {
+    warnings++;
+    console.warn(`[warn] ${srcRel}: no quiz questions found (expected Q&A headings)`);
+  }
+  return items;
+}
+
 /** Wraps rendered body HTML in the shared page shell. */
 function wrapPage({ title, bodyHtml, depth, quiz }) {
   const backHref = '../'.repeat(depth) + 'index.html';
@@ -202,12 +245,77 @@ function buildDirectoryIndex(relDir, pages) {
   return wrapPage({ title: dirLabel, bodyHtml: body, depth: 1, quiz: false });
 }
 
+/** Builds the aggregated all-questions quiz page at the site root. */
+function buildQuizPage(items, sections) {
+  const quizSectionsFor = (dir) =>
+    (sections.get(dir) ?? [])
+      .filter((s) => s.count > 0)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+  const tocGroups = ['02_interview_bank', '03_failure_modes']
+    .filter((dir) => quizSectionsFor(dir).length > 0)
+    .map((dir) => {
+      const rows = quizSectionsFor(dir)
+        .map(
+          (s) =>
+            `<li><a href="${s.href}">${s.title}</a><span class="count">${s.count} question${s.count === 1 ? '' : 's'}</span></li>`
+        )
+        .join('\n');
+      return `<h2>${QUIZ_GROUP_LABELS[dir]}</h2>\n<ul class="quiz-toc">\n${rows}\n</ul>`;
+    })
+    .join('\n');
+
+  const sectionOptions = ['02_interview_bank', '03_failure_modes']
+    .filter((dir) => quizSectionsFor(dir).length > 0)
+    .map((dir) => {
+      const opts = quizSectionsFor(dir)
+        .map((s) => `<option value="${s.title}">${s.title}</option>`)
+        .join('\n');
+      return `<optgroup label="${QUIZ_GROUP_LABELS[dir]}">\n${opts}\n</optgroup>`;
+    })
+    .join('\n');
+
+  const dataJson = JSON.stringify(items).replace(/</g, '\\u003c');
+
+  const body = `<h1>RAG Interview Quiz</h1>
+<p>${items.length} questions across ${quizSectionsFor('02_interview_bank').length} architectures and ${quizSectionsFor('03_failure_modes').length} failure modes. Filter by difficulty or section, then start the quiz.</p>
+<div class="quiz-bar">
+  <button id="quiz-start-btn" onclick="startQuiz()">▶ Start Quiz</button>
+  <span style="font-weight: 500;">Filter:</span>
+  <button class="filter-btn active" onclick="setFilter('All', this)">All</button>
+  <button class="filter-btn" onclick="setFilter('Basic', this)">Basic</button>
+  <button class="filter-btn" onclick="setFilter('Intermediate', this)">Intermediate</button>
+  <button class="filter-btn" onclick="setFilter('Advanced', this)">Advanced</button>
+  <select id="section-select" onchange="onSectionChange()">
+    <option value="All">All sections</option>
+${sectionOptions}
+  </select>
+  <label><input type="checkbox" id="shuffle-toggle" onchange="onShuffleChange()"> Shuffle</label>
+</div>
+<div id="main-content">
+${tocGroups}
+</div>
+<div class="quiz-panel-overlay" id="quiz-overlay"></div>
+<div id="quiz-panel"></div>
+<script type="application/json" id="quiz-data">
+${dataJson}
+</script>
+<script>
+${QUIZ_JS}
+</script>`;
+
+  return wrapPage({ title: 'RAG Interview Quiz', bodyHtml: body, depth: 0, quiz: false });
+}
+
 function main() {
   rmSync(OUT, { recursive: true, force: true });
 
   const files = walk(ROOT);
   let pageCount = 0;
   let staticCount = 0;
+  const quizItems = [];
+  const quizSections = new Map(); // dir -> [{name, title, href, count}]
 
   // Track, per directory, whether it has a README.md and what other .md files it has.
   const dirInfo = new Map(); // rel dir -> { hasReadme: bool, pages: [{name, title}] }
@@ -250,6 +358,22 @@ function main() {
     const depth = srcDirRel === '' ? 0 : srcDirRel.split('/').length;
     const quiz = QUIZ_DIRS.has(srcDirRel);
 
+    if (quiz) {
+      const pageHref = path.posix.join(srcDirRel, path.posix.basename(outRel));
+      const items = extractQuizItems(html, { srcDirRel, pageHref, srcRel: rel });
+      const sectionTitle = title;
+      for (const item of items) {
+        quizItems.push({ ...item, section: sectionTitle, sectionGroup: QUIZ_GROUP_LABELS[srcDirRel] });
+      }
+      if (!quizSections.has(srcDirRel)) quizSections.set(srcDirRel, []);
+      quizSections.get(srcDirRel).push({
+        name: path.posix.basename(rel),
+        title: sectionTitle,
+        href: pageHref,
+        count: items.length,
+      });
+    }
+
     const page = wrapPage({ title, bodyHtml: html, depth, quiz });
     writeFileSync(outAbs, page, 'utf8');
     pageCount++;
@@ -267,8 +391,12 @@ function main() {
     indexCount++;
   }
 
+  const quizPage = buildQuizPage(quizItems, quizSections);
+  writeFileSync(path.join(OUT, 'quiz.html'), quizPage, 'utf8');
+
   console.log(
-    `Built ${pageCount} pages, ${indexCount} generated indexes, ${staticCount} static files ` +
+    `Built ${pageCount} pages, ${indexCount} generated indexes, ${staticCount} static files, ` +
+      `quiz page with ${quizItems.length} questions ` +
       `(${warnings} warnings, ${brokenLinks} broken .md links)`
   );
 
