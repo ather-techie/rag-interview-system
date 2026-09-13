@@ -8,3 +8,7 @@ __pycache__/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Node / site build
+node_modules/
+_site/
