@@ -15,10 +15,6 @@
 
 ⭐ **Star this repo** if it helps your interview prep — it keeps the project growing.
 
-🔗 **Related repos:**
-- [ai-agents-design-patterns](https://github.com/ather-techie/ai-agents-design-patterns) — design patterns for building production AI agents
-- [ai-system-design-interview](https://github.com/ather-techie/ai-system-design-interview) — system design interview prep for AI/ML platforms
-
 ## 🚀 Start Here
 
 | Link | Use it for |
@@ -68,6 +64,7 @@ Prefer zero setup? Every lab notebook has an **Open in Colab** badge — see [La
 - [Contributing](#contributing)
 - [Star History](#-star-history)
 - [Support](#support)
+- [More from the author](#-more-from-the-author)
 
 ### 🗺️ Getting Started
 
@@ -398,6 +395,13 @@ For issues, questions, or general feedback:
 - Open an issue on [GitHub](https://github.com/ather-techie/rag-interview-system/issues)
 - Join the [Discord community](https://discord.gg/FqEFjRT3Y)
 - Contact: [ather.techie@gmail.com](mailto:ather.techie@gmail.com)
+
+---
+
+## 🔗 More from the author
+
+- [ai-agents-design-patterns](https://github.com/ather-techie/ai-agents-design-patterns) — design patterns for building production AI agents
+- [ai-system-design-interview](https://github.com/ather-techie/ai-system-design-interview) — system design interview prep for AI/ML platforms
 
 ---
 
