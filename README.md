@@ -1,6 +1,5 @@
 # RAG Interview Questions & Answers (2026) — Retrieval-Augmented Generation Interview Prep
 
-
 [![Stargazers][stars-shield]][stars-url]
 [![Forks][forks-shield]][forks-url]
 [![License: MIT][license-shield]][license-url]
@@ -8,9 +7,8 @@
 ![Questions][questions-shield]
 [![PRs Welcome][prs-shield]][prs-url]
 
-
 <p align="center">
-  <img src="assets/logos/image.png" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 603 Q&A covering 52 architectures and production failure modes" width="800" />
+  <img src="assets/logos/banner.webp" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 603 Q&A covering 52 architectures and production failure modes" width="800" />
 </p>
 
 **603 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 52 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
@@ -20,6 +18,30 @@
 🔗 **Related repos:**
 - [ai-agents-design-patterns](https://github.com/ather-techie/ai-agents-design-patterns) — design patterns for building production AI agents
 - [ai-system-design-interview](https://github.com/ather-techie/ai-system-design-interview) — system design interview prep for AI/ML platforms
+
+## 🚀 Start Here
+
+| Link | Use it for |
+|---|---|
+| 🧾 [Cheatsheet](cheatsheets/CHEATSHEET.md) | All 52 RAG types compared in one table — best for a phone screen the same day |
+| 🕹️ [Interactive Quiz Site][pages-url] | Flip through every Q&A as flashcards with a difficulty filter, right in the browser |
+| 🗺️ [Learning Path](00_overview/learning_path.md) | Structured curriculum if you have more than a few days to prepare |
+| ▶️ [Run Lab 01 in Colab](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/01_naive_rag.ipynb) | Build a working RAG pipeline in your browser, no local setup |
+
+### Quick Start (run the labs locally)
+
+```bash
+git clone https://github.com/ather-techie/rag-interview-system.git
+cd rag-interview-system/06_labs_py
+
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+cp .env.example .env   # set AI_PROVIDER / AI_MODEL / AI_API_KEY
+jupyter lab 01_naive_rag.ipynb
+```
+
+Prefer zero setup? Every lab notebook has an **Open in Colab** badge — see [Labs & Patterns](#-labs--patterns) below.
 
 ## What is RAG?
 
@@ -32,9 +54,20 @@
 - **Data scientists** facing RAG system design interviews
 - **Hiring managers and interviewers** building question sets for GenAI roles
 
-## 📚 Sections
+## 📚 Table of Contents
 
-[Getting Started](#-getting-started) · [Core Concepts](#-core-concepts) · [RAG Architecture Interview Questions](#-rag-architecture-interview-questions-52-types) · [Failure Modes & Production Issues](#-failure-modes--production-issues) · [Labs & Patterns](#-labs--patterns) · [Coming Soon](#-coming-soon)
+- [Getting Started](#-getting-started)
+- [Core Concepts](#-core-concepts)
+- [RAG Architecture Map (52 Types)](#-rag-architecture-map-52-types)
+- [Failure Modes & Production Issues](#-failure-modes--production-issues)
+- [Labs & Patterns](#-labs--patterns)
+- [Coming Soon](#-coming-soon)
+- [Study Plans](#-study-plans)
+- [How to Use](#-how-to-use)
+- [Topics Covered](#-topics-covered)
+- [Contributing](#contributing)
+- [Star History](#-star-history)
+- [Support](#support)
 
 ### 🗺️ Getting Started
 
@@ -69,7 +102,58 @@
 
 **Core Concepts Total: 74 questions across 17 files**
 
-### ❓ RAG Architecture Interview Questions (52 Types)
+### 🧭 RAG Architecture Map (52 Types)
+
+```mermaid
+flowchart TD
+    RAG["52 RAG Architectures"] --> F["Foundational"]
+    RAG --> AC["Adaptive & Self-Correcting"]
+    RAG --> AG["Agentic & Reasoning"]
+    RAG --> GR["Graph-Based"]
+    RAG --> LC["Long-Context & Memory"]
+    RAG --> MS["Multimodal & Structured"]
+    RAG --> EF["Efficiency & Query Transform"]
+    RAG --> SR["Security, Trust & Real-Time"]
+    RAG --> TT["Training-Time / Parametric"]
+
+    F --> F1["Naive · Advanced · Modular RAG"]
+    F --> F2["DPR · ColRAG/ColBERT"]
+
+    AC --> AC1["Adaptive RAG"]
+    AC --> AC2["Corrective RAG (CRAG)"]
+    AC --> AC3["Self-RAG · Astute RAG"]
+    AC --> AC4["Speculative RAG"]
+
+    AG --> AG1["Agentic RAG · FLARE"]
+    AG --> AG2["Iterative / Multi-hop RAG"]
+    AG --> AG3["Search-R1 · Auto-RAG/DeepRAG"]
+    AG --> AG4["Deep Research · CoRAG · RQ-RAG"]
+
+    GR --> GR1["Graph RAG · LightRAG"]
+    GR --> GR2["HippoRAG · KAG"]
+    GR --> GR3["GraphReader / GNN-RAG"]
+    GR --> GR4["LazyGraphRAG"]
+
+    LC --> LC1["Long-Context RAG · RAPTOR"]
+    LC --> LC2["Contextual RAG · LongRAG"]
+    LC --> LC3["Memory / Conversational RAG"]
+    LC --> LC4["MemoRAG · Recursive Summarization"]
+
+    MS --> MS1["Structured/SQL · Table-Aware RAG"]
+    MS --> MS2["Multimodal RAG · VisRAG"]
+
+    EF --> EF1["CAG · REFRAG"]
+    EF --> EF2["RAG-Fusion · HyDE · Few-Shot Example RAG"]
+
+    SR --> SR1["Verifiable/Citation RAG · SURGE"]
+    SR --> SR2["Privacy-Preserving · Streaming/Real-Time RAG"]
+    SR --> SR3["Agentic Web RAG · WebGPT · Tree of Thought RAG"]
+
+    TT --> TT1["REALM · RETRO"]
+    TT --> TT2["Atlas · Fusion-in-Decoder · RAFT"]
+```
+
+Full classification (retrieval control, data modality, feedback loop, scope, latency class) for all 52 types: [`00_overview/rag_taxonomy.md`](./00_overview/rag_taxonomy.md).
 
 | # | Topic | Questions |
 |---|-------|-----------|
@@ -128,6 +212,66 @@
 
 **RAG Architectures Total: 450 questions**
 
+<details>
+<summary><strong>One-line summary of every architecture</strong> (click to expand)</summary>
+
+```
+Naive RAG                          — Chunk → Embed → Store → Retrieve → Generate
+Advanced RAG                       — Query rewriting + Hybrid search + Re-ranking
+Modular RAG                        — Plug-and-play pipeline components
+Agentic RAG                        — LLM decides when/how to retrieve (ReAct, FLARE)
+Graph RAG                          — Knowledge graph for entity-aware retrieval
+Corrective RAG (CRAG)              — Evaluates retrieval quality, falls back to web search
+Self-RAG                           — Model trained to reflect, retrieve, and critique itself
+Speculative RAG                    — Small model drafts → Large model selects best
+Multi-modal RAG                    — Retrieve across text, images, tables, audio
+Long-context RAG                   — Stuff entire docs into large context windows
+Adaptive RAG                       — Query classifier routes to no-retrieval / single-hop / multi-hop
+Structured / SQL RAG               — Text-to-SQL generation for relational database retrieval
+RAPTOR                             — Recursively clusters and summarizes chunks into a multi-level tree
+Contextual RAG                     — LLM-generated context prefix prepended to each chunk before embedding
+LightRAG                           — Entity-relationship graph + dual-level (local + global) retrieval
+RAFT                               — Fine-tunes the LLM generator on oracle + distractor documents
+Cache-Augmented Generation (CAG)   — Preloads entire corpus into KV cache — no retrieval step at inference
+RAG-Fusion                         — N query reformulations → N parallel retrievals → RRF merge → generation
+Iterative / Multi-hop RAG          — Retrieve → reason → retrieve loops (IRCoT, Self-Ask) until a stopping criterion
+HippoRAG                           — Personalized PageRank over an LLM-built knowledge graph for single-step multi-hop
+Memory / Conversational RAG        — Tiered memory + history-aware query rewriting for multi-turn dialogue
+HyDE                               — Embed an LLM-generated hypothetical answer to close the query-document gap
+FLARE                              — Retrieve mid-generation when next-sentence tokens fall below a confidence threshold
+KAG (Knowledge Augmented Gen.)     — Logical-form reasoning + KG/text mutual indexing for professional domains
+GraphReader / GNN-RAG              — Agentic graph-of-notes traversal / GNN-retrieved reasoning subgraphs
+REALM (training-time)              — Retriever learned end-to-end during masked-LM pre-training
+RETRO (training-time)              — Chunked cross-attention over a trillion-token frozen datastore
+Atlas (training-time)              — Jointly-trained Contriever + FiD; few-shot knowledge learning
+Fusion-in-Decoder (FiD) (training) — Encode passages separately, fuse them in the decoder
+ColRAG / ColBERT                   — Multi-vector late interaction (MaxSim); each token gets its own embedding
+Agentic Web RAG                    — Live web search as retrieval backend; real-time freshness + citation extraction
+Few-Shot Example RAG               — Retrieves query→answer demonstrations rather than documents; plugged into the prompt
+Verifiable / Citation RAG          — Inline citations mapped to specific passages; post-hoc attribution verification
+Privacy-Preserving RAG             — On-device embedding, differential privacy, federated retrieval for zero-trust corpora
+Streaming / Real-Time RAG          — Continuous index updates from Kafka / CDC; freshness window in seconds
+Table-Aware RAG                    — Structured retrieval over semi-structured tables; row/column linearization or SQL hybrid
+Tree of Thought RAG                — ToT reasoning branches with conditional per-hypothesis retrieval
+DPR (Dense Passage Retrieval)       (foundational) — Bi-encoder trained with question–passage contrastive loss
+WebGPT / Tool-Augmented LM          (foundational) — RLHF-trained to issue browser actions (search/click/quote)
+SURGE (Schema-Grounded RAG)        — tool_use schema-constrained extraction + per-field NLI grounding validation
+Recursive Doc. Summarization RAG   — 4-level summary tree (chunk→section→doc→corpus); routes queries to the right level
+Search-R1 / Reasoning RAG          — RL-trained LLM interleaves reasoning and self-issued search calls
+Deep Research / Agentic Research   — Parallel plan-search-read-synthesize sub-agents produce a long-form cited report
+MemoRAG                            — Compresses the corpus into a global memory that drafts query-time retrieval clues
+LongRAG + Self-Route               — Retrieves large (~4K-token) grouped units; Self-Route picks RAG vs. long-context
+VisRAG                             — Embeds and reads document pages as images end-to-end via a VLM
+LazyGraphRAG                       — Cheap noun-phrase co-occurrence graph at index time, LLM work deferred to query time
+Astute RAG                         — Elicits the LLM's own parametric knowledge, reconciles it with retrieved passages
+Auto-RAG / DeepRAG                 — Decides retrieve-vs-reason at every step, not once up-front
+CoRAG (Chain-of-Retrieval)         — Rejection-sampled retrieval chains; chain length is a test-time compute knob
+RQ-RAG                             — Fine-tunes the LLM to chain query-refinement operations via special tokens
+REFRAG                             — Compresses chunks into embeddings, RL policy expands only the important ones
+```
+
+</details>
+
 ### ⚠️ Failure Modes & Production Issues
 
 | # | Topic | Questions |
@@ -157,7 +301,7 @@ Hands-on Jupyter notebooks and composition pattern guides:
 | # | Section | Contents |
 |---|---------|----------|
 | 04 | [Patterns](./04_patterns/README.md) | Router + fallback, fan-out/fan-in, migration path, anti-patterns |
-| 06 | [Labs](./06_labs_py/README.md) | 5 Jupyter notebooks: Naive RAG → Hybrid RAG → Reranker → RAGAS Evaluation → Agentic RAG |
+| 06 | [Labs](./06_labs_py/README.md) | 5 Jupyter notebooks: Naive RAG → Hybrid RAG → Reranker → RAGAS Evaluation → Agentic RAG. Each has an [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/01_naive_rag.ipynb) badge — no local setup needed |
 | 08 | [Evaluation](./08_evaluation/README.md) | Golden dataset construction guide + RAGAS CI harness |
 | 09 | [Tools](./09_tools/README.md) | Eval & observability tool comparison (Ragas, TruLens, DeepEval, LlamaIndex eval, LangChain eval); vector DB & framework comparisons still planned |
 
@@ -171,202 +315,40 @@ Hands-on Jupyter notebooks and composition pattern guides:
 
 ---
 
-## 🗺️ RAG Architecture Types Explained (52 Patterns + 9 Failure Modes)
+## 🗓️ Study Plans
 
-**RAG Architectures (52 types):**
-```
-Naive RAG
-  └── Chunk → Embed → Store → Retrieve → Generate
+### 1 Day (phone screen tomorrow)
 
-Advanced RAG
-  └── Query rewriting + Hybrid search + Re-ranking
+| Step | Do this |
+|---|---|
+| 1 | Skim [`cheatsheets/CHEATSHEET.md`](cheatsheets/CHEATSHEET.md) — all 52 types compared |
+| 2 | Read Q1–Q5 of [Naive RAG](02_interview_bank/01-naive-rag.md), [Advanced RAG](02_interview_bank/02-advanced-rag.md), [Agentic RAG](02_interview_bank/04-agentic-rag.md) |
+| 3 | Read [`00_overview/roadmap.md`](00_overview/roadmap.md) for the big picture |
 
-Modular RAG
-  └── Plug-and-play pipeline components
+### 1 Week (first-round interview)
 
-Agentic RAG
-  └── LLM decides when/how to retrieve (ReAct, FLARE)
+| Day | Focus |
+|---|---|
+| 1–2 | [`01_concepts/`](01_concepts) — embeddings, chunking, vector DBs, retrieval, reranking |
+| 3–4 | [`02_interview_bank/`](02_interview_bank) — all 52 architectures, all questions |
+| 5 | [`03_failure_modes/`](03_failure_modes) — the 9 production failure patterns |
+| 6 | Run [Labs 01–03](06_labs_py) — naive → hybrid → reranker, hands-on |
+| 7 | [`00_overview/system_design_principles.md`](00_overview/system_design_principles.md) + a mock system design round |
 
-Graph RAG
-  └── Knowledge graph for entity-aware retrieval
+### 4 Weeks (deep prep / career switch)
 
-Corrective RAG (CRAG)
-  └── Evaluates retrieval quality, falls back to web search
-
-Self-RAG
-  └── Model trained to reflect, retrieve, and critique itself
-
-Speculative RAG
-  └── Small model drafts → Large model selects best
-
-Multi-modal RAG
-  └── Retrieve across text, images, tables, audio
-
-Long-context RAG
-  └── Stuff entire docs into large context windows
-
-Adaptive RAG
-  └── Query classifier routes to no-retrieval / single-hop / multi-hop
-
-Structured / SQL RAG
-  └── Text-to-SQL generation for relational database retrieval
-
-RAPTOR  [NEW]
-  └── Recursively clusters and summarizes chunks into a multi-level tree
-
-Contextual RAG  [NEW]
-  └── LLM-generated context prefix prepended to each chunk before embedding
-
-LightRAG  [NEW]
-  └── Entity-relationship graph + dual-level (local + global) retrieval
-
-RAFT  [NEW]
-  └── Fine-tunes the LLM generator on oracle + distractor documents
-
-Cache-Augmented Generation (CAG)  [NEW]
-  └── Preloads entire corpus into KV cache — no retrieval step at inference
-
-RAG-Fusion  [NEW]
-  └── N query reformulations → N parallel retrievals → RRF merge → generation
-
-Iterative / Multi-hop RAG  [NEW]
-  └── Retrieve → reason → retrieve loops (IRCoT, Self-Ask) until a stopping criterion
-
-HippoRAG  [NEW]
-  └── Personalized PageRank over an LLM-built knowledge graph for single-step multi-hop
-
-Memory / Conversational RAG  [NEW]
-  └── Tiered memory + history-aware query rewriting for multi-turn dialogue
-
-HyDE  [NEW]
-  └── Embed an LLM-generated hypothetical answer to close the query-document gap
-
-FLARE  [NEW]
-  └── Retrieve mid-generation when next-sentence tokens fall below a confidence threshold
-
-KAG (Knowledge Augmented Generation)  [NEW]
-  └── Logical-form reasoning + KG/text mutual indexing for professional domains
-
-GraphReader / GNN-RAG  [NEW]
-  └── Agentic graph-of-notes traversal / GNN-retrieved reasoning subgraphs
-
-REALM  [NEW]  (training-time)
-  └── Retriever learned end-to-end during masked-LM pre-training
-
-RETRO  [NEW]  (training-time)
-  └── Chunked cross-attention over a trillion-token frozen datastore
-
-Atlas  [NEW]  (training-time)
-  └── Jointly-trained Contriever + FiD; few-shot knowledge learning
-
-Fusion-in-Decoder (FiD)  [NEW]  (training-time)
-  └── Encode passages separately, fuse them in the decoder
-
-ColRAG / ColBERT  [NEW]
-  └── Multi-vector late interaction (MaxSim); each token gets its own embedding
-
-Agentic Web RAG  [NEW]
-  └── Live web search as retrieval backend; real-time freshness + citation extraction
-
-Few-Shot Example RAG  [NEW]
-  └── Retrieves query→answer demonstrations rather than documents; plugged into the prompt
-
-Verifiable / Citation RAG  [NEW]
-  └── Inline citations mapped to specific passages; post-hoc attribution verification
-
-Privacy-Preserving RAG  [NEW]
-  └── On-device embedding, differential privacy, federated retrieval for zero-trust corpora
-
-Streaming / Real-Time RAG  [NEW]
-  └── Continuous index updates from Kafka / CDC; freshness window in seconds
-
-Table-Aware RAG  [NEW]
-  └── Structured retrieval over semi-structured tables; row/column linearization or SQL hybrid
-
-Tree of Thought RAG  [NEW]
-  └── ToT reasoning branches with conditional per-hypothesis retrieval
-
-DPR (Dense Passage Retrieval)  [NEW]  (foundational)
-  └── Bi-encoder trained with question–passage contrastive loss; parent of all learned dense retrieval
-
-WebGPT / Tool-Augmented LM  [NEW]  (foundational)
-  └── RLHF-trained to issue browser actions (search/click/quote) as a learned policy
-
-SURGE (Schema-Grounded RAG)  [NEW]
-  └── tool_use schema-constrained extraction + per-field NLI grounding validation
-
-Recursive Document Summarization RAG  [NEW]
-  └── 4-level summary tree (chunk→section→doc→corpus); routes queries to the right level
-
-Search-R1 / Reasoning RAG  [NEW]
-  └── Trains an LLM via RL to autonomously interleave reasoning and self-issued search calls, learning a retrieval policy from answer-correctness reward alone
-
-Deep Research / Agentic Research RAG  [NEW]
-  └── Runs parallel plan-search-read-synthesize sub-agents over a cost/latency budget to produce a long-form, multi-source cited report rather than a single answer
-
-MemoRAG  [NEW]
-  └── Compresses the whole corpus into a lightweight global memory that generates query-time draft clues to guide a precise retriever toward implicit or aggregate evidence
-
-LongRAG + Self-Route  [NEW]
-  └── Retrieves large (~4K-token) grouped units instead of small chunks, with Self-Route deciding per-query whether RAG or full long-context stuffing is needed
-
-VisRAG  [NEW]
-  └── Embeds and reads document pages as images end-to-end via a VLM, skipping OCR/layout parsing for both retrieval and generation
-
-LazyGraphRAG  [NEW]
-  └── Builds only a cheap NLP noun-phrase co-occurrence graph at index time, deferring all LLM summarization to a query-time relevance-test-and-expand loop
-
-Astute RAG  [NEW]
-  └── Elicits the LLM's own parametric knowledge as an explicit source, then iteratively reconciles it with retrieved passages to resolve conflicts
-
-Auto-RAG / DeepRAG  [NEW]
-  └── Decides retrieve-vs-reason at every reasoning step rather than once up-front, via autonomous multi-turn dialogue or an explicit MDP over subqueries
-
-CoRAG (Chain-of-Retrieval)  [NEW]
-  └── Trains on rejection-sampled retrieval chains to learn dynamic query reformulation; chain length becomes a test-time compute scaling knob
-
-RQ-RAG  [NEW]
-  └── Fine-tunes the LLM to explicitly choose and chain query-refinement operations (rewrite / decompose / disambiguate) via special tokens
-
-REFRAG  [NEW]
-  └── Compresses retrieved chunks into single dense embeddings and uses an RL-trained policy to selectively expand only the important ones, cutting TTFT ~30x
-```
-
-**Production Failure Modes (9 critical issues):**
-```
-Hallucination Despite Context
-  └── LLM ignores retrieved docs, generates false claims
-
-Retrieval Failure
-  └── Relevant chunks never surface due to semantic gap
-
-Embedding Mismatch
-  └── Query-doc embeddings in different semantic spaces
-
-Stale Index Problem
-  └── Index contains outdated information, answers are wrong
-
-Context Window Overflow
-  └── Too many/large chunks exceed context, forcing truncation
-
-Reranker Failure
-  └── Cross-encoder mis-ranks results, buries correct answers
-
-Conversational Context Drift  [NEW]
-  └── Multi-turn history poisons the retrieval query via unresolved references
-
-Cascading Retrieval Failure  [NEW]
-  └── Query expansion / HyDE / multi-hop amplifies the initial retrieval error instead of recovering
-
-Semantic Cache Leakage  [NEW]
-  └── Cached response for tenant A served to tenant B due to semantic similarity of queries
-```
+| Week | Focus |
+|---|---|
+| 1 | Core concepts ([`01_concepts/`](01_concepts)) + Labs 01–02 |
+| 2 | Full interview bank ([`02_interview_bank/`](02_interview_bank)) — all 52 architectures |
+| 3 | Failure modes + [`08_evaluation/`](08_evaluation) + Labs 03–04 |
+| 4 | Agentic RAG deep dive ([`01_concepts/agentic_orchestration.md`](01_concepts/agentic_orchestration.md)) + Lab 05 + mock interviews using the [Interactive Quiz Site][pages-url] |
 
 ---
 
 ## 💡 How to Use
 
-**Five content types:**
+**Content types:**
 
 1. **Getting Started (00_overview/)** — Roadmap, taxonomy, learning path, and system design principles for orientation
 
@@ -374,10 +356,8 @@ Semantic Cache Leakage  [NEW]
    - Read these first to build foundational understanding
    - Each file opens with a plain "What is X?" definition before going deep
    - Comparison tables, ASCII diagrams, code examples, and system design patterns
-   - Use to answer conceptual questions and understand mechanisms deeply
 
 3. **Interview Questions (02_interview_bank/)** — 12 questions per architecture
-   - Each section contains interview-style Q&A with detailed answers
    - Every section: original 10 questions + Q11 on cost optimization + Q12 on security
    - Questions are tagged with difficulty: `[Basic]` `[Intermediate]` `[Advanced]`
 
@@ -385,15 +365,9 @@ Semantic Cache Leakage  [NEW]
    - Nine critical production failure scenarios with diagnostic Q&A
    - Use for system design rounds and production-readiness discussions
 
-5. **CHEATSHEET (cheatsheets/CHEATSHEET.md)** — Quick reference
-   - All 52 RAG types compared in one table
-   - Use during phone screens or quick prep
+5. **Labs (06_labs_py/)** — 5 runnable notebooks turning the Q&A into working pipelines
 
-**Study path:**
-- **1-week prep:** Start with `00_overview/learning_path.md` → pick a track → follow the schedule
-- **Phone screen:** `cheatsheets/CHEATSHEET.md` + Q1–Q5 from relevant architectures
-- **System design round:** `00_overview/system_design_principles.md` + Q9–Q12 from all files + `03_failure_modes/` for production readiness
-- **Deep prep:** Read `01_concepts/` files + all `02_interview_bank/` Q&A
+See [Study Plans](#-study-plans) above for how to sequence these under time pressure.
 
 ---
 
@@ -405,9 +379,15 @@ Embeddings · Chunking strategies · Vector databases (FAISS, Pinecone, Weaviate
 
 ## Contributing
 
-This repo grows best with real-world signal. If you were asked a RAG question in an interview, **open a PR** — real questions are prioritized over synthetically generated ones.
+This repo grows best with real-world signal. If you were asked a RAG question in an interview, [open an issue](https://github.com/ather-techie/rag-interview-system/issues/new/choose) or a PR — real questions are prioritized over synthetically generated ones.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to submit a question.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the format, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community guidelines.
+
+---
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=ather-techie/rag-interview-system&type=Date)](https://star-history.com/#ather-techie/rag-interview-system&Date)
 
 ---
 
@@ -415,7 +395,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to submit a question.
 
 For issues, questions, or general feedback:
 
-- Open an issue on [GitHub](https://github.com/ather-techie/rag-interview-questions/issues)
+- Open an issue on [GitHub](https://github.com/ather-techie/rag-interview-system/issues)
 - Join the [Discord community](https://discord.gg/FqEFjRT3Y)
 - Contact: [ather.techie@gmail.com](mailto:ather.techie@gmail.com)
 
@@ -430,13 +410,14 @@ For issues, questions, or general feedback:
 *See [Contributing](#contributing) to add your interview experience to the repo.*
 
 <!-- Badge References -->
-[stars-shield]: https://img.shields.io/github/stars/ather-techie/rag-interview-questions?style=flat-square
-[stars-url]: https://github.com/ather-techie/rag-interview-questions/stargazers
-[forks-shield]: https://img.shields.io/github/forks/ather-techie/rag-interview-questions?style=flat-square
-[forks-url]: https://github.com/ather-techie/rag-interview-questions/network/members
-[license-shield]: https://img.shields.io/github/license/ather-techie/rag-interview-questions
+[stars-shield]: https://img.shields.io/github/stars/ather-techie/rag-interview-system?style=flat-square
+[stars-url]: https://github.com/ather-techie/rag-interview-system/stargazers
+[forks-shield]: https://img.shields.io/github/forks/ather-techie/rag-interview-system?style=flat-square
+[forks-url]: https://github.com/ather-techie/rag-interview-system/network/members
+[license-shield]: https://img.shields.io/github/license/ather-techie/rag-interview-system
 [license-url]: LICENSE
-[commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-questions
+[commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-system
 [questions-shield]: https://img.shields.io/badge/questions-603-blue
 [prs-shield]: https://img.shields.io/badge/PRs-welcome-brightgreen
 [prs-url]: CONTRIBUTING.md
+[pages-url]: https://ather-techie.github.io/rag-interview-system/

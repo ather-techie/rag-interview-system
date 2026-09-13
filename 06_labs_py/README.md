@@ -4,13 +4,15 @@
 
 ## Contents
 
-| Notebook | What You Build | Key Skills |
-|----------|---------------|-----------|
-| [01_naive_rag.ipynb](01_naive_rag.ipynb) | End-to-end naive RAG: chunk → embed → FAISS → Claude | Indexing pipeline, cosine retrieval, generation |
-| [02_hybrid_rag.ipynb](02_hybrid_rag.ipynb) | BM25 + dense retrieval merged with RRF | `rank_bm25`, FAISS, RRF formula, comparison vs. each alone |
-| [03_reranker_pipeline.ipynb](03_reranker_pipeline.ipynb) | Two-stage: bi-encoder → cross-encoder reranker | `CrossEncoder`, latency trade-off, rank change analysis |
-| [04_ragas_evaluation.ipynb](04_ragas_evaluation.ipynb) | Full eval harness: RAGAS + custom judges + regression detection | Golden datasets, RAGAS 4 metrics, LLM-as-judge, Recall@k |
-| [05_agentic_rag.ipynb](05_agentic_rag.ipynb) | ReAct & Plan-and-Execute agentic retrieval loops with tool use, stopping criteria, and prompt-injection guardrails | Provider-agnostic function-calling loops, multi-hop query decomposition, agent evaluation, injection defense |
+| Notebook | Run it | What You Build | Key Skills |
+|----------|--------|---------------|-----------|
+| [01_naive_rag.ipynb](01_naive_rag.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/01_naive_rag.ipynb) | End-to-end naive RAG: chunk → embed → FAISS → Claude | Indexing pipeline, cosine retrieval, generation |
+| [02_hybrid_rag.ipynb](02_hybrid_rag.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/02_hybrid_rag.ipynb) | BM25 + dense retrieval merged with RRF | `rank_bm25`, FAISS, RRF formula, comparison vs. each alone |
+| [03_reranker_pipeline.ipynb](03_reranker_pipeline.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/03_reranker_pipeline.ipynb) | Two-stage: bi-encoder → cross-encoder reranker | `CrossEncoder`, latency trade-off, rank change analysis |
+| [04_ragas_evaluation.ipynb](04_ragas_evaluation.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/04_ragas_evaluation.ipynb) | Full eval harness: RAGAS + custom judges + regression detection | Golden datasets, RAGAS 4 metrics, LLM-as-judge, Recall@k |
+| [05_agentic_rag.ipynb](05_agentic_rag.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/05_agentic_rag.ipynb) | ReAct & Plan-and-Execute agentic retrieval loops with tool use, stopping criteria, and prompt-injection guardrails | Provider-agnostic function-calling loops, multi-hop query decomposition, agent evaluation, injection defense |
+
+Each notebook's first code cell installs its own dependencies and (when opened in Colab) fetches `ai_client.py` and prompts for an API key — no local setup required to try a lab. For the full local experience (all 5 labs, one shared environment), follow the steps below.
 
 ## Prerequisites
 

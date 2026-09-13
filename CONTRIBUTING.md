@@ -45,6 +45,10 @@ Your answer here. Use tables, code blocks, and bullet points where they aid clar
 - Cite papers or tools where relevant (no need for formal citation format)
 - Avoid vendor lock-in in answers — mention open-source alternatives alongside commercial tools
 
+## Updating the Question Count
+
+If your PR adds or removes questions, update the `questions-###` badge value in `README.md` (badge reference section near the bottom) and the relevant section/grand totals in the same file.
+
 ## Opening Issues
 
 Use issues to:

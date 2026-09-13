@@ -1,0 +1,25 @@
+name: "\U0001F41B Content fix or outdated info"
+description: Report an incorrect answer, outdated tooling/API reference, or broken link.
+title: "[Fix] "
+labels: ["content-fix", "good first issue"]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: File and question number
+      placeholder: e.g. 02_interview_bank/05-graph-rag.md, Q7
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What's wrong?
+      placeholder: e.g. "References the old LangChain 0.0.x import path" or "Link to REFERENCES.md is broken"
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix (optional)
+    validations:
+      required: false

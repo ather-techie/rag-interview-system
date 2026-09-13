@@ -1,0 +1,26 @@
+name: "\U0001F9E9 Propose a new RAG architecture / section"
+description: Suggest a RAG variant, failure mode, or concept that isn't covered yet.
+title: "[New Section] "
+labels: ["new-section"]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Architecture / topic name
+      placeholder: e.g. "GraphRAG-Lite" or "Token-level attribution RAG"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why does this deserve its own section?
+      description: How is it distinct from the 52 architectures already covered? Link a paper, blog post, or production write-up if you have one.
+    validations:
+      required: true
+  - type: checkboxes
+    id: willingness
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd like to write the Q&A for this myself
+        - label: I'm just suggesting it for someone else to pick up

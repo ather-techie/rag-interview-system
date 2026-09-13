@@ -16,7 +16,7 @@ Mermaid diagrams (rendered by GitHub) plus the ASCII fallback used elsewhere in 
 
 ## In the meantime
 
-- ASCII architecture sketches: [`README.md`](../README.md#-rag-landscape-overview) landscape overview
+- Architecture map and full 52-type list: [`README.md`](../README.md#-rag-architecture-map-52-types)
 - Taxonomy tree: [`00_overview/rag_taxonomy.md`](../00_overview/rag_taxonomy.md)
 
 ## Contributing

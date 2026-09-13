@@ -1,0 +1,43 @@
+name: "\U0001F4AC Share a real interview question"
+description: Were you asked a RAG/LLM question in an actual interview? Post it here — real questions are prioritized over synthetic ones.
+title: "[Question] "
+labels: ["real-interview-question", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing! Even a rough paraphrase is useful — you don't need to write the full answer yourself.
+  - type: input
+    id: company-type
+    attributes:
+      label: Company / role type (optional)
+      description: No need to name the company if you'd rather not — "series-B fintech" or "big tech" is fine.
+      placeholder: e.g. mid-size healthtech, staff ML engineer role
+    validations:
+      required: false
+  - type: textarea
+    id: question
+    attributes:
+      label: The question, as best you can recall it
+      placeholder: e.g. "How would you handle a knowledge base that updates every few minutes?"
+    validations:
+      required: true
+  - type: dropdown
+    id: section
+    attributes:
+      label: Which existing section does this fit best?
+      description: Pick the closest match, or "New / not sure" if it doesn't fit anywhere yet.
+      options:
+        - 01_concepts (embeddings, chunking, vector DBs, etc.)
+        - 02_interview_bank (a specific RAG architecture)
+        - 03_failure_modes (production failure scenario)
+        - New / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Any context on what a good answer covers (optional)
+      description: If you remember what the interviewer was probing for, or how you answered, include it — it helps whoever writes this up.
+    validations:
+      required: false
