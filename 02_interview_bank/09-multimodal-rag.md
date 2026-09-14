@@ -916,6 +916,146 @@ Combining these defences prevents adversarial images from poisoning the retrieva
 
 ---
 
+## Q13. Walk through the Multi-modal RAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Documents (text, images, tables, audio, video)
+        │
+        ▼
+Per-modality encoders (text embedder, CLIP/SigLIP for images,
+table-to-text summarizer, ASR for audio) → shared or aligned
+embedding space
+        │
+        ▼
+Unified (or per-modality) Vector Store
+        │
+Query (text, or image, or mixed) → embed in the same space → ANN search
+        │
+        ▼
+Retrieved multi-modal context → Multimodal LLM Generator → Answer
+```
+
+The architectural challenge visible in this diagram is that each modality needs its own specialized encoder (Q2's CLIP for images is one example), but all of them must ultimately produce vectors comparable enough to rank together — this is what Q7's early-fusion-vs-late-fusion distinction is actually about, and what separates Multimodal RAG from VisRAG's (#46) approach of avoiding the problem entirely by treating everything as one modality (page images).
+
+</details>
+
+---
+
+## Q14. What is the research origin of CLIP-style cross-modal embeddings? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+CLIP (Radford et al., *Learning Transferable Visual Models From Natural Language Supervision*, OpenAI, arXiv:2103.00020, 2021) trained an image encoder and a text encoder jointly via contrastive learning on 400 million (image, caption) pairs scraped from the web, producing a shared embedding space where an image and its matching caption land close together — the same contrastive, in-batch-negative training recipe used for text-only dense retrievers like DPR (#38), applied across two modalities simultaneously rather than within one.
+
+The headline result that made CLIP foundational for multimodal retrieval specifically was strong **zero-shot** transfer: a CLIP model trained only on web-scraped image-caption pairs, with no task-specific fine-tuning, could be used directly for image classification and cross-modal retrieval tasks it was never explicitly trained on — this zero-shot generality is exactly what makes CLIP embeddings usable as a drop-in cross-modal retrieval component (Q2) rather than requiring a bespoke encoder trained per deployment.
+
+</details>
+
+---
+
+## Q15. How does Multimodal RAG compare to VisRAG (#46)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Multimodal RAG (this file) keeps separate, specialized encoders per modality — a text embedder, CLIP for images, a table-to-text summarizer, ASR for audio — and either aligns them into a shared space or maintains per-modality indexes queried together (Q7). VisRAG (#46) takes the opposite approach specifically for documents: it renders every page as an image and uses a single vision-language model to embed and read *everything* — text, tables, figures, layout — as one unified modality, with no separate per-modality extraction or alignment step at all.
+
+The practical distinction: Multimodal RAG's per-modality approach is the right fit for genuinely heterogeneous content (a corpus mixing standalone images, video, audio, and text that aren't all page-based documents); VisRAG's single-modality-via-images approach is the right fit specifically for document-centric content (PDFs, slides, scanned reports) where treating everything as "the page as an image" sidesteps the alignment problem Q7 and Q19 describe entirely, at the cost of VisRAG's own trade-offs (#46 Q5) around cost and citation precision.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Multimodal RAG from standard text RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **retrieving across content types that aren't natively text, via modality-specific encoders that produce comparable (or jointly-trained) embeddings**, rather than assuming every piece of retrievable content can be reduced to text first. Standard text RAG's entire pipeline — chunking, embedding, retrieval, generation — implicitly assumes the corpus is text; Multimodal RAG explicitly builds in the machinery (Q2's CLIP-style joint embedding, Q3's table handling, Q6's video indexing) needed when a meaningful fraction of the corpus's value lives in images, tables, audio, or video that either can't be losslessly converted to text or loses important information when forced into a text-only representation.
+
+This is the same "some information is better represented as pixels/audio/structure than as extracted text" insight that motivates VisRAG (#46) and Table-Aware RAG (#36) — Multimodal RAG is the general framework for that insight applied across arbitrary content types, while VisRAG and Table-Aware RAG are narrower architectures optimized for two specific instances of it (document pages, tables respectively).
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for a Multimodal RAG system, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Fusion strategy (early vs. late, Q7) | Early fusion aligns modalities into one shared space upfront; late fusion keeps per-modality retrieval separate and merges results afterward | Late fusion is simpler to implement and debug per-modality; early fusion (a jointly-trained shared space, as CLIP provides for text-image) gives more precise cross-modal matching where available |
+| Per-modality `k` (how many results retrieved per modality before merging) | More per-modality candidates improve the odds a genuinely relevant item from an underrepresented modality survives to the final merge | Weight toward the modality your query type suggests is most likely relevant, rather than a uniform k across all modalities |
+| Modality weighting in fusion/reranking | Determines which modality's results are favored when merging | Calibrate against a labeled evaluation set (Q18) segmented by which modality actually contained the answer, rather than an assumed uniform weighting |
+| Table/structured-data handling (Q3) | Whether tables are summarized to text, linearized (as in Table-Aware RAG, #36), or embedded as images (as in VisRAG, #46) | Depends on table complexity and whether row-level precision or holistic layout understanding matters more for your query types |
+
+Fusion strategy is the knob with the most architectural consequence — it determines whether cross-modal alignment quality (Q19) is a property of a jointly-trained embedding model (early fusion) or of a fusion/reranking heuristic operating on independently-computed scores (late fusion), which is a fundamentally different failure surface to debug when something goes wrong.
+
+</details>
+
+---
+
+## Q18. How do you evaluate cross-modal retrieval quality separately from text retrieval quality? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a labeled evaluation set specifically containing queries whose correct answer lives in a non-text modality (an image, a table, an audio clip) — a benchmark dominated by text-only queries won't exercise the multimodal machinery at all and will show no meaningful difference from a text-only RAG baseline. For each such query, measure whether the correct non-text item is retrieved (recall@k, computed per modality) and whether the final generated answer correctly incorporates information from it, since a system can retrieve the right image but still fail to use it correctly in generation (a separate failure point from retrieval).
+
+Segment results by modality and by fusion strategy (Q17) to identify which specific cross-modal pathway is underperforming — a system might retrieve text-to-text and image-to-image well but fail specifically at text-query-to-image-result matching, which is the actual cross-modal capability CLIP-style embeddings (Q14) exist to provide and therefore the specific capability most worth isolating and measuring, rather than trusting an aggregate multimodal accuracy number that blends same-modality and cross-modal retrieval performance together.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when different modalities' embeddings live in poorly-aligned spaces? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+If text and image embeddings aren't genuinely jointly trained (or a late-fusion merge relies on scores from independently-trained encoders with incompatible scales, the same RRF-motivating problem covered for hybrid text search, #02 Q13), a text query can fail to retrieve a genuinely relevant image not because the image is irrelevant, but because the two encoders' notions of "similar" don't correspond to each other in any principled way — a text query about "a chart showing declining revenue" might embed nowhere near an actual matching chart image if the text and image encoders were never trained to agree on what "similar" means across modalities.
+
+**Detection:** for cross-modal queries with a known correct non-text answer, check whether the correct item ranks reasonably even outside the top-k (is it in the top-50 but not the top-5, suggesting a ranking/threshold problem, or nowhere near the top at all, suggesting a fundamental alignment problem) — this distinguishes a tunable ranking issue from a structural embedding-space mismatch that no amount of `k` or threshold tuning fixes. **Mitigation:** use a genuinely jointly-trained cross-modal model (CLIP-family, Q14) for any modality pair that needs direct cross-modal matching, rather than combining independently-trained per-modality encoders and hoping their scores are comparable; where a jointly-trained model isn't available for a specific modality pair, prefer late fusion with rank-based merging (RRF, #02 Q13) over score-based merging, since rank-based fusion doesn't require the underlying scores to be on comparable scales.
+
+</details>
+
+---
+
+## Q20. What are the limitations of Multimodal RAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **cross-modal alignment quality is uneven across modality pairs** (Q19) — text-image alignment (via CLIP-family models) is mature, while text-audio, text-video, and text-table alignment have less standardized, less battle-tested joint-embedding options; (2) **per-modality encoder proliferation adds real operational complexity** (Q17) — a system supporting five modalities maintains five encoder pipelines, each with its own versioning, cost, and failure modes; (3) **evaluation tooling is less mature** than text-only RAG evaluation (Q9, Q18), requiring bespoke per-modality labeled sets most teams have to build themselves; (4) **generation-side multimodal reasoning quality varies** — even with perfect retrieval, the generator LLM's ability to correctly reason over a retrieved image or table varies significantly by model.
+
+Likely evolution: continued growth of natively multimodal foundation models (unified vision-language-audio models trained end-to-end) reducing the need for separate per-modality encoders and hand-built fusion logic — the same trajectory that led from Multimodal RAG's per-modality architecture toward VisRAG's (#46) single-modality-via-images simplification for the document-specific case, plausibly extending to other modality combinations as jointly-trained models mature; and standardized multimodal retrieval benchmarks maturing to match the tooling depth already available for text-only RAG evaluation (Q9).
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Multimodal RAG Fits |
