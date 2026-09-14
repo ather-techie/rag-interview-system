@@ -269,6 +269,316 @@ def hybrid_memory_tree_rag(query: str, memory_model, memory, tree_index, retriev
 
 ---
 
+## Q6. Walk through the MemoRAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Corpus (offline, once)
+    │
+    ▼
+Memory Model compresses corpus ──► Global Memory (compact KV/token representation)
+─────────────────── query time ───────────────────
+Query
+    │
+    ▼
+Memory Model + Global Memory ──► generates DRAFT ANSWER or CLUES
+    │
+    ▼
+Clue-to-Query Expansion (clues converted into concrete retrieval queries)
+    │
+    ▼
+Precise Retriever (dense/sparse search over raw corpus, guided by clues)
+    │
+    ▼
+Evidence Passages ──► Generator (final answer, grounded in retrieved evidence)
+```
+
+The offline step (compress once) and the query-time step (generate clues, then retrieve) are cleanly separated, which is what makes MemoRAG's per-query cost bounded regardless of corpus size — the expensive part (having the memory model "read" the whole corpus) happens once, and every subsequent query only pays for a cheap clue-generation call against the already-compressed memory, plus a standard retrieval pass. Crucially, the final answer is grounded in the precise retriever's actual evidence, never directly in the memory model's draft — the draft is explicitly a means to a better retrieval query, not a shortcut around retrieval itself.
+
+</details>
+
+---
+
+## Q7. What is the single distinctive mechanism that separates MemoRAG from standard RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **generating a corpus-aware draft/clue before retrieval, from a model that has actually compressed the whole corpus**, rather than retrieving directly from the user's raw query. Standard RAG assumes the query's own vocabulary is close enough to the target passages' vocabulary for embedding similarity to find them; MemoRAG instead asks "given everything this corpus contains, what would evidence supporting an answer to this query actually look like" — a question only answerable by a model that has genuinely processed the full corpus, not just the query in isolation.
+
+This is what specifically targets implicit and aggregate queries (Q3) where the literal query shares little vocabulary with the scattered passages that answer it — a class of query standard RAG's direct query-to-passage matching structurally cannot solve well, no matter how good the embedding model is, because the mismatch is conceptual (the query doesn't mention the specific things that would answer it) rather than a matter of imperfect semantic matching.
+
+</details>
+
+---
+
+## Q8. How does MemoRAG compare to HyDE (#22)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both generate a hypothetical piece of text to embed instead of the raw query, closing the query-document vocabulary gap — but the hypothetical text comes from fundamentally different sources. HyDE (#22) generates its hypothetical document purely from the LLM's **parametric knowledge**, with no awareness of what the specific target corpus actually contains — it's a general-purpose technique that works the same way regardless of which corpus it's paired with. MemoRAG's clues come from a memory model that has **specifically compressed and "seen" this corpus** (Q2), so its clues are hypotheses grounded in what this particular corpus is actually likely to contain, not just what a generically plausible answer might look like.
+
+This difference matters most exactly where Q4's comparison table shows MemoRAG earning its cost: for a query needing corpus-specific implicit knowledge (a company's specific unnamed risks scattered across a report), HyDE's parametric-knowledge-only hypothetical document has no way to know what this specific 400-page filing discusses, while MemoRAG's clues are generated with the memory model having genuinely processed that exact document. For queries where general world knowledge suffices to guess a good hypothetical answer, HyDE is the cheaper option since it requires no corpus-specific compression step at all.
+
+</details>
+
+---
+
+## Q9. What is the research origin of MemoRAG, and what does the UltraDomain benchmark measure? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+MemoRAG was introduced by Qian et al., *MemoRAG: Boosting Long Context Processing with Global Memory-Enhanced Retrieval Augmentation* (arXiv:2409.05591, WWW '25), building a lightweight, long-context memory model (a Mistral-7B-based backbone in the reference implementation) specifically trained for corpus compression and clue generation, evaluated against the UltraDomain benchmark — a suite of long, domain-specific QA tasks designed to test performance on exactly the kind of implicit, aggregate, whole-document questions that motivate MemoRAG's design (Q3's contradiction/synthesis examples).
+
+The paper's positioning is explicitly against two alternatives: standard RAG (which struggles on implicit queries per Q3, Q4) and pure long-context processing (feeding the whole corpus to a large model every query, which MemoRAG's one-time compression step is designed to make unnecessary, Q2) — MemoRAG's reported gains on UltraDomain are specifically framed as outperforming both baselines on the long, domain-specific, implicit-query-heavy task distribution the benchmark represents, rather than claiming a universal improvement over standard RAG on all query types (which Q4's comparison table shows isn't actually the case for explicit, narrow queries).
+
+</details>
+
+---
+
+## Q10. What are the key tuning knobs for MemoRAG, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| `k` (number of clues generated per query) | More clues improve coverage of scattered evidence but increase retrieval calls and generation cost | 5, per Q2/Q3's pseudocode; raise for genuinely broad synthesis queries |
+| Compression ratio (global memory size vs. raw corpus) | More aggressive compression is cheaper to store/reuse but risks losing detail needed for specific clues (Q4's failure mode) | Follow the paper's reported ratio as a starting point; validate empirically against your own corpus's detail density |
+| Memory model backbone size | Larger models produce better-calibrated clues but cost more per compression pass and per query | A 7B-class model (as in the reference implementation) balances quality against being "lightweight" relative to a full generation-scale model |
+| Query-routing threshold (Q4's explicit-vs-implicit classification) | Determines how often the (costly) clue-generation path is invoked at all | Route conservatively — only genuinely implicit/aggregate queries should pay the clue-generation cost |
+
+Compression ratio is the knob with the least forgiving failure mode: unlike `k` or the routing threshold, which mainly trade cost for completeness, over-aggressive compression can make clue generation actively *misleading* (Q4's failure mode) rather than just less helpful — this asymmetry argues for validating compression ratio empirically against retrieval accuracy on your own corpus rather than defaulting to whatever ratio a published paper reports for a different domain.
+
+</details>
+
+---
+
+## Q11. How do you evaluate whether MemoRAG's clue generation is actually improving retrieval over raw-query retrieval? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a golden set specifically containing implicit/aggregate queries (Q4's second and fourth row types) — since Q4's comparison table shows clue generation adds no value and pure overhead on explicit queries, an evaluation set that doesn't specifically include the implicit-query case will understate or entirely miss where MemoRAG's value proposition lives. Compare recall@k and final-answer accuracy between raw-query retrieval and clue-guided retrieval on this set, and — critically — also measure the same comparison on a set of explicit, narrow queries to confirm the routing decision (Q4, Q13) correctly identifies which path each query type should take.
+
+Track a clue-quality metric independent of final retrieval success: for a sample of queries, manually or via LLM-judge assess whether each generated clue is topically appropriate to the query and specific enough to be a useful search term — this decomposes "did the pipeline work" into "did the memory model generate good clues" vs. "did the retriever find good passages given the clues," which matters because these are different components with different fixes (Q12's misleading-clue diagnosis vs. a general retrieval-quality problem).
+
+</details>
+
+---
+
+## Q12. How do you detect when the memory model's clues are actively misleading rather than simply unhelpful? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Q4 distinguishes MemoRAG's most dangerous failure mode from standard RAG's: a clue that's simply unhelpful just fails to improve retrieval (no worse than not generating a clue at all), but a clue generated from lossy or hallucinated compression can actively steer the precise retriever toward *wrong* passages with high apparent confidence — worse than the raw query would have done alone, since the raw query at least reflects what the user actually asked.
+
+**Detection:** compare retrieval results from clue-guided search against raw-query search for the same query, specifically flagging cases where the two diverge substantially (different top passages entirely, not just different ranking) — a systematic pattern where clue-guided retrieval's top passages, on manual review, are topically plausible-looking but don't actually address the query, while the raw query's (worse-ranked) results do, is the signature of misleading-clue generation rather than simple under-performance. **Root-cause distinction:** this is specifically a compression-fidelity problem (the memory model's compressed representation lost or distorted the detail the clue needed to be accurate), not a clue-generation-prompt problem — the fix is validating/improving compression ratio (Q10) and potentially the memory model's training, not just re-prompting the clue generator differently.
+
+</details>
+
+---
+
+## Q13. How do you keep the global memory fresh when the corpus is updated? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Unlike a standard document RAG index, where updating one document means re-embedding and re-upserting just that document's chunks (a cheap, local operation), MemoRAG's global memory is a single compressed representation of the *entire* corpus — there's no obvious way to "patch" it for one changed document without re-running compression, since the compression process (Q2) was designed around processing the whole corpus as a unit, not incrementally.
+
+**Practical strategies:** (1) **full periodic recompression** — accept that the memory is only ever as fresh as its last rebuild, and schedule recompression on a cadence matched to how quickly the corpus meaningfully changes (analogous to a batch RAG update cycle, but for the memory rather than the retrieval index); (2) **staleness-aware clue generation** — tag the memory with a build timestamp, and for queries touching recently-changed documents (detectable via document metadata even without re-compressing), fall back to raw-query retrieval (skip clue generation entirely) rather than risk clues generated from a memory that doesn't yet reflect the change; (3) **hybrid freshness** — since the precise retriever (Q3's pipeline) searches the raw, always-current corpus regardless of memory freshness, a stale memory's worst-case failure is generating a clue that misses a newly-added document's content, not returning stale *evidence* — the final answer is always grounded in freshly-retrieved passages, which bounds how much staleness in the memory can actually corrupt the final answer, even if it does reduce the recall benefit clues would otherwise provide for recently-changed content.
+
+</details>
+
+---
+
+## Q14. How does MemoRAG's clue generation differ operationally from Iterative Multi-Hop RAG's (#19) query reformulation? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Iterative Multi-Hop RAG (#19) reformulates queries **based on what was already retrieved** — each hop's new query is informed by the previous hop's retrieved evidence, an inherently sequential, retrieval-in-the-loop process. MemoRAG generates its clues **before any retrieval happens at all**, purely from the memory model's compressed view of the corpus — the clue-generation step is a single, parallelizable pass (Q3's `k` clues generated together) rather than a sequential chain where each step depends on the last.
+
+This has a direct efficiency consequence: MemoRAG's clues can all be dispatched to the retriever in parallel (Q3's pipeline fires `k` independent retrieval calls), while Iterative Multi-Hop RAG's hops are inherently sequential by construction, since hop 2's query genuinely cannot be formed until hop 1's results are known. The trade-off is that MemoRAG's clues, generated without seeing any actual retrieved evidence, can be wrong in ways that iterative retrieval's evidence-grounded reformulation is less prone to (Q12's misleading-clue risk) — iterative reformulation is self-correcting in a way MemoRAG's one-shot, pre-retrieval clue generation structurally isn't.
+
+</details>
+
+---
+
+## Q15. How would you build a decision-gate benchmark to decide whether MemoRAG's memory-model investment is worth it over HyDE or long-context RAG? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+MemoRAG requires training/fine-tuning and maintaining a dedicated memory model (Q2, Q13) — a real investment beyond what either HyDE (no training, Q8) or long-context RAG (no compression step, just a bigger context window, file 10) requires:
+
+```
+1. Build a golden set specifically weighted toward your ACTUAL query
+   distribution's mix of explicit vs. implicit/aggregate queries (Q4) --
+   if your production traffic is dominated by explicit factual lookups,
+   this gate should fail early regardless of how well MemoRAG performs
+   on implicit queries, since that's not what most of your traffic needs.
+
+2. Baseline 1: standard dense retrieval (raw query, no augmentation).
+3. Baseline 2: HyDE (#22) -- parametric-knowledge hypothetical documents,
+   zero corpus-specific training investment.
+4. Baseline 3: long-context RAG (file 10) -- stuff a large context window
+   with substantial corpus content per query, no compression/memory model.
+5. Candidate: MemoRAG, requiring the memory model to be trained/fine-tuned
+   on your corpus first.
+
+6. Compare accuracy specifically on the implicit/aggregate query subset
+   (Q4, Q11) across all four, plus per-query latency and cost.
+
+7. Gate: adopt MemoRAG only if (a) implicit/aggregate queries are a
+   meaningful share of your real traffic, AND (b) MemoRAG's accuracy
+   advantage over the cheaper HyDE baseline on that subset clears the
+   ongoing cost of training and maintaining the memory model (Q13's
+   freshness burden, Q16's serving cost) -- if HyDE captures most of
+   the benefit at a fraction of the investment, it's the better choice
+   despite MemoRAG's stronger theoretical fit for corpus-specific clues.
+```
+
+The key discipline is not skipping straight to "MemoRAG sounds like the right architecture for implicit queries" without first confirming implicit queries are actually a meaningful fraction of real traffic, and without comparing against the much cheaper HyDE alternative that may already capture most of the achievable benefit.
+
+</details>
+
+---
+
+## Q16. What is the cost and infrastructure overhead of MemoRAG at scale? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Training/compression cost** is front-loaded: fine-tuning or obtaining a memory model, plus the one-time (or periodic, per Q13) cost of compressing the full corpus — a compute-intensive pass over potentially very large corpora, though it happens far less frequently than per-query costs. **Serving cost** is dominated by the clue-generation LLM call, which is an additional generation step every implicit/aggregate query pays relative to standard RAG's single retrieval pass — illustrative comparison: standard RAG's per-query cost is roughly one embedding call plus one generation call, while MemoRAG's implicit-query path adds a clue-generation call (comparable cost to a moderate generation call) plus `k` separate retrieval calls (Q3) before the final generation call, meaningfully more expensive per query than standard RAG, though the routing discipline (Q4, Q10) is what keeps this extra cost confined to the query subset that actually benefits from it.
+
+Infrastructure overhead beyond raw compute: hosting a second model (the memory model) alongside the standard retriever and generator, with its own versioning, monitoring, and freshness lifecycle (Q13) — a meaningfully larger operational surface than standard RAG's retriever+generator pair. At scale, this argues strongly for the routing discipline from Q4/Q10 as a cost-control mechanism as much as a quality one: without reliable routing, a system might pay MemoRAG's extra cost on every query regardless of whether that query actually needed corpus-aware clue generation.
+
+</details>
+
+---
+
+## Q17. What security and trust risks does a global-memory compression step introduce? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+- **Corpus-wide poisoning blast radius** — because a single memory model compresses the *entire* corpus into one shared representation, a poisoned or adversarial document doesn't just risk being individually retrieved (the general RAG poisoning risk) — it can influence the clues generated for *any* query touching related topics, since the memory model's compressed representation blends signal across the whole corpus rather than keeping documents cleanly separable the way a standard chunk-level index does. A single bad document has a structurally larger potential blast radius here than in standard RAG, where a poisoned document only affects queries that happen to retrieve it directly.
+- **Compression-induced hallucination** — Q4's misleading-clue failure mode is a quality problem in the ordinary case, but it becomes a trust problem when it happens systematically for a specific topic or entity, effectively causing the memory model to consistently generate confidently wrong clues about that topic — indistinguishable, from the outside, between "the memory model made an isolated compression error" and "the memory model has a systematic blind spot," without the kind of auditing described in Q12.
+- **Global memory as a summarization attack surface** — since the memory model has effectively read and internalized the whole corpus, prompt-injection-style content embedded in source documents (designed to influence what the memory model "remembers" or how it summarizes) could bias clue generation across many future queries, a more persistent and harder-to-audit version of the per-query injection risk covered for other RAG architectures, since the injected influence lives inside a compressed model representation rather than a re-retrievable, re-inspectable document.
+
+Mitigation: apply the same source-screening discipline to documents before they're eligible for memory compression as for any indexed corpus, treat the memory model's clue quality as requiring the same ongoing auditing as any other model output (Q12), and recognize that the final-answer grounding in precise-retriever evidence (never the raw draft, Q6) is the main structural safeguard limiting how much a compromised memory model can actually corrupt final answers — the precise retriever's real evidence, not the memory model's clue, is what ultimately reaches the generator.
+
+</details>
+
+---
+
+## Q18. Design a MemoRAG-based system for a due-diligence tool surfacing cross-document patterns in a legal contract repository. `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Requirements:** analysts need to find contradictions, unusual clauses, and cross-cutting risk patterns across hundreds of contracts — exactly Q4's "what contradictions exist between reports" query type, where no single retrieved chunk reveals the pattern and a passage-scoped retriever structurally cannot compare things it never looks at simultaneously.
+
+```
+1. Memory model compression: compress the full contract repository into
+   global memory (Q2) -- given the corpus-wide poisoning risk (Q17),
+   restrict memory compression to vetted, ingested contracts only,
+   with the same document-review discipline used for any legal corpus.
+
+2. Query routing (Q4, Q10): explicit lookups ("what's the termination
+   clause in Contract X") route straight to standard retrieval, skipping
+   memory entirely; cross-cutting pattern queries ("find contracts with
+   unusually broad indemnification language") route to clue generation.
+
+3. Clue generation tuned for legal specificity: prompt the memory model
+   to generate clues as legal-concept phrases (e.g., "uncapped
+   indemnification liability," "unilateral termination without cause")
+   rather than generic keywords, since legal pattern-finding benefits
+   from clues phrased in domain terminology the precise retriever can
+   match against similarly-phrased contract language.
+
+4. Cross-checking against raw retrieval (Q12's mitigation): for
+   high-stakes due-diligence findings, always retrieve using BOTH the
+   raw query and the generated clues, and flag cases where the two
+   diverge substantially for analyst review -- given the misleading-clue
+   risk, a due-diligence tool should never present a clue-guided finding
+   as final without this cross-check, since a false negative (missing a
+   real risk) or false positive (flagging a non-issue) both carry real
+   professional cost in this domain.
+
+5. Freshness (Q13): recompress memory on a schedule matched to contract
+   ingestion cadence, with staleness-aware fallback to raw retrieval for
+   any contract added since the last compression.
+```
+
+The key design choice is treating clue-guided retrieval as a *lead generator* for analyst review rather than a final-answer mechanism — appropriate specifically because Q4's misleading-clue failure mode is unacceptable in a due-diligence context where a confidently-wrong cross-document pattern claim could materially affect a legal or financial decision.
+
+</details>
+
+---
+
+## Q19. What happens when the memory model's understanding of the corpus becomes internally inconsistent with the actual corpus content, and how do you debug it? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Beyond simple staleness (Q13, where the corpus has changed since compression), the memory model's *compressed representation itself* can drift from being an accurate summary of even the corpus it was built from — lossy compression (Q4, Q12) inherently discards information, and if the compression process systematically under-represents certain document types, sections, or topics (e.g., footnotes, tables, or a specific document format the memory model's training didn't cover well), the memory model's "understanding" was never fully accurate to begin with, independent of any subsequent corpus changes.
+
+**Debugging:** (1) construct a targeted probe set — specific facts known to exist in specific parts of the corpus (particularly under-represented formats: footnotes, tables, appendices) — and test whether clue generation for queries about that content produces relevant clues at all; a systematic gap for a particular content type (rather than a random scatter of misses) points at a structural compression blind spot, not random noise; (2) compare clue-generation quality across document sections/types to identify which parts of the corpus the memory model represents well versus poorly, since compression quality is unlikely to be uniform across a heterogeneous corpus; (3) if a systematic blind spot is confirmed for a content type your queries actually need (e.g., tables, per Table-Aware RAG's #36 own extraction challenges), the fix is either improving the memory model's training to better represent that content type, or explicitly routing queries touching that content type around the memory model entirely (an extension of Q4's routing logic, adding "content-type coverage" as a routing signal alongside query-type).
+
+</details>
+
+---
+
+## Q20. What are the limitations of MemoRAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **lossy compression can produce confidently misleading clues** (Q4, Q12), a qualitatively worse failure mode than standard RAG's "no good match found," since it can actively steer retrieval toward wrong evidence; (2) **whole-corpus compression has a larger poisoning blast radius** (Q17) than chunk-level indexing, since one memory model's representation blends signal across the entire corpus; (3) **freshness is structurally harder than standard RAG** (Q13) — there's no cheap incremental update path for a global compressed representation the way there is for a chunk-level vector index; (4) **the technique's value is concentrated in a specific query type** (implicit/aggregate, Q4, Q15) and provides little to no benefit, only added cost, outside that niche, making the routing discipline (Q4, Q10) load-bearing rather than optional.
+
+Likely evolution: **incremental or partitioned compression schemes** that allow updating a subset of the global memory without a full corpus recompression (directly addressing limitation 3), potentially by compressing at a coarser-than-whole-corpus but coarser-than-chunk granularity (e.g., per-document-collection memories that can be updated independently); **calibrated confidence signals on generated clues** so a downstream system can distinguish "high-confidence clue, trust it" from "low-confidence clue, cross-check against raw retrieval" (directly addressing Q12's detection challenge at the source rather than only via post-hoc comparison); and tighter integration with the query-routing techniques already used elsewhere in this bank (Adaptive RAG, #11) as a standard, expected component of any MemoRAG deployment rather than an optional optimization, given how central routing accuracy is to the architecture's cost-effectiveness (Q15, Q16).
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Enterprise document QA over very long reports** (financial filings, legal contracts, technical manuals) where key answers require synthesizing scattered, implicit signals rather than a single explicit passage
