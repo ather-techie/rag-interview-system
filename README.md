@@ -8,10 +8,10 @@
 [![PRs Welcome][prs-shield]][prs-url]
 
 <p align="center">
-  <img src="assets/logos/banner.webp" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 580 Q&A covering 52 architectures and production failure modes" width="800" />
+  <img src="assets/logos/banner.webp" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 740 Q&A covering 52 architectures and production failure modes" width="800" />
 </p>
 
-**580 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 52 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
+**740 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 52 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
 
 ⭐ **Star this repo** if it helps your interview prep — it keeps the project growing.
 
@@ -188,14 +188,14 @@ Full classification (retrieval control, data modality, feedback loop, scope, lat
 | 02.31 | [Agentic Web RAG](./02_interview_bank/31-agentic-web-rag.md) | 5 |
 | 02.32 | [Few-Shot Example RAG](./02_interview_bank/32-few-shot-example-rag.md) | 5 |
 | 02.33 | [Verifiable / Citation RAG](./02_interview_bank/33-verifiable-citation-rag.md) | 5 |
-| 02.34 | [Privacy-Preserving RAG](./02_interview_bank/34-privacy-preserving-rag.md) | 0 |
-| 02.35 | [Streaming / Real-Time RAG](./02_interview_bank/35-streaming-realtime-rag.md) | 0 |
-| 02.36 | [Table-Aware RAG](./02_interview_bank/36-table-aware-rag.md) | 0 |
-| 02.37 | [Tree of Thought RAG](./02_interview_bank/37-tot-rag.md) | 0 |
-| 02.38 | [DPR (Dense Passage Retrieval)](./02_interview_bank/38-dpr.md) | 0 |
-| 02.39 | [WebGPT / Tool-Augmented LM](./02_interview_bank/39-webgpt-tool-augmented-lm.md) | 0 |
-| 02.40 | [SURGE (Schema-Grounded RAG)](./02_interview_bank/40-surge-structured-grounded-rag.md) | 0 |
-| 02.41 | [Recursive Document Summarization RAG](./02_interview_bank/41-recursive-document-summarization-rag.md) | 0 |
+| 02.34 | [Privacy-Preserving RAG](./02_interview_bank/34-privacy-preserving-rag.md) | 20 |
+| 02.35 | [Streaming / Real-Time RAG](./02_interview_bank/35-streaming-realtime-rag.md) | 20 |
+| 02.36 | [Table-Aware RAG](./02_interview_bank/36-table-aware-rag.md) | 20 |
+| 02.37 | [Tree of Thought RAG](./02_interview_bank/37-tot-rag.md) | 20 |
+| 02.38 | [DPR (Dense Passage Retrieval)](./02_interview_bank/38-dpr.md) | 20 |
+| 02.39 | [WebGPT / Tool-Augmented LM](./02_interview_bank/39-webgpt-tool-augmented-lm.md) | 20 |
+| 02.40 | [SURGE (Schema-Grounded RAG)](./02_interview_bank/40-surge-structured-grounded-rag.md) | 20 |
+| 02.41 | [Recursive Document Summarization RAG](./02_interview_bank/41-recursive-document-summarization-rag.md) | 20 |
 | 02.42 | [Search-R1 / Reasoning RAG](./02_interview_bank/42-search-r1-reasoning-rag.md) | 5 |
 | 02.43 | [Deep Research / Agentic Research RAG](./02_interview_bank/43-deep-research-rag.md) | 5 |
 | 02.44 | [MemoRAG](./02_interview_bank/44-memorag.md) | 5 |
@@ -209,7 +209,7 @@ Full classification (retrieval control, data modality, feedback loop, scope, lat
 | 02.52 | [REFRAG](./02_interview_bank/52-refrag.md) | 5 |
 <!-- /questions:table -->
 
-<!-- questions:total 02_interview_bank -->**RAG Architectures Total: 427 questions**<!-- /questions:total -->
+<!-- questions:total 02_interview_bank -->**RAG Architectures Total: 587 questions**<!-- /questions:total -->
 
 <details>
 <summary><strong>One-line summary of every architecture</strong> (click to expand)</summary>
@@ -289,9 +289,9 @@ REFRAG                             — Compresses chunks into embeddings, RL pol
 
 <!-- questions:total 03_failure_modes -->**Failure Modes Total: 79 questions**<!-- /questions:total -->
 
-<!-- questions:grand -->**Grand Total: 580 questions**<!-- /questions:grand -->
+<!-- questions:grand -->**Grand Total: 740 questions**<!-- /questions:grand -->
 
-<!-- questions:mix -->**Difficulty distribution across the interview bank and failure modes: 62 Basic, 218 Intermediate, 226 Advanced**<!-- /questions:mix -->
+<!-- questions:mix -->**Difficulty distribution across the interview bank and failure modes: 102 Basic, 282 Intermediate, 282 Advanced**<!-- /questions:mix -->
 
 All cited papers with arXiv/DOI links: [REFERENCES.md](./REFERENCES.md)
 
@@ -425,7 +425,7 @@ For issues, questions, or general feedback:
 [license-shield]: https://img.shields.io/github/license/ather-techie/rag-interview-system
 [license-url]: LICENSE
 [commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-system
-[questions-shield]: https://img.shields.io/badge/questions-580-blue
+[questions-shield]: https://img.shields.io/badge/questions-740-blue
 [prs-shield]: https://img.shields.io/badge/PRs-welcome-brightgreen
 [prs-url]: CONTRIBUTING.md
 [pages-url]: https://ather-techie.github.io/rag-interview-system/

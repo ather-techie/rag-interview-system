@@ -236,6 +236,13 @@ export function parseQuestionFile(mdRaw, fileRel) {
         }
         let hr = closeLine + 1;
         while (hr < lines.length && lines[hr].trim() === '') hr++;
+        // Tolerate an optional single blockquote annotation line (e.g. a
+        // "> Related: ..." cross-reference) between </details> and the ---
+        // separator -- a legitimate enrichment some answers use.
+        if (hr < lines.length && lines[hr].trim().startsWith('>')) {
+          hr++;
+          while (hr < lines.length && lines[hr].trim() === '') hr++;
+        }
         if (hr < lines.length && !/^## /.test(lines[hr]) && lines[hr].trim() !== '---') {
           problems.push({
             level: 'error',
