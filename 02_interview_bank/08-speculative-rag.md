@@ -982,6 +982,137 @@ Partitioning spreads A/A'/A'' across 3 of 4 subsets
 
 ---
 
+## Q13. Walk through the Speculative RAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Retrieved documents → Partition into m subsets (Q2)
+                              │
+                    Small drafter LLM generates one
+                    draft answer + rationale PER subset
+                    (in parallel, m drafts total)
+                              │
+                    Large generalist LLM verifies each
+                    draft against its subset, scores confidence
+                              │
+                    Select highest-confidence draft → Final Answer
+```
+
+The core insight (Q1) is a division of labor: the small, cheap drafter does the expensive-per-document work (reading each subset and proposing an answer) in parallel across all `m` subsets simultaneously, while the large, expensive model only has to do the comparatively cheap work of verifying `m` already-drafted answers rather than reading and reasoning over the full retrieved document set itself. This is what gives Speculative RAG its latency advantage (Q4's comparison to speculative decoding) — the expensive model's per-query work is bounded by `m` short verifications, not by the full document volume.
+
+</details>
+
+---
+
+## Q14. What is the research origin of Speculative RAG, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Speculative RAG was introduced by Wang et al. (Google Cloud AI Research), *Speculative RAG: Enhancing Retrieval Augmented Generation through Drafting* (arXiv:2407.08223, 2024), applying the general "small model proposes, large model verifies" pattern from speculative decoding (Q4) to the RAG setting specifically — rather than speeding up token-by-token generation, it speeds up (and improves the accuracy of) the retrieval-to-answer step by having a smaller model draft candidate answers from document subsets in parallel.
+
+The paper's headline result is improved accuracy *and* reduced latency simultaneously relative to standard RAG baselines — a notable combination, since most efficiency techniques in this bank trade some accuracy for speed (REFRAG, #52) or vice versa. The accuracy gain comes specifically from the multi-subset drafting approach surfacing diverse candidate answers that a single-pass, full-context generation might miss or blend together, while the latency gain comes from parallelizing the expensive reasoning work across cheap drafts.
+
+</details>
+
+---
+
+## Q15. How does Speculative RAG compare to CoRAG's (#50) best-of-N decoding? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both generate multiple candidates and select the best one rather than committing to a single generation pass, but the mechanism generating those candidates differs. CoRAG's (#50) best-of-N samples multiple complete retrieval-reasoning *chains* from the same fine-tuned model, varying by sampling randomness, and reranks them (#50 Q13). Speculative RAG generates its multiple candidates by **partitioning the retrieved documents** into disjoint subsets and having a small, separate drafter model produce one candidate answer per subset — the diversity comes from different document subsets, not from sampling variation on the same input.
+
+This difference has a direct efficiency consequence: Speculative RAG's `m` drafts can be generated in parallel by a cheap small model, with the expensive large model doing only verification (Q13); CoRAG's `N` sampled chains all come from the same (potentially large, fine-tuned) model repeatedly, without the same small-model/large-model cost asymmetry to exploit. Speculative RAG's approach is specifically well-suited to cases where different retrieved documents represent genuinely different candidate answers or perspectives; CoRAG's is better suited to cases where the same reasoning chain, resampled, might land on a better path through genuine stochastic variation.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Speculative RAG from standard RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **parallel drafting across document subsets by a small model, with verification-only work delegated to a large model** — replacing standard RAG's single pass where one (typically large, expensive) model reads all retrieved context together and produces one answer directly. Standard RAG concentrates all its cost and all its reasoning burden into a single generation call over the full retrieved context; Speculative RAG spreads the expensive reading-and-reasoning work across many cheap, parallel drafts and reserves the expensive model's involvement for a much lighter verification task.
+
+This division of labor is what enables Speculative RAG's simultaneous accuracy and latency improvement (Q14) — accuracy improves because multiple independent drafts from different document subsets surface candidate answers a single full-context pass might blend together or miss; latency improves because the parallel, cheap drafting step and the lightweight verification step both individually take less wall-clock time than one large model reading everything sequentially.
+
+</details>
+
+---
+
+## Q17. How do you evaluate whether the small drafter model's draft quality is good enough to be worth verifying? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+If the drafter model is too weak, most of its `m` drafts will be low-quality regardless of `m` or subset size (Q8) — the verifier can only select the best *among* what was drafted, and can't rescue a genuinely bad draft into a good answer. Measure **draft quality independent of the verifier's selection**: for a labeled evaluation set, check what fraction of the `m` drafts per query are individually plausible/on-topic (a per-draft quality check, not just "did the final selected answer turn out correct") — a system where the verifier consistently has to choose among uniformly weak drafts is masking a drafter-quality problem behind the verifier's selection step.
+
+If draft quality is inadequate, the fix is upstream of the verifier: either fine-tune the drafter further on your domain (Q6), increase `m` so a wider net of drafts improves the odds at least one is strong even if the average draft quality is mediocre (accepting the added cost, Q8), or reconsider whether the drafter model is simply too small/weak for your domain's document complexity. This decomposition — draft quality vs. verifier selection quality — mirrors the same "which component is actually failing" discipline used for other multi-stage architectures in this bank (e.g., RQ-RAG's #51 Q11 action-selection-vs-final-answer decomposition).
+
+</details>
+
+---
+
+## Q18. How do you evaluate a Speculative RAG system's end-to-end accuracy vs. latency trade-off? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a golden set and compare Speculative RAG against a standard RAG baseline (single large model, full retrieved context) on the same queries, tracking both final-answer accuracy and end-to-end latency — the headline claim (Q14) is that Speculative RAG improves *both* simultaneously, which should be verified on your own corpus and query distribution rather than assumed to transfer unchanged from the paper's reported benchmarks. Segment by query type: queries where the correct answer genuinely benefits from seeing multiple independent document-subset perspectives (Speculative RAG's strength, Q15) should show the largest accuracy gain, while narrow factual queries answerable from any single retrieved document should show comparable accuracy between the two approaches with Speculative RAG's latency advantage still holding.
+
+Also measure the trade-off's sensitivity to `m` and subset size (Q8) directly, plotting accuracy and latency across a range of values — since these are the two knobs most directly controlling where on the accuracy/latency curve your specific deployment sits, and the right operating point depends on your latency SLA and the accuracy ceiling your use case needs, not a single universally-correct setting.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when document partitioning creates redundant subsets? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+If the partitioning step (Q2) splits retrieved documents into subsets that are highly overlapping in content (e.g., several near-duplicate documents from different sources all landing in different subsets), the `m` drafts generated from those subsets converge on essentially the same answer — defeating the diversity-of-perspective benefit that's Speculative RAG's core accuracy advantage (Q14, Q15) while still paying the full cost of generating and verifying `m` drafts. The system doesn't fail outright — it still produces a reasonable answer — but it's paying for parallelism it isn't actually benefiting from.
+
+**Detection:** measure inter-draft diversity directly (semantic similarity between the `m` drafts for a given query) — a consistently high similarity across drafts, especially on queries where the retrieved document set is known to contain genuinely different sources or perspectives, signals the partitioning step isn't actually separating distinct viewpoints into distinct subsets. **Mitigation:** partition by source diversity or semantic clustering rather than an arbitrary or purely size-based split (ensuring each subset draws from different documents/sources where possible), and monitor the relationship between measured inter-draft diversity and downstream accuracy gain to confirm the partitioning strategy is actually producing the diversity the architecture depends on.
+
+</details>
+
+---
+
+## Q20. What are the limitations of Speculative RAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **accuracy gain depends on genuine document diversity** (Q19) — a corpus or query type where retrieved documents are largely redundant gets none of Speculative RAG's accuracy benefit while still paying its parallel-drafting cost; (2) **drafter quality is a hard ceiling** (Q17) — no verification step can rescue a weak drafter's uniformly poor candidates into a good answer; (3) **infrastructure complexity is real** (Q10, Q11) — running a small drafter and large verifier as separate serving components with parallel dispatch is a more complex production setup than a single-model RAG pipeline; (4) **`m` and subset size require domain-specific tuning** (Q8) with no universally correct default, unlike simpler architectures with fewer interacting knobs.
+
+Likely evolution: adaptive `m` (scaling the number of drafts to document-set diversity or query difficulty, rather than a fixed constant, following the same adaptive-parameter pattern seen elsewhere in this bank — CoRAG's #50 adaptive chain length, LazyGraphRAG's #47 adaptive budget); tighter integration of diversity-aware partitioning (Q19) as a first-class design consideration rather than an implementation detail; and continued exploration of the broader "cheap model proposes, expensive model verifies" pattern this architecture shares with speculative decoding (Q4) and CoRAG's best-of-N reranking (Q15) as a general efficiency principle applicable across more RAG sub-problems than just the drafting step alone.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Speculative RAG Fits |

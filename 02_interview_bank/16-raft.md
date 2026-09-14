@@ -568,6 +568,145 @@ RAFT introduces security considerations at both training time and inference time
 
 ---
 
+## Q13. Walk through the RAFT training pipeline end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+For each training question:
+  Retrieve a mix of documents: the "golden" (oracle) document(s) that
+  actually answer the question, PLUS several "distractor" documents
+  that are topically similar but don't contain the answer
+        │
+        ▼
+  Generate a chain-of-thought answer (Q6) that explicitly cites the
+  golden document(s) by ID and explains the reasoning, ignoring
+  distractors
+        │
+        ▼
+  Fine-tune the base LLM on (question, mixed documents, CoT answer)
+  triples -- the model learns to identify and cite the relevant
+  document even when distractors are present in context
+        │
+        ▼
+  Deploy: at inference, this fine-tuned model is used as the generator
+  in a standard RAG pipeline (Q7) -- retrieval itself is unchanged
+```
+
+The critical design choice visible here is training with distractors deliberately mixed in, rather than training only on clean (question, golden-document, answer) pairs — this is what specifically teaches the model to be robust to imperfect retrieval, which is the gap RAFT targets (Q1): a generator trained only on clean retrieval has never practiced ignoring irrelevant retrieved content, while production retrieval routinely returns some fraction of distractors alongside the genuinely useful document.
+
+</details>
+
+---
+
+## Q14. What is the research origin of RAFT, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+RAFT was introduced by Zhang et al. (UC Berkeley), *RAFT: Adapting Language Model to Domain Specific RAG* (arXiv:2403.10131, 2024), framing fine-tuning specifically as "training for an open-book exam" — rather than fine-tuning a model to memorize domain facts (closed-book), or leaving a general-purpose model to figure out retrieval robustness on its own via prompting alone, RAFT fine-tunes the model to be good specifically at *using* retrieved context that may contain both relevant and irrelevant documents.
+
+The paper's headline result is that RAFT-trained models outperform both standard domain fine-tuning (without retrieval-aware training) and standard RAG with a non-fine-tuned generator, specifically on domain-specific QA benchmarks where distractor robustness matters — demonstrating that how a model is fine-tuned to use retrieved context (with realistic distractors present) matters as much as what domain knowledge it's fine-tuned on.
+
+</details>
+
+---
+
+## Q15. How does RAFT compare to RQ-RAG (#51)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both fine-tune a model to improve RAG performance, but at completely different pipeline stages. RAFT fine-tunes the **generator** — teaching it to read a mix of golden and distractor documents and produce a well-grounded, correctly-cited answer despite the noise. RQ-RAG (#51) fine-tunes a **query-refinement policy** — teaching a model to choose among rewrite/decompose/disambiguate operations before retrieval even happens, with the generator itself left as an off-the-shelf, unmodified component.
+
+The two are complementary rather than competing, and could in principle be combined: RQ-RAG's fine-tuned refinement policy improves what gets retrieved in the first place, while RAFT's fine-tuned generator improves how well the model uses whatever was retrieved, including tolerating any distractors that still make it through even well-refined retrieval. Choosing one over the other depends on which stage of your pipeline evaluation (Q8) shows the bigger gap: weak query formulation calls for RQ-RAG-style fine-tuning, while a generator that gets distracted by irrelevant retrieved content calls for RAFT.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates RAFT from standard fine-tuning on QA pairs? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **deliberately including distractor documents alongside the golden document during training**, rather than fine-tuning only on clean (question, correct-document, answer) triples. Standard fine-tuning on QA pairs teaches a model to answer well when given exactly the right document — a scenario that flatters the model's performance during training but doesn't match production reality, where retrieval routinely returns a mix of relevant and irrelevant results. RAFT's training data mixture (Q5) deliberately simulates this imperfect-retrieval reality, so the model practices the specific skill of identifying and citing the golden document while explicitly disregarding distractors, during training rather than only encountering this challenge for the first time in production.
+
+This single change in training data composition is why RAFT is described as "fine-tuning for an open-book exam with irrelevant material included" (Q14) — the model isn't just learning domain facts, it's learning the specific skill of selective attention over a realistically noisy context window, which is exactly the skill standard RAG's off-the-shelf generator has never explicitly practiced.
+
+</details>
+
+---
+
+## Q17. What percentage of training examples should omit the golden document entirely, and why does this matter? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Beyond the golden-vs-distractor ratio within examples that do include the golden document (Q5's data mixture), RAFT's training set should also include some fraction of examples where **no golden document is present at all** — only distractors, with the correct trained response being an explicit "I don't know" or refusal to answer from the given context, rather than a confident guess. This teaches the model a distinct skill from distractor-robustness alone: recognizing when retrieval has failed entirely, not just when it's succeeded-with-noise.
+
+Without oracle-absent examples in training, a RAFT-fine-tuned model can develop the failure mode this file's own security section already flags (the "reduced refusal rate" risk) — having only ever practiced "find the golden document among distractors," the model may default to confidently answering from whatever's in context even when nothing actually supports an answer, since it's never practiced the alternative response. A reasonable starting mixture includes oracle-absent examples as a meaningful minority of the training set (enough for the model to learn the pattern reliably, without so many that it becomes overly prone to unnecessary refusal on genuinely-answerable questions) — tuned and validated against IDK accuracy specifically, per this file's own mitigation guidance.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether RAFT actually improves distractor-robustness specifically, not just overall accuracy? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Overall accuracy alone can improve for reasons unrelated to distractor-robustness (the fine-tuning process might simply teach the model more domain facts, the same benefit standard closed-book fine-tuning would provide) — to confirm RAFT's *specific* contribution, construct an evaluation set with a controlled distractor-count variable: the same questions and golden documents, evaluated with 0 distractors, a moderate number, and a high number, comparing the RAFT-tuned model against both a non-fine-tuned baseline and a standard-fine-tuned (no-distractor-training) baseline across all three conditions.
+
+RAFT's distinctive value shows up as a **flatter accuracy-vs-distractor-count curve** relative to the baselines — a non-fine-tuned or standard-fine-tuned model's accuracy should degrade more steeply as distractor count increases, while a properly RAFT-trained model's accuracy should hold up comparatively well even as noise increases, since that's precisely the skill its training data was constructed to teach (Q13, Q16). If RAFT's accuracy curve degrades at a similar rate to the baselines', the fine-tuning may be adding domain knowledge without actually improving distractor-robustness specifically, which would suggest revisiting the training data mixture (Q5, Q17) rather than concluding RAFT's core mechanism doesn't work.
+
+</details>
+
+---
+
+## Q19. What happens when a RAFT-trained model is deployed with a different retriever than the one used to generate its training distractors? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+RAFT's training distractors (Q2, Q5) are typically generated using a specific retriever against a specific corpus at training time — the "realistic noise" the model practices tolerating has the statistical characteristics of *that* retriever's failure modes (which kinds of irrelevant documents it tends to surface, how topically close its false positives usually are). If production later swaps in a different retriever (a new embedding model, a different vector database, an added hybrid-search component), the distractor *distribution* the model actually encounters in production can differ meaningfully from what it was trained to handle — a retriever with different precision characteristics surfaces different kinds of noise than the one used to build the training set.
+
+**Symptom:** distractor-robustness (Q18's controlled evaluation) measured against the original training-time retriever's distractor patterns may not transfer to the new retriever's actual failure patterns, since the model's learned "ignore this kind of irrelevant content" skill is calibrated to specific noise characteristics, not distractor-robustness in the fully general sense. **Mitigation:** treat a retriever swap as requiring the same re-evaluation (and likely re-training with distractors regenerated from the new retriever) as any other meaningful change to the RAG pipeline's upstream components — this is a corpus-and-retriever-coupling risk analogous to REFRAG's decoder-coupling concern (#52 Q7) or Search-R1's frozen-retriever dependency (#42 Q14), where a fine-tuned component's training assumptions about a specific upstream component don't automatically generalize when that component changes.
+
+</details>
+
+---
+
+## Q20. What is the cost and infrastructure overhead of RAFT compared to prompt engineering alone? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+RAFT requires a genuine fine-tuning pipeline: constructing the golden-plus-distractor training mixture (Q5, Q17) at meaningful scale, generating chain-of-thought answers for each example (Q6, itself requiring either a strong teacher model or careful manual curation), and running the actual fine-tuning job — a substantial one-time cost with ongoing maintenance implications (corpus updates, Q11; retriever changes, Q19) that a purely prompted "include instructions to handle irrelevant context" approach entirely avoids.
+
+The trade-off mirrors the fine-tune-vs-prompt decision pattern used throughout this bank (Q4's own "when to use RAFT vs. prompt engineering" framing): prompting is free to iterate on and works immediately with any capable frontier model, but provides no guarantee the model actually becomes more distractor-robust — it's simply hoping the model's general instruction-following extends to this specific skill. RAFT's fine-tuning cost buys a measurable, evaluated improvement in that specific skill (Q18), at the cost of training infrastructure, ongoing retraining when the corpus or retriever changes materially (Q11, Q19), and being tied to a specific fine-tunable base model rather than able to freely swap in whatever frontier model is currently strongest. The decision gate is the same as for every other fine-tuning investment in this bank: measure whether prompting alone is actually inadequate (via Q18's controlled distractor-count evaluation) before committing to RAFT's ongoing maintenance burden.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RAFT Fits |
