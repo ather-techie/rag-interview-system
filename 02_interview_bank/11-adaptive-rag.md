@@ -862,6 +862,125 @@ Yes — this is the problem **TARG** ("Training-Free Adaptive Retrieval Gating f
 
 ---
 
+## Q14. Walk through the Adaptive RAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Query
+  │
+  ▼
+Query Complexity Classifier (trained, Q2)
+  │
+  ├── "no retrieval needed" ──► Answer directly from parametric knowledge
+  ├── "single-hop" ──────────► One retrieval round → generate
+  └── "multi-hop" ───────────► Iterative multi-round retrieval → generate
+```
+
+The classifier is the single component that makes this architecture "adaptive" — everything downstream of it (the three retrieval strategy tiers) is standard, well-understood machinery already covered elsewhere in this bank (single-hop retrieval as in Naive RAG #01, multi-hop as in Iterative Multi-Hop RAG #19). Adaptive RAG's contribution isn't a new retrieval mechanism, it's a cheap upfront decision about *which existing mechanism* to invoke, made once per query before any retrieval work begins — the opposite temporal position from Agentic RAG's (#04, Q17) continuous, per-step decision-making.
+
+</details>
+
+---
+
+## Q15. What is the research origin of Adaptive RAG, and what does the paper report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Adaptive RAG was introduced by Jeong et al., *Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity* (arXiv:2403.14403, 2024), training a small classifier to route queries to one of three tiers — no-retrieval, single-hop, or multi-hop — based on question complexity, evaluated across QA benchmarks spanning both simple factual questions and genuinely multi-hop ones.
+
+The paper's headline finding is an efficiency argument as much as an accuracy one: applying the most expensive strategy (multi-hop retrieval) uniformly to every query, including simple ones that don't need it, wastes latency and cost without improving accuracy on the easy end of the distribution, while applying the cheapest strategy uniformly to every query fails outright on genuinely complex questions. Routing each query to the tier its actual complexity warrants captures accuracy close to "always use the best-fit strategy per query" at a fraction of the average cost "always use the most powerful strategy" would require.
+
+</details>
+
+---
+
+## Q16. How does Adaptive RAG compare to Agentic RAG (#04)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both decide how much retrieval work a query needs rather than applying one fixed strategy uniformly, but the timing and mechanism differ (this mirrors Agentic RAG's own comparison to this file, #04 Q17, from the other side). Adaptive RAG makes one classification decision upfront, before any retrieval happens, and commits to that tier's fixed strategy — cheap and fast, but unable to course-correct if the classifier's initial read of the query's complexity turns out to be wrong once retrieval actually starts. Agentic RAG makes this decision continuously throughout an LLM reasoning loop, able to escalate or stop at any point based on what's actually been discovered so far — more adaptive in principle, but at substantially higher per-query cost and with the runaway-loop risk (#04 Q19) that a single upfront classification can't have.
+
+Choose Adaptive RAG when query complexity is reasonably predictable from surface features of the query text (its own classifier's whole premise); choose Agentic RAG when the right strategy can only be discovered by actually starting to retrieve and reason, which upfront classification structurally cannot anticipate.
+
+</details>
+
+---
+
+## Q17. What is the single distinctive mechanism that separates Adaptive RAG from Corrective RAG (#06)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Adaptive RAG's classifier acts **before** retrieval, deciding which retrieval strategy to invoke based on the query alone. Corrective RAG's (#06) evaluator acts **after** retrieval, judging whether the results that were actually returned are good enough to use, and triggering a fallback (web search, query reformulation) if not. Adaptive RAG never looks at what retrieval actually returned before deciding its strategy; Corrective RAG never tries to predict retrieval quality in advance — it always retrieves first, then checks.
+
+The two are complementary rather than competing: a production system could route queries via Adaptive RAG's classifier to pick an initial strategy tier, and layer Corrective RAG's evaluator on top of whichever tier's retrieval results come back, catching cases where the classifier's upfront read of complexity was reasonable but the specific retrieval attempt still came back poor (a stale index, a genuinely rare query the classifier couldn't anticipate) — using each architecture's check at the point in the pipeline where it's actually positioned to catch a different class of error.
+
+</details>
+
+---
+
+## Q18. What are the key tuning knobs for Adaptive RAG's classifier and routing, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Number of complexity tiers | More tiers allow finer-grained cost/accuracy matching but require more labeled training data per tier and a harder classification problem | 3 (no-retrieval / single-hop / multi-hop), per the original paper; collapse to 2 tiers if your query distribution doesn't naturally separate into three clusters |
+| Classifier confidence threshold for tier assignment | A stricter threshold routes more borderline queries to the safer, more expensive tier; a looser one saves cost but risks under-routing | Bias toward the more expensive tier on low-confidence classifications, since under-routing (Q19) is typically costlier to answer quality than the wasted cost of over-routing |
+| Classifier model size/architecture | A larger classifier is more accurate but adds more per-query latency to a step that runs on every single request | A small, fast model (the classification task itself is simple relative to full generation) — this step should never be the pipeline's latency bottleneck |
+| Retraining cadence | Determines how quickly the classifier adapts to query-distribution drift (Q20) | Tied to how quickly your actual query patterns change; monitor drift (Q20) rather than retraining on a fixed calendar schedule alone |
+
+The confidence threshold is the most consequential knob because the two error directions have different costs: routing a genuinely simple query to the expensive multi-hop tier wastes latency and cost but doesn't hurt accuracy; routing a genuinely complex query to the cheap no-retrieval tier produces a wrong or unsupported answer with nothing downstream to catch it, which is why biasing toward the more expensive tier under classifier uncertainty is the safer default.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when the complexity classifier is miscalibrated for a specific query type? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A classifier trained on one query distribution can systematically misjudge a query type it saw little of during training — for example, a classifier trained mostly on general-knowledge QA may consistently under-classify domain-specific compound questions (routing a genuinely multi-hop technical question to the single-hop tier because its surface phrasing looks simple), producing confidently incomplete answers with no signal that anything went wrong, since the single-hop retrieval path completed "successfully" from the pipeline's perspective.
+
+**Detection:** segment production answer-quality metrics by the classifier's assigned tier and, within each tier, by query category (domain, phrasing pattern) — a specific category showing systematically lower answer quality within the "single-hop" tier, while other categories in that same tier perform fine, is the signature of tier-specific miscalibration rather than a general retrieval-quality problem. **Mitigation:** augment the classifier's training data with labeled examples specifically from the under-performing category (Q5's training methodology, applied to the gap you've identified) rather than adjusting the confidence threshold globally, since a global threshold change trades off accuracy across *all* categories to fix a problem specific to one.
+
+</details>
+
+---
+
+## Q20. How do you keep the query-complexity classifier's training data representative as query patterns drift over time? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A classifier trained once on an initial labeled dataset will drift out of calibration as real query patterns evolve — new product features generate new question types the original training data never saw, users adopt new phrasing conventions, or the corpus itself grows into new topic areas the classifier was never trained to route correctly. Unlike a retrieval index, which can be incrementally updated as documents change, a classifier's "knowledge" of what complexity levels look like is frozen at its last training run until it's explicitly retrained.
+
+**Practical approach:** (1) continuously sample production queries (not just at launch) and periodically have them labeled — either by human review or by a more expensive "ground truth" method (e.g., running the query through all three tiers and checking which was actually necessary) — building an ever-growing, ever-more-representative labeled set rather than treating the original training data as permanent; (2) monitor the tier-distribution of production traffic over time, since a sudden shift (a spike in queries the classifier routes to no-retrieval, for instance) can signal either a genuine change in user behavior or a classifier that's starting to misjudge a growing query segment (Q19); (3) retrain on a cadence informed by observed drift rate rather than a fixed calendar schedule — a fast-evolving product surface needs more frequent classifier refreshes than a stable, slowly-changing knowledge domain.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Adaptive RAG Fits |
