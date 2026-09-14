@@ -613,6 +613,140 @@ A KV cache computed for model version X may not be compatible with model version
 
 ---
 
+## Q13. Walk through the Cache-Augmented Generation architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+OFFLINE (once, or on corpus update):
+Entire corpus (fits within context budget) → LLM prefill pass →
+Precomputed KV cache, stored and reused across all future queries
+
+ONLINE (per query):
+Query → append to the precomputed KV cache (no re-prefill of the
+        corpus needed) → LLM generates directly, "reading" the whole
+        corpus via the cached KV state → Answer
+```
+
+CAG's defining property is visible in what's *missing* from this diagram relative to every other architecture in this bank: no retriever, no embedding step, no ranking. Because the entire corpus was already prefilled into the model's KV cache once, every query effectively has the whole corpus already "in context" without paying the prefill cost again — retrieval isn't optimized away by better search, it's made unnecessary because there's nothing left to select from.
+
+</details>
+
+---
+
+## Q14. What is the research origin of CAG, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+CAG was introduced by Chan et al., *Don't Do RAG: When Cache-Augmented Generation is All You Need for Knowledge Tasks* (arXiv:2412.15605, 2024), directly challenging RAG's necessity for a specific class of knowledge task: when the entire relevant knowledge base fits within a modern long-context model's window, precomputing and reusing its KV cache eliminates retrieval latency and complexity entirely while matching or exceeding standard RAG's accuracy.
+
+The paper's headline result is that CAG matches or outperforms RAG on knowledge-intensive QA benchmarks where the reference corpus is small enough to fully preload, while eliminating retrieval latency from the per-query critical path — the KV cache is computed once, offline, and every subsequent query skips the retrieve-then-generate sequence entirely in favor of directly generating against the cached context. The provocative title reflects the paper's core argument: for the specific, common case of a bounded, cacheable knowledge base, RAG's retrieval machinery is solving a problem that doesn't need solving.
+
+</details>
+
+---
+
+## Q15. How does CAG compare to REFRAG (#52)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both target the same underlying cost — context-processing overhead at query time — but from opposite structural approaches (drawn out in more depth from REFRAG's own side, #52 Q8). CAG eliminates the retrieval step entirely by preloading the whole corpus into a reusable KV cache, which only works when the corpus is small enough to fully cache. REFRAG (#52) keeps retrieval exactly as-is and instead compresses most retrieved chunks into single dense embeddings, expanding only a policy-selected few back to full tokens — a technique that scales to arbitrarily large corpora, since only the top-k retrieved chunks (not the whole corpus) are ever touched per query.
+
+The deciding factor for which fits a given deployment: CAG requires your entire knowledge base to be small and stable enough to preload (a strict precondition); REFRAG has no such size ceiling since it still retrieves normally, making it the applicable choice whenever the corpus is too large to ever fully cache, which is the majority of real-world knowledge bases beyond a bounded product manual or FAQ set.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates CAG from standard RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **eliminating the retrieval step entirely by preloading the full corpus into a reusable, precomputed KV cache**, rather than optimizing what gets selected from a corpus too large to fully process per query. Standard RAG's entire design assumes the corpus is too large to include in every prompt, making retrieval's job selecting the small, relevant fraction worth including. CAG's core bet is that for a large and common class of knowledge bases (a product manual, an FAQ set, a policy document collection), the corpus is *not* too large — it's small enough that "select the relevant fraction" is an unnecessary step you can skip by just always including everything, once, cheaply, via caching.
+
+This is why CAG is best understood as a precondition-gated optimization rather than a competing general-purpose architecture: it doesn't improve on RAG's retrieval algorithm, it eliminates the need for retrieval altogether, but only for the specific corpus-size regime where "eliminate" is actually a valid option (Q4's "when should you choose CAG" criteria).
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for CAG, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Cache size budget (how much of the model's context window is reserved for the cached corpus) | Larger budget allows a bigger corpus to be cached but leaves less room for the query and generated response | Size to comfortably fit your corpus with headroom for query + generation, not right up against the model's maximum context |
+| Corpus subset selection (Q20, when the full corpus doesn't fit) | Determines what's always available vs. what's excluded entirely | Prioritize by query-frequency/importance rather than arbitrary document order |
+| Cache refresh cadence (Q6's corpus-update handling) | More frequent refresh keeps the cache current but costs a full re-prefill each time | Tied to how often your corpus actually changes — infrequent for a stable product manual, more frequent for actively-maintained documentation |
+| Model version pinning (this file's Risk 4) | Determines how tightly cache validity is tied to a specific model checkpoint | Always version-lock the cache to a specific model checkpoint hash, invalidating automatically on any model update |
+
+Corpus subset selection is the knob unique to CAG among this list — no other architecture in this bank has an equivalent "what doesn't fit, gets left out entirely" decision, since retrieval-based architectures handle arbitrarily large corpora by construction; CAG's viability depends on getting this selection right whenever the full corpus doesn't fit within budget.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether CAG's precomputed cache is actually helping vs. a well-tuned RAG baseline? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a golden set and compare CAG against a well-tuned RAG baseline (not a naive one) on the same corpus and queries — measuring accuracy, per-query latency, and total cost including CAG's upfront (or per-refresh) cache-computation cost amortized across expected query volume. CAG's headline value proposition (Q14) is specifically about eliminating retrieval *latency* from the critical path, so the comparison should isolate that dimension explicitly: query-time latency with CAG should show no retrieval-step contribution at all, while RAG's latency includes embedding, search, and reranking time.
+
+Segment by query type as well: queries needing information scattered across the corpus (where RAG's top-k retrieval might miss content spanning multiple non-adjacent chunks) are exactly where CAG's "the whole corpus is always available" property should show its clearest accuracy advantage over RAG, mirroring the same needle-in-a-haystack testing this file's own Q9 already covers — while narrow, single-fact queries should show comparable accuracy between the two, with CAG's latency advantage being the more relevant differentiator for that segment.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when the corpus grows beyond the KV cache budget? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+CAG's entire design assumes the corpus fits within the cache budget (Q17) — as a corpus grows past that point, teams face an uncomfortable choice with no good silent option: either the cache is rebuilt with an arbitrarily truncated or naively-sampled subset of the corpus (silently excluding content that may be exactly what a future query needs), or the cache budget is expanded toward the model's absolute context maximum (reintroducing the lost-in-the-middle risk this file's own Q5 addresses, since CAG isn't immune to that phenomenon just because content is cached rather than freshly retrieved).
+
+**Detection:** track corpus size against cache budget as an explicit capacity metric, the same discipline used for Long-context RAG's analogous ceiling (#10 Q19) — a corpus approaching its cache budget limit is a leading indicator, not something to discover only after truncation has already silently dropped content. **Mitigation:** this is precisely the scenario where migrating to a hybrid CAG+RAG approach (this file's own Q11) becomes necessary — cache the stable, high-value "core" of the corpus that's always relevant, and layer retrieval on top for the "long tail" that doesn't fit, rather than either over-truncating the cache or accepting lost-in-the-middle risk by cramming everything into an ever-larger cache.
+
+</details>
+
+---
+
+## Q20. How do you decide which subset of a larger corpus to preload when the full corpus doesn't fit CAG's cache budget? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+When the corpus exceeds the cache budget (Q19), the subset-selection decision should be driven by actual query patterns, not document metadata like recency or arbitrary ordering: analyze historical query logs (or, absent that, a domain expert's judgment of which content is most frequently needed) to identify the subset of the corpus that covers the large majority of real query volume, and preload that subset — accepting that a long tail of rarely-needed content won't benefit from CAG's latency advantage.
+
+For the excluded long tail, the practical options are: (1) simply don't serve those queries as well (acceptable if the excluded content is genuinely rarely needed and the product can tolerate lower quality on rare queries); (2) layer a fallback RAG path specifically for queries the cached subset doesn't cover well (detected via low-confidence generation against the cached context, or via a lightweight upfront classifier), following this file's own hybrid CAG+RAG pattern (Q11); (3) periodically re-evaluate which subset is preloaded as query patterns shift, treating subset selection as a living decision informed by ongoing query-log analysis rather than a one-time choice made at initial deployment.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Cache-Augmented Generation Fits |
