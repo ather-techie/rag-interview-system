@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate question bank
+        run: npm run check && npm run readme:check
+
       - name: Build HTML site
         run: npm run build
 

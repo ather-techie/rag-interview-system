@@ -449,6 +449,138 @@ A hop's retrieval may pull a different tenant's or entity's documents if metadat
 
 ---
 
+## Q13. Walk through the Iterative/Multi-hop RAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Query → Generate/retrieve for hop 1 → sub-answer/evidence 1
+      → Reason over accumulated evidence: is more needed?
+          ├── Yes → formulate next sub-query, conditioned on evidence
+          │          so far → retrieve for hop 2 → sub-answer/evidence 2
+          │          → repeat
+          └── No  → synthesize final answer from all accumulated evidence
+```
+
+The defining property is that each hop's query is **conditioned on what previous hops found**, not generated independently — this is what distinguishes genuine multi-hop iteration from RAG-Fusion's (#18) parallel, independent reformulations (#18 Q15's own comparison draws this same line): a multi-hop question like "what is the birthplace of the director of the highest-grossing 2019 film" cannot be answered by any single reformulation of the original query, since the second retrieval (the director's birthplace) literally cannot be formulated until the first retrieval (who directed the film) has already returned a name.
+
+</details>
+
+---
+
+## Q14. What is the research origin of iterative multi-hop RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+IRCoT (Trivedi et al., *Interleaving Retrieval with Chain-of-Thought Reasoning for Knowledge-Intensive Multi-Step Questions*, arXiv:2212.10509, 2022) established interleaving chain-of-thought generation with retrieval calls — generate one reasoning sentence, retrieve based on it, append the result, generate the next sentence — as a prompted, training-free technique on a frozen LLM. Self-Ask (Press et al., *Measuring and Narrowing the Compositionality Gap in Language Models*, arXiv:2210.03350, 2022) took a related but distinct approach, explicitly prompting the model to decompose a compound question into a sequence of self-posed sub-questions, each answered (with retrieval) before the next is posed.
+
+Both papers share the same underlying insight this file's Q1 describes: many real questions require information that only becomes knowable after an earlier piece of information is retrieved, which no single-shot retrieval — however well the query is rewritten or expanded (RAG-Fusion, #18; HyDE, #22) — can address, since those techniques all still retrieve exactly once based on the original query alone.
+
+</details>
+
+---
+
+## Q15. How does Iterative Multi-hop RAG compare to HippoRAG's (#20) single-pass multi-hop retrieval? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both target genuine multi-hop questions, but HippoRAG (#20) answers them in a **single retrieval pass** — a Personalized PageRank computation that traverses a pre-built graph's multi-hop connections in one shot, with no LLM-mediated intermediate reasoning steps at query time. Iterative Multi-hop RAG instead chains **several separate retrieval-and-reasoning rounds**, with each round's query formulated by the LLM based on what previous rounds found — the "hops" happen as sequential, LLM-driven retrieval calls rather than as paths through a pre-built graph structure.
+
+The trade-off (already drawn from HippoRAG's own side, #20 Q13-Q14): HippoRAG's single-pass approach is cheaper and faster per query, but depends on having pre-built a graph that already encodes the relevant multi-hop connections; Iterative Multi-hop RAG needs no such pre-built structure — it can chain retrieval over a completely flat, ungraphed corpus — at the cost of paying for several sequential LLM calls per query and being exposed to the error-accumulation risk (Q4) that a single-pass graph traversal doesn't have in the same way.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Iterative RAG from single-shot RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **conditioning each retrieval query on the accumulated results of previous retrieval steps**, rather than retrieving once, upfront, based only on the original query. Single-shot RAG (Naive, #01, and every enhancement built on it that still retrieves exactly once — reranking, hybrid search, even RAG-Fusion's #18 parallel reformulations) can only ever search for what the original query's text implies is needed; it has no mechanism to discover, mid-process, that a different piece of information is actually required first before the real question can even be formulated.
+
+This single capability is what makes genuine multi-hop questions answerable at all without a pre-built graph structure (contrast with HippoRAG, #20, Q15) — the cost is that each additional hop requires its own LLM reasoning call and its own retrieval call, which is why hop count directly drives both latency and cost (Q6) in a way no single-shot architecture's tuning knobs can replicate.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for an iterative RAG loop, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Max hops | Caps how many sequential retrieval rounds a query can trigger | 3-5, tuned to your domain's genuine multi-hop depth; always enforce a hard ceiling regardless of the stopping criterion's quality |
+| Stopping-criterion signal (Q5) | Determines how confidently the loop recognizes "I have enough to answer" | Explicit, example-driven stopping instructions outperform a vague "stop when done" prompt, the same lesson learned for agentic loops generally (#04 Q18) |
+| Per-hop `k` (chunks retrieved per hop) | More chunks per hop improve that hop's own recall but add to the growing context each subsequent hop has to process (Q11) | 3-5 per hop is typical; smaller than a single-shot system's typical k, since multiple hops compound total retrieved volume |
+| Evidence-carrying strategy across hops (full accumulated context vs. condensed summary, Q11) | Full context preserves detail but grows unboundedly; condensation bounds growth at the risk of losing detail | Condense older hops' evidence into a running summary once accumulated context approaches a size threshold, mirroring conversational memory's own tiering approach (#21 Q17) |
+
+Max hops and per-hop `k` interact multiplicatively on total retrieval volume and cost (Q6) — the same multiplicative-cost pattern seen in every other multi-step architecture in this bank (RQ-RAG's #51 branch count times sub-query count, ToT-RAG's #37 branching factor times depth), making both worth tuning together against a cost budget rather than independently maximizing each for accuracy.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether each additional hop is actually contributing to answer quality? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Beyond final-answer accuracy (Q8), measure accuracy as a function of hop count directly: run the same multi-hop evaluation set with the loop artificially capped at 1 hop, 2 hops, 3 hops, etc., and plot accuracy against hop count — the expected pattern is a rising curve that plateaus once the loop has genuinely gathered enough evidence, with any hops beyond the plateau point adding cost (Q6) without a corresponding accuracy gain.
+
+This curve reveals two distinct things: where your stopping criterion (Q5, Q17) *should* be terminating for a representative question (informing whether it's currently over- or under-hopping), and whether your evaluation set's questions actually need as many hops as your architecture assumes — a plateau reached earlier than your configured max hops suggests either the stopping criterion is under-triggering (running unnecessary extra hops) or your query distribution is less genuinely multi-hop than the architecture was built to handle, both of which point at cost being wasted somewhere in the pipeline.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when a hop retrieves a plausible but wrong intermediate fact? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Because each hop's query is conditioned on the previous hop's result (Q16), a wrong intermediate fact doesn't just affect that one hop's own accuracy — it corrupts every subsequent hop's query formulation, since those queries are built assuming the wrong fact is correct. This is the specific mechanism behind Q4's error-accumulation problem: a plausible-looking wrong answer at hop 1 ("the director of the film is X" when it's actually Y) causes hop 2 to search for "X's birthplace" — a well-formed, successfully-executed retrieval that returns a confident, correct-looking answer to entirely the wrong question, with nothing in the pipeline flagging that anything went wrong, since every individual hop "succeeded" on its own terms.
+
+**Detection:** for a labeled multi-hop evaluation set with known-correct intermediate facts (not just final answers), check each hop's intermediate result against ground truth specifically — a wrong final answer with a correct chain of intermediate facts points at a synthesis problem in the final step, while a wrong final answer traceable to one specific wrong intermediate hop points at this exact failure mode, and these two require completely different fixes. **Mitigation:** apply a lightweight consistency or confidence check at each hop before committing to it as the basis for the next hop's query (surfacing per-hop provenance and confidence, per this file's own security-and-robustness mitigation), rather than only validating the fully-assembled final answer, since by the final-answer stage an early wrong hop has already propagated too far to trace back cheaply.
+
+</details>
+
+---
+
+## Q20. What are the limitations of Iterative Multi-hop RAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **error accumulation compounds silently** (Q4, Q19) — a wrong intermediate fact corrupts every subsequent hop with no built-in mechanism to notice; (2) **cost scales multiplicatively with hop count** (Q6, Q17) — the most expensive per-query architecture among this bank's foundational tier when hop counts run high; (3) **stopping-criterion quality directly gates both cost and completeness** (Q5, Q18) — a poorly-tuned criterion either wastes cost on unnecessary hops or terminates before genuinely gathering enough evidence; (4) **growing context across hops requires active management** (Q11) — unbounded accumulation risks the same lost-in-the-middle degradation flagged for long-context architectures generally (#10 Q14).
+
+Likely evolution: this exact set of limitations is precisely what motivated the newer architectures elsewhere in this bank built specifically to address one or more of them — HippoRAG's (#20) single-pass PPR retrieval eliminates sequential hop cost entirely for corpora that can support a pre-built graph; CoRAG (#50) and Search-R1 (#42) replace hand-prompted iteration with a trained policy specifically optimized to avoid wasted or drifting hops; and Auto-RAG/DeepRAG (#49) add per-step retrieve-or-reason decisions on top of the same iterative shape to skip hops the model can answer parametrically. A mature production system increasingly treats "iterative multi-hop RAG" as this file's foundational, prompting-based baseline — the reference point every subsequent, more specialized multi-hop architecture in this bank is built to improve on in one specific dimension (cost, robustness, or efficiency) rather than the final answer to genuinely multi-hop retrieval.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Iterative / Multi-hop RAG Fits |

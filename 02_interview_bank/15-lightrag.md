@@ -558,6 +558,139 @@ In local mode, graph traversal can surface chunks that are semantically distant 
 
 ---
 
+## Q13. Walk through the LightRAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Docs → LLM Entity/Relationship Extraction → Knowledge Graph (no Leiden clustering)
+                                                    │
+Query → Dual-Level Retriever
+          ├── Local: entity-anchored, 1-hop neighborhood retrieval
+          └── Global: keyword/theme-anchored retrieval across the graph
+                                                    │
+                                          Merged context → Generator → Answer
+```
+
+LightRAG's indexing pipeline stops one step earlier than Microsoft's GraphRAG (#05): it extracts entities and relationships into a graph exactly as GraphRAG does, but skips the expensive Leiden community-detection and per-community LLM summarization steps entirely. Instead, both "local" (specific-entity) and "global" (thematic) queries are served directly from the same flat graph via two different retrieval strategies chosen at query time — this is what makes LightRAG's indexing meaningfully cheaper than full GraphRAG (#05 Q15) while still supporting both query types GraphRAG's community hierarchy was built to serve.
+
+</details>
+
+---
+
+## Q14. What is the research origin of LightRAG, and what headline efficiency result does the paper report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+LightRAG was introduced by Guo et al., *LightRAG: Simple and Fast Retrieval-Augmented Generation* (arXiv:2410.05779, 2024), proposing the dual-level (local + global) retrieval scheme over a flat extracted knowledge graph as a lighter-weight alternative to Microsoft GraphRAG's (#05) full community-detection pipeline.
+
+The paper's headline claims are specifically about efficiency relative to GraphRAG: substantially lower indexing cost and time (since Leiden clustering and community summarization are removed entirely) and faster, cheaper incremental updates (Q8) when documents change, while reporting competitive answer quality on both entity-focused and thematic query benchmarks — positioning LightRAG as a practical middle ground between flat vector RAG's simplicity and full GraphRAG's community-hierarchy depth.
+
+</details>
+
+---
+
+## Q15. What is the single distinctive mechanism that separates LightRAG's dual-level retrieval from GraphRAG's community hierarchy? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is answering both entity-specific and thematic queries **directly from a flat graph via two retrieval strategies chosen at query time**, rather than pre-computing a separate summary artifact (GraphRAG's community summaries, #05) specifically to serve thematic queries. GraphRAG's approach front-loads the cost of synthesizing themes into the indexing pipeline (Leiden clustering plus LLM summarization per community); LightRAG's global retrieval mode instead searches the flat graph directly using broader, theme-level query signals (keywords, entity clusters found via traversal at query time) rather than reading a pre-written summary.
+
+This is a direct efficiency-for-depth trade: GraphRAG's pre-computed community summaries can capture nuanced, LLM-synthesized cross-document themes that a query-time graph traversal might not reconstruct as richly, but LightRAG's approach needs no expensive per-community summarization step at all and adapts its "global" answer freshly to each specific query rather than reusing a generic, pre-written community summary that may not emphasize the angle a specific query actually needs.
+
+</details>
+
+---
+
+## Q16. How does LightRAG compare to HippoRAG (#20)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both build a graph from extracted entities more cheaply than full GraphRAG, but retrieve from it very differently. LightRAG's dual-level scheme (Q2) explicitly separates local (entity-anchored) and global (theme-anchored) retrieval as two distinct strategies a router chooses between per query. HippoRAG (#20) uses a single, unified mechanism — Personalized PageRank spreading activation from query-matched entities — that naturally handles both narrow and broad queries through the same graph-traversal process, without needing an explicit local-vs-global routing decision at all, since PPR's spreading activation naturally reaches further from the seed nodes for queries needing broader context.
+
+The practical distinction: LightRAG's explicit dual-level split is easier to reason about and debug (you always know which mode served a given query), while HippoRAG's unified PPR mechanism is more elegant but requires understanding a graph-algorithm's emergent behavior (damping factor, seed selection, #20 Q11) rather than a simple two-way routing choice to predict how it will behave on a given query.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for LightRAG, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Entity/relationship extraction prompt | Determines graph quality and connectivity, same as for GraphRAG (#05 Q17) | Validate against manually-reviewed extractions before full-corpus indexing |
+| Local vs. global retrieval routing | Determines which of the two retrieval modes serves a given query | A cheap keyword/entity-count heuristic (single named entity → local; broad/comparative language → global) as a starting router, refined via evaluation (Q18) |
+| Local retrieval hop depth (1-hop vs. multi-hop neighborhood) | Deeper hops capture more distant but potentially relevant entities at the cost of noisier context | Start at 1-hop; extend only if evaluation shows genuinely relevant 2-hop connections are being missed |
+| Global retrieval breadth (how much of the graph is searched) | Wider search improves thematic recall but increases latency and context size | Bounded by a keyword/entity-cluster relevance threshold rather than an unbounded full-graph scan |
+
+The local-vs-global routing decision is the highest-leverage knob because it determines which of LightRAG's two fundamentally different retrieval mechanisms actually runs — a poorly-tuned router sending thematic queries down the local path (or vice versa) undermines the entire dual-level design regardless of how well each individual mode is tuned in isolation.
+
+</details>
+
+---
+
+## Q18. How do you evaluate LightRAG's dual-level retrieval quality separately for local and global queries? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build two separate labeled evaluation sets — one of genuinely entity-specific queries with a known correct entity/fact, one of genuinely thematic/cross-document queries with a known correct synthesis — since conflating them into one aggregate accuracy number hides which retrieval mode is actually underperforming. Measure recall/accuracy for each set using the routing mode that mode is designed to handle, and separately measure **routing accuracy** itself (does the router send local queries to local retrieval and global queries to global retrieval, the same routing-accuracy discipline used in Modular RAG's #03 Q18 evaluation).
+
+Compare against GraphRAG (#05) and HippoRAG (#20) on the same two query sets if a head-to-head comparison is needed for an architecture decision (#05 Q15's decision framing) — LightRAG's local-mode performance should be broadly comparable to a well-tuned entity-anchored retriever, while its global-mode performance is the more interesting comparison point against GraphRAG's pre-computed community summaries, since that's where LightRAG's cheaper, query-time-computed approach is most likely to show a measurable quality gap in either direction depending on your corpus's specific characteristics.
+
+</details>
+
+---
+
+## Q19. What is the cost and latency profile of LightRAG's entity/relationship extraction, and how do you control it? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Entity/relationship extraction is LightRAG's one remaining LLM-heavy indexing step (Q13) — every document requires at least one LLM pass to identify entities and their relationships, which is the same cost driver GraphRAG (#05 Q11) faces, just without the additional community-detection and summarization passes on top. Illustrative comparison: for a corpus requiring roughly one extraction call per document (or per chunk, for longer documents), LightRAG's total indexing LLM cost is proportional to corpus size alone, while GraphRAG's adds the further, larger cost of summarizing every detected community — meaning LightRAG's cost advantage over GraphRAG grows specifically as the corpus's community count grows, since that's the cost GraphRAG pays that LightRAG doesn't.
+
+**Controls:** use a cheaper model for extraction where quality allows (the same model-tiering principle used throughout this bank), since extraction runs once per document while query-time retrieval and generation run per query — an extraction-quality vs. extraction-cost trade-off made once at indexing time is easier to reason about than a per-query trade-off; batch extraction calls across documents where the extraction model supports batched inference; and treat incremental updates (Q8) as the primary ongoing cost driver post-launch — since LightRAG's simpler graph structure (no community re-clustering needed on update) is specifically what makes its per-update cost lower than GraphRAG's, this advantage should be preserved by avoiding any workaround that reintroduces a full-corpus reprocessing step for routine updates.
+
+</details>
+
+---
+
+## Q20. What are the limitations of LightRAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **global retrieval lacks GraphRAG's pre-synthesized community depth** (Q15) — a query-time graph search over keywords/entity clusters can miss nuanced cross-document themes that an LLM-written community summary would have captured explicitly; (2) **entity resolution quality remains a hard ceiling** (Q5), exactly as for GraphRAG (#05 Q9, Q19) — LightRAG's cheaper pipeline doesn't reduce this shared risk; (3) **local-vs-global routing accuracy directly gates overall system quality** (Q17, Q18) — a routing error sends a query to a fundamentally mismatched retrieval strategy with no fallback unless explicitly built; (4) **evaluation requires the same graph-specific tooling investment** as other graph-based architectures (Q9), which most teams have less experience building than standard RAG evaluation.
+
+Likely evolution: continued exploration of the cost/depth spectrum this file, GraphRAG (#05), and LazyGraphRAG (#47) collectively represent — expect hybrid designs that selectively apply GraphRAG-style community summarization only to the corpus regions or query patterns proven (via production monitoring, Q18) to actually need that depth, while defaulting to LightRAG's cheaper dual-level retrieval elsewhere, rather than committing a whole corpus to one graph-construction strategy uniformly.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why LightRAG Fits |

@@ -943,6 +943,170 @@ An attacker must fool multiple layers to successfully manipulate the evaluator. 
 
 ---
 
+## Q13. Walk through the CRAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Query → Retrieve (standard dense/hybrid retrieval)
+      → Retrieval Evaluator scores each chunk: CORRECT / AMBIGUOUS / INCORRECT
+          ├── CORRECT    → knowledge decomposition/refinement → use as context
+          ├── AMBIGUOUS  → combine refined internal chunks + external web search
+          └── INCORRECT  → discard, fall back to web search entirely
+      → Generate answer from the resulting (possibly corrected) context
+```
+
+The evaluator is the single component that distinguishes CRAG from standard RAG — everything else in the pipeline (retrieval, generation) is unchanged. What makes this a *corrective* architecture rather than just a filtering one is the three-way branch: a binary "good/bad" evaluator could only discard bad retrievals, but CRAG's AMBIGUOUS category specifically handles the common middle case where retrieved content is partially useful but insufficient alone, blending it with a web-search fallback rather than either fully trusting or fully discarding it.
+
+</details>
+
+---
+
+## Q14. What is the research origin of CRAG, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Corrective RAG was introduced by Yan et al., *Corrective Retrieval Augmented Generation* (arXiv:2401.15884, 2024), proposing a lightweight retrieval evaluator (a fine-tuned smaller model, distinct from the generator LLM) that scores retrieved documents and triggers one of three corrective actions (Q13) before generation, rather than trusting retrieval output unconditionally.
+
+The paper's core motivation, echoed throughout this file, is that retrieval quality is the dominant driver of RAG failure — a strong generator conditioned on irrelevant or misleading retrieved content still produces a wrong answer, and no amount of generator capability fixes bad input context. The reported results show CRAG improving robustness specifically on queries where standard RAG's retrieval quality is weak, without degrading performance on queries where retrieval was already good — the evaluator's cost is only "spent" in the sense of always running, but its corrective action only triggers when actually needed.
+
+</details>
+
+---
+
+## Q15. How does CRAG's post-retrieval evaluation differ from Adaptive RAG's (#11) pre-retrieval complexity routing? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Adaptive RAG's (#11) classifier acts before retrieval ever happens, predicting from the query alone which retrieval strategy to invoke — it never sees what retrieval actually returns before making its decision. CRAG's evaluator acts after retrieval, examining the specific documents that came back and judging their quality directly, with no attempt to predict retrieval outcome in advance.
+
+This means the two catch different failure classes: Adaptive RAG can prevent wasted effort on genuinely simple queries by skipping retrieval strategies they don't need, but it cannot detect a retrieval attempt that returns bad results for reasons the query text gave no hint of (a stale index, an unusually poorly-indexed document, an adversarially poisoned corpus entry). CRAG catches exactly that case, since it always looks at actual retrieval output — but it can't save the cost of an unnecessary retrieval call the way Adaptive RAG's upfront skip can, since retrieval has already happened by the time CRAG's evaluator runs.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates CRAG from standard RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is an **explicit, independent quality check on retrieved content before it reaches the generator**, with a defined corrective action (refine, supplement with web search, or discard and fully replace) for each quality tier — standard RAG has no equivalent step at all; whatever the retriever returns is unconditionally passed to the generator. This single addition is what gives CRAG its headline robustness property (Q14): a generator that never sees clearly-irrelevant retrieved content can't be misled by it in the specific way standard RAG's ungated pipeline can.
+
+This is architecturally the same "generate-then-verify" discipline used elsewhere in this bank (Self-RAG's #07 reflection tokens, Astute RAG's #48 consolidation), applied specifically at the retrieval-quality checkpoint rather than at the final-answer checkpoint — CRAG catches a problem before generation ever happens, which is cheaper to correct than catching a bad answer after the fact and having to regenerate it.
+
+</details>
+
+---
+
+## Q17. What are the three evaluator verdict categories in CRAG, and what happens in each branch? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Verdict | Meaning | Action |
+|---|---|---|
+| CORRECT | Retrieved document(s) directly and sufficiently answer the query | Apply knowledge decomposition/refinement (Q7) to strip noise, then use as generation context |
+| AMBIGUOUS | Retrieved document(s) are partially relevant but insufficient alone | Combine refined internal content with supplementary external web search results |
+| INCORRECT | Retrieved document(s) don't meaningfully address the query | Discard entirely; fall back to web search as the sole source of context |
+
+The AMBIGUOUS tier is the design choice that distinguishes CRAG from a simpler binary relevant/irrelevant filter: many real retrieval results are neither cleanly correct nor cleanly wrong — a document that's topically relevant but missing a specific needed detail is common, and treating it as fully correct risks an incomplete answer while discarding it entirely wastes genuinely useful partial context. The AMBIGUOUS branch's blend-with-web-search approach captures value from both sources rather than forcing a binary keep-or-discard decision on content that doesn't cleanly fit either category.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether CRAG's evaluator is actually improving end-to-end answer quality over standard RAG? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a golden set specifically including cases with deliberately poor retrieval (queries against a stale or sparse section of the corpus, ambiguous queries with only partially-relevant matches, and queries where the correct answer requires the web-search fallback) alongside cases with normally-good retrieval — a benchmark that's all easy, well-retrieved queries won't exercise CRAG's evaluator or corrective branches at all, and will show no measurable difference from standard RAG regardless of whether the evaluator is well-calibrated.
+
+Track answer accuracy for standard RAG vs. CRAG on this set, segmented by which verdict CRAG's evaluator actually assigned (CORRECT/AMBIGUOUS/INCORRECT, Q17) — CRAG's advantage should concentrate specifically in the AMBIGUOUS and INCORRECT segments, where standard RAG has no mechanism to avoid using poor context; on the CORRECT segment, CRAG and standard RAG should perform comparably, since the evaluator's action there (light refinement) shouldn't meaningfully change the outcome. If CRAG doesn't show a clear advantage on the AMBIGUOUS/INCORRECT segments specifically, that's a strong signal the evaluator itself is miscalibrated (Q19) rather than that CRAG's architecture doesn't help.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when the evaluator has a systematic scoring blind spot? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+An evaluator trained or prompted with a bias toward certain surface features — for example, consistently rating longer documents as CORRECT regardless of whether their length reflects genuine relevance, or consistently rating documents containing many of the query's literal keywords as CORRECT even when the semantic content doesn't actually answer the question — produces verdicts that look reasonable in aggregate accuracy metrics but fail specifically and predictably on the query types that trigger the blind spot.
+
+**Detection:** segment evaluator verdict accuracy (compare the evaluator's verdict against human judgment on a labeled sample, per Q18's evaluation approach) by document features suspected of triggering bias — length, keyword density, source type — rather than only tracking aggregate verdict accuracy, since a bias affecting a specific document-feature segment can be invisible in an aggregate number dominated by unaffected documents. **Mitigation:** if a bias is confirmed, retrain or reprompt the evaluator with training/example data specifically balanced against the biased feature (e.g., include short-but-correct and long-but-irrelevant documents in equal measure) rather than adjusting the confidence threshold globally, since a global threshold change doesn't fix a bias tied to a specific document characteristic.
+
+</details>
+
+---
+
+## Q20. Design a CRAG-based system for a customer support assistant with web-search fallback. `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Requirements:** a support knowledge base that's occasionally stale or incomplete for newly-released features; when internal documentation doesn't cover a question, the system should fall back to the vendor's public web documentation rather than answering from unsupported guesses.
+
+```
+1. Retrieval: standard dense retrieval over the internal support KB.
+
+2. Evaluator (Q3, Q17): a lightweight fine-tuned or prompted judge
+   scores retrieved KB articles CORRECT/AMBIGUOUS/INCORRECT relative
+   to the user's question.
+
+3. Branch logic:
+   - CORRECT: refine (Q7) and answer directly from internal KB --
+     fastest, cheapest path, used for the majority of well-covered
+     questions.
+   - AMBIGUOUS: internal KB partially covers the topic (e.g., an older
+     version of the feature) -- supplement with a web search against
+     the vendor's public docs (Agentic Web RAG's #31 search pattern)
+     for the missing specifics, blending both sources in the answer.
+   - INCORRECT: internal KB has nothing relevant -- fall back entirely
+     to public web documentation, clearly flagging to the user that
+     this answer comes from public docs rather than internal support
+     material, since internal-only nuances (account-specific details)
+     won't be present.
+
+4. Cost control (Q11): batch or cache evaluator calls where possible,
+   since the evaluator runs on every query regardless of branch outcome
+   -- this is the one cost CRAG always pays, so keeping it cheap
+   matters more than optimizing the (less frequently triggered) web
+   fallback path.
+
+5. Monitoring: track the verdict distribution over time -- a rising
+   INCORRECT/AMBIGUOUS rate signals the internal KB is falling behind
+   product changes and needs a content update, giving support-content
+   maintainers a data-driven signal for what to prioritize updating.
+```
+
+The key design value is that CRAG's verdict distribution doubles as an operational signal for content gaps, not just a runtime correction mechanism — tracking which queries trigger AMBIGUOUS/INCORRECT verdicts over time tells the support content team exactly where the internal KB needs updates, turning the evaluator into a continuous content-quality feedback loop.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Corrective RAG Fits |

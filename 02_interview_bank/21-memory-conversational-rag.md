@@ -492,6 +492,161 @@ Query rewriting is the linchpin of conversational retrieval — and a frequent f
 
 ---
 
+## Q13. Walk through the Memory/Conversational RAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+New user turn
+    │
+    ▼
+Query Rewriter/Condenser (resolves pronouns/ellipsis using conversation
+history, Q3) → standalone query
+    │
+    ▼
+Retrieval: from the document corpus, from conversational memory
+(prior turns' facts), or both (Q6)
+    │
+    ▼
+Generator (produces response, conditioned on retrieved context +
+relevant memory tier, Q2)
+    │
+    ▼
+Memory Update: new turn's facts get written into short/long-term
+memory tiers for future turns to draw on
+```
+
+The memory-update step at the end is what distinguishes this from a single-turn RAG system run repeatedly — every turn doesn't just produce an answer, it also potentially changes what future turns will retrieve from memory, creating a feedback loop that has no equivalent in stateless single-turn RAG. This is exactly why conversational context drift (Q4) is a risk unique to this architecture: memory that's updated incorrectly or incompletely at turn N silently degrades every subsequent turn that depends on it.
+
+</details>
+
+---
+
+## Q14. What is the research origin of conversational memory architectures? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+MemGPT (Packer et al., *MemGPT: Towards LLMs as Operating Systems*, arXiv:2310.08560, 2023) is the most directly relevant research origin for the tiered-memory design this file describes (Q2) — it proposed treating an LLM's limited context window like a computer's limited RAM, with an explicit "operating system" layer that pages relevant information in and out of the active context from a larger, persistent memory store, directly inspiring the short-term/long-term memory tier split used in production conversational RAG systems today.
+
+Query condensation for follow-up questions (Q3) traces to earlier conversational search research on query rewriting for multi-turn dialogue, predating the LLM-based RAG systems this file describes — the core problem (a follow-up question's pronouns and ellipsis only make sense given prior turns) is a long-standing information-retrieval challenge that LLM-based rewriting (prompting a model to condense history into a standalone query) solves more flexibly than earlier rule-based or statistical approaches could.
+
+</details>
+
+---
+
+## Q15. How does Memory/Conversational RAG's "memory" compare to MemoRAG's (#44) "memory"? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+These are two unrelated uses of the same word, worth explicitly disambiguating in an interview (the same kind of terminology clash flagged for Agentic RAG's #04 "A-RAG" note). This file's "memory" refers to **conversation state** — facts and context accumulated across turns of a single user's dialogue, tiered by recency and importance (Q2), used to resolve follow-up questions and maintain coherence across a multi-turn session. MemoRAG's (#44) "memory" refers to a **compressed representation of the entire corpus** — a global, corpus-wide artifact built once at index time and reused across all queries from all users, used to generate retrieval clues for implicit or aggregate questions.
+
+The two solve entirely different problems and could coexist in the same system without conflict: a customer support assistant could use this file's conversational memory to track what's been discussed in the current session, while separately using MemoRAG's global memory to generate better retrieval clues against the underlying knowledge base for each turn's query — "memory" in one sense is per-session and per-user; in the other sense it's global and shared across all sessions.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Conversational RAG from single-turn RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **maintaining and updating persistent state across turns**, so that a later turn's retrieval and generation can depend on information established in earlier turns — something single-turn RAG has no mechanism for at all, since each query is processed as if it were the first and only interaction. This state takes two forms working together: query condensation (Q3, resolving what a follow-up question actually means given prior context) and memory tiers (Q2, tracking facts and context that may need to inform a much later turn, not just the immediately preceding one).
+
+This single addition is what makes an entire class of natural conversational behavior possible — "what about the second one?", "does that apply to my case too?", a user correcting an earlier stated fact and expecting the system to remember the correction — none of which a single-turn system, however good its per-query retrieval and generation are, can handle, since it structurally has no way to know what "the second one" or "that" refers to without the state single-turn RAG never maintains.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for conversational memory, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Summarization trigger threshold (when to compress older turns into a summary rather than keeping them verbatim) | Triggering too early loses detail prematurely; too late lets the context window grow unnecessarily | Trigger based on token budget remaining, not a fixed turn count, since turn length varies significantly by use case |
+| Memory tier sizes (short-term/working vs. long-term) | Larger short-term memory preserves more recent detail verbatim; larger long-term memory retains more history but at summarized/compressed fidelity | Size short-term memory to comfortably hold the last several turns verbatim; long-term memory holds the compressed record of everything older |
+| Condensation model choice (Q3) | A stronger model produces more reliable standalone-query rewrites; a weaker one is cheaper but riskier on ambiguous follow-ups | A cheap, fast model is usually sufficient for this narrowly-scoped rewriting task, reserving stronger models for final generation |
+| History window fed to the rewriter | More history helps disambiguate genuinely distant references but risks introducing spurious, irrelevant context (per this file's own mitigation guidance) | Bound the window explicitly rather than feeding unlimited history — recent turns plus any long-term-memory facts flagged as relevant to the current topic |
+
+The summarization trigger threshold has the widest-reaching downstream effect, since it directly determines how much verbatim detail vs. lossy-compressed summary a later turn's retrieval actually has access to — get this wrong and no amount of tuning the other knobs recovers detail that was already compressed away.
+
+</details>
+
+---
+
+## Q18. How do you implement session/topic-boundary detection to know when to reset or branch conversational memory? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Not every new message continues the same topic — a user can finish one line of inquiry and start an entirely unrelated one within the same session, and continuing to condition retrieval on now-irrelevant prior-turn memory (Q4's context drift) can actively hurt rather than help. A practical detector compares the new message's topical similarity against recent conversation history, flagging a likely topic boundary when similarity drops sharply:
+
+```python
+def detect_topic_boundary(new_message: str, recent_turns: list[str], embed_fn, threshold: float = 0.3) -> bool:
+    """Returns True if the new message likely starts a new topic,
+    suggesting memory should be reset/branched rather than extended."""
+    if not recent_turns:
+        return False
+    new_emb = embed_fn(new_message)
+    recent_embs = [embed_fn(t) for t in recent_turns[-3:]]  # last few turns
+    similarities = [cosine_sim(new_emb, e) for e in recent_embs]
+    return max(similarities) < threshold
+```
+
+On a detected boundary, the practical options are: (1) reset short-term memory but preserve long-term memory (the user's identity, preferences, and durable facts persist; only the immediate conversational thread resets); (2) branch into a separate memory context, allowing the user to later return to the earlier thread without it having been overwritten; or (3) simply flag the boundary in logs without taking automatic action, if the cost of a false-positive reset (losing genuinely relevant context) outweighs the benefit for your use case. The right choice depends on how costly false positives vs. false negatives are for your specific product — a support chatbot where users rarely switch topics mid-session can accept a higher detection threshold than a general assistant expected to field genuinely varied requests within one session.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when memory summarization loses a detail needed several turns later? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+When older turns get compressed into a summary (Q17's summarization trigger) to keep the context window bounded, the summarization step makes an implicit bet about which details matter enough to preserve — a detail that seemed minor at turn 3 (a specific constraint the user mentioned in passing) can become critical at turn 15 if the conversation circles back to it, but if the turn-3-to-turn-10 summary didn't preserve that detail, it's now permanently unavailable to inform turn 15's retrieval and generation, with no way to recover it short of the user re-stating it.
+
+**Symptom:** the system asks a user to repeat information they already provided earlier in the same conversation, or gives an answer that contradicts an earlier-stated constraint it no longer has access to — both are direct, user-visible signals of this failure, distinguishable from a general retrieval-quality problem because they specifically correlate with conversation length (more turns since the detail was mentioned, higher chance it fell victim to summarization). **Mitigation:** bias summarization prompts to preserve specific, concrete facts (names, numbers, constraints, explicit user preferences) over general narrative flow, since narrative context is more recoverable from surrounding turns than a single concrete fact that either survives compression or is gone entirely; and consider a separate, uncompressed "key facts" store (distinct from the general narrative summary) specifically for details flagged as likely to matter later, giving important facts a preservation path that doesn't depend on the general summarization step's judgment call.
+
+</details>
+
+---
+
+## Q20. How do you test a conversational RAG system's multi-turn behavior systematically? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Single-turn evaluation (does this one query, in isolation, get a good answer) misses the failure modes unique to this architecture entirely — context drift (Q4), memory loss (Q19), and query-rewriting failures (Q12) only manifest across a sequence of turns. Build **multi-turn test scenarios** instead: scripted conversation sequences with a known-correct expected behavior at each turn, specifically including turns designed to probe known risk points — a follow-up with an ambiguous pronoun (tests query rewriting, Q3), a topic switch mid-conversation (tests boundary detection, Q18), a callback to a detail from many turns earlier (tests memory retention, Q19), and a user correction of an earlier stated fact (tests whether memory updates rather than just accumulates).
+
+Run these scripted scenarios end-to-end (not just checking the final turn's answer, but each intermediate turn's behavior) and track failure rate per scenario category — this decomposition reveals which specific conversational capability is weak, the same segmented-evaluation discipline used throughout this bank, rather than a single aggregate "conversation quality" score that blends several genuinely different failure modes together. Re-run this test suite on every change to the memory architecture, condensation prompt, or underlying model, since multi-turn behavior is exactly the kind of regression that single-turn evaluation would never catch.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Memory / Conversational RAG Fits |

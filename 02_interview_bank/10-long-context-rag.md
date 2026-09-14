@@ -842,6 +842,138 @@ Combining content, structural, and model-level controls prevents context stuffin
 
 ---
 
+## Q13. Walk through the Long-context RAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Query → Coarse pre-filter (BM25/vector, narrows candidate documents)
+      → Stuff a large fraction of (or all of) the filtered documents
+        into a large context window (100K-1M+ tokens)
+      → Optional: reorder chunks (Q7) or compress (Q4, Q11) to
+        mitigate lost-in-the-middle and reduce token cost
+      → Single large-context LLM call → Answer
+```
+
+The architectural bet visible here is minimal: unlike every other architecture in this bank's foundational tier, Long-context RAG doesn't redesign retrieval at all — it uses the same coarse pre-filter any RAG system would, then leans on the model's raw context-window capacity to do what fine-grained chunk retrieval would otherwise be needed for. This is precisely why it's positioned as the opposite extreme from LongRAG's (#45) more surgical large-retrieval-unit approach (Q15) — Long-context RAG asks "why chunk at all," while LongRAG asks "how do we make chunks bigger without going all the way to stuffing everything."
+
+</details>
+
+---
+
+## Q14. What is the research origin of the "lost in the middle" finding? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The lost-in-the-middle phenomenon (Q2) was documented by Liu et al., *Lost in the Middle: How Language Models Use Long Contexts* (arXiv:2307.03172, 2023), which systematically measured LLM performance on tasks requiring information retrieval from different positions within a long input, finding a consistent U-shaped accuracy curve: models perform best when relevant information is at the very beginning or very end of the context, and measurably worse when it's buried in the middle — regardless of the context window's total size or the model's stated maximum context length.
+
+This finding is foundational to Long-context RAG specifically because it directly undermines the architecture's simplest possible implementation ("just stuff everything into the window and let the model sort it out") — a large context window's *capacity* to hold information doesn't guarantee the model will *attend to it reliably*, which is exactly why chunk reordering (Q7), compression (Q4, Q11), and hybrid retrieval-plus-long-context designs (Q5) all exist as necessary complements rather than optional refinements.
+
+</details>
+
+---
+
+## Q15. How does Long-context RAG compare to LongRAG (#45)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Long-context RAG (this file) mostly abandons fine-grained retrieval, relying on a coarse pre-filter and the model's raw context capacity to handle the rest — it doesn't redesign what a "retrieval unit" is. LongRAG (#45) is a more surgical middle ground: it keeps a genuine, precise retrieval step, but changes the retrieval *unit* size from small chunks to much larger (~4K-token) units, shrinking the retrieval pool (Q1 of #45) while still doing real ranking and selection rather than stuffing everything that survives a coarse filter.
+
+The practical distinction (already drawn from LongRAG's own side, #45 Q1's comparison table): Long-context RAG fits when the relevant candidate set is already small enough that a coarse filter is sufficient, since there's little for precise retrieval to add at that scale; LongRAG fits larger corpora where a genuinely selective retrieval step is still needed, but where the traditional small-chunk unit size is itself the source of fragmentation problems (#45 Q1) that larger units address more directly than raw context-window capacity would.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Long-context RAG from chunked RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **minimizing or eliminating fine-grained retrieval ranking, relying instead on the model's raw context-window capacity** to absorb a much larger share of the candidate document set than any chunked architecture would pass to the generator. Chunked RAG (Naive, #01, and every architecture built on top of it) treats the "which specific passages does the LLM actually see" decision as the single most important lever for answer quality, investing heavily in embedding quality, reranking, and chunk-boundary design specifically because only a handful of chunks will ever reach the generator. Long-context RAG treats that decision as comparatively low-stakes, since the generator sees most or all of the coarsely-filtered candidate set regardless of fine-grained ranking quality.
+
+This single shift in emphasis is what produces every one of this file's other distinctive concerns: cost scales with how much gets stuffed in (Q4), lost-in-the-middle (Q14) becomes a first-class risk once context routinely spans tens of thousands of tokens, and the natural complement techniques (compression, caching, Q6/Q11) exist specifically to make "stuff more in" affordable and reliable rather than to make retrieval itself more precise.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for a Long-context RAG deployment, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Context budget (how much of the model's max window to actually use) | Using less than the full window leaves capacity on the table; using the full window maximizes cost and lost-in-the-middle exposure | Size to your actual corpus's typical relevant-content volume, not the model's maximum, unless your corpus genuinely needs that much |
+| Coarse pre-filter aggressiveness | A looser filter includes more documents (safer, but pushes more content into the lost-in-the-middle risk zone); a tighter filter narrows the candidate set (cheaper, faster, but risks excluding something relevant) | Tune against recall on a labeled set, the same discipline used for any retrieval pre-filter |
+| Chunk reordering strategy (Q7) | Determines whether the most relevant content sits at the favorable start/end positions | Place the highest-confidence content last (closest to the query, mirroring the same recency-weighting principle used in Few-Shot Example RAG's #32 Q14) |
+| Compression ratio (Q4, Q11) | More aggressive compression reduces cost and mitigates lost-in-the-middle by removing low-information content, at the risk of losing genuinely relevant detail | Validate empirically against answer accuracy, not just token-count reduction, since compression's cost savings are only a win if accuracy holds |
+
+Coarse pre-filter aggressiveness is the knob most likely to be under-tuned in practice, since Long-context RAG's whole design de-emphasizes retrieval precision — but the pre-filter is still the one component standing between "the model sees everything relevant" and "the model never had a chance to see something relevant at all," making it worth the same evaluation rigor as any RAG system's primary retrieval step.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether long-context stuffing is actually helping vs. a well-tuned chunked retriever for your corpus? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a golden set and compare Long-context RAG against a well-tuned chunked RAG baseline (not a naive, un-tuned one — the comparison is only meaningful against your best achievable chunked system) on the same corpus and queries, tracking accuracy, cost per query, and latency. Segment specifically by whether the correct answer requires synthesizing information scattered across many parts of the corpus (where long-context's "see everything" approach has a structural advantage) versus a single, precisely-locatable fact (where a well-tuned chunked retriever's precision often matches or beats long-context stuffing at a fraction of the cost).
+
+This segmented comparison is what should drive the routing decision in Q10 (cost-aware routing between long-context and chunked RAG) — a system that measures this trade-off empirically, rather than assuming long-context is either always better (ignoring its cost and lost-in-the-middle risk) or always worse (ignoring genuine synthesis-heavy queries where it has a real advantage), is what makes an informed architecture choice rather than a default one.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when the corpus grows past what even a large context window can hold? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Long-context RAG's whole design assumes the coarse pre-filter (Q13) narrows the corpus to a set small enough to fit the context window — but as a corpus grows, this assumption can silently break: the pre-filter starts having to be more aggressive to keep the filtered set within budget, which means it starts excluding genuinely relevant content that would have fit comfortably when the corpus was smaller. Unlike a chunked RAG system, where growing the corpus mainly affects the difficulty of the ranking problem (still solvable at any scale by a good enough retriever), Long-context RAG has a hard capacity ceiling that corpus growth eventually collides with regardless of how good the pre-filter is.
+
+**Detection:** track the pre-filter's exclusion rate over time as the corpus grows — a rising rate of documents excluded purely due to context-budget constraints (rather than genuine irrelevance) is the signature that Long-context RAG's core assumption is eroding. **Mitigation:** this is precisely the scenario where migrating toward LongRAG's (#45) genuinely selective large-unit retrieval, or a hybrid routing approach (Q10) that falls back to precise chunked retrieval once the corpus exceeds a size where coarse filtering remains adequate, becomes necessary — Long-context RAG's simplicity is a feature only up to the corpus size where its coarse filter can still do an adequate job, and that ceiling should be monitored explicitly rather than discovered via a silent accuracy regression.
+
+</details>
+
+---
+
+## Q20. What are the limitations of Long-context RAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **cost scales directly with how much is stuffed into context** (Q4) — the most expensive per-query cost profile among this bank's foundational architectures when used without compression or caching; (2) **lost-in-the-middle is a persistent risk, not a solved problem** (Q2, Q14) — mitigations (reordering, compression) reduce but don't eliminate it; (3) **hits a hard capacity ceiling as corpus size grows** (Q19), unlike chunked retrieval which degrades more gracefully; (4) **provides weaker citation precision than chunk-level retrieval** — with a huge blended context, tracing a specific claim back to its exact source passage is harder than with a small, individually-addressable chunk (the same precision trade-off flagged for large-unit retrieval generally, #45 Q1).
+
+Likely evolution: continued growth of native context-window sizes and prompt-caching economics (Q6) will keep shifting the cost calculus in Long-context RAG's favor for corpora at any given size, but the corpus-growth ceiling (Q19) means retrieval precision remains necessary at sufficient scale regardless of how large context windows get — the field's likely trajectory is hybrid systems (Q5, Q10) that route between long-context and precise retrieval based on measured corpus size and query type, rather than either extreme (always stuff everything, or always chunk finely) becoming the universal default, mirroring LongRAG's (#45) own middle-ground design philosophy.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Long-Context RAG Fits |

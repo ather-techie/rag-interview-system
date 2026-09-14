@@ -794,6 +794,151 @@ An attacker must craft queries that fool multiple retrieval modalities, which is
 
 ---
 
+## Q13. What is Reciprocal Rank Fusion, and why is it used to merge sparse and dense result lists instead of averaging scores? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Reciprocal Rank Fusion (RRF) merges two ranked lists by scoring each document as `1 / (k + rank)` in each list it appears in (a constant like `k=60` is typical) and summing across lists — a document ranked #1 by both retrievers scores highest, and a document that only one retriever found still contributes something, rather than being penalized for the other retriever's silence.
+
+The reason RRF is preferred over simply averaging raw similarity scores is that BM25 scores and cosine-similarity scores live on **incompatible scales** — BM25 scores are unbounded and corpus-dependent (they depend on term frequency statistics across the whole index), while cosine similarity is bounded between -1 and 1 and depends on the embedding model's geometry. Averaging these two directly would let whichever score happens to have a larger numeric range dominate the merge, regardless of which retriever is actually more informative for a given query. RRF sidesteps this entirely by discarding the raw scores and working only with rank position, which is directly comparable across any two ranking methods no matter how differently their underlying scores are distributed.
+
+</details>
+
+---
+
+## Q14. What is the research and practical origin of the query-rewriting and reranking techniques that define Advanced RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+HyDE (Q2) comes from Gao et al., *Precise Zero-Shot Dense Retrieval without Relevance Labels* (arXiv:2212.10496, 2022), which showed that embedding an LLM-generated hypothetical answer closes the query-document vocabulary gap better than embedding the raw query, without needing any labeled relevance data to train a better retriever. Cross-encoder reranking (Q4) builds on the broader cross-encoder-vs-bi-encoder distinction established in sentence-embedding and passage-ranking research (the MS MARCO passage ranking benchmark drove much of the reranker tooling still in use, like `ms-marco-MiniLM`), applying joint query-document attention specifically as a second-stage precision filter over a cheap first-stage retriever's candidates.
+
+Neither technique originated as part of a single "Advanced RAG" paper — the term describes a practitioner-assembled combination of separately-published pre- and post-retrieval techniques (query rewriting, hybrid search, reranking, compression) layered onto Naive RAG's pipeline, in the same way this bank documents several other "combination" architectures (e.g., LongRAG + Self-Route, #45) built from independently-discovered pieces rather than one unified research contribution.
+
+</details>
+
+---
+
+## Q15. How does Advanced RAG compare to Modular RAG (#03)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Advanced RAG is a **fixed pipeline** with a specific, named set of enhancements bolted onto Naive RAG in a specific order (query rewriting → hybrid retrieval → reranking → compression, per this file's architecture diagram) — every query flows through the same stages in the same sequence. Modular RAG (#03) generalizes this into a **library of swappable, composable components** (different retrievers, different rerankers, different routing logic) that can be assembled differently per use case, or even per query, rather than committing to one fixed enhancement sequence for the whole system.
+
+The practical relationship: Advanced RAG is one particular, common configuration of Modular RAG's component library — a team building a Modular RAG system very often arrives at something that looks exactly like this file's architecture diagram, but Modular RAG's framing makes explicit that the specific stages, their order, and even whether a given stage runs at all, are configuration choices rather than a fixed architecture. Advanced RAG is the right mental model when a single enhancement pipeline suffices for your whole query distribution; Modular RAG is the right mental model once different query types genuinely need different pipelines.
+
+</details>
+
+---
+
+## Q16. Why does dense retrieval alone struggle with exact-match queries, and how does hybrid search fix this? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A dense embedding model is trained to capture semantic *meaning*, which means it can represent "increase" and "growth" as near-identical vectors — exactly the generalization that makes it good at paraphrase matching also makes it comparatively weak at treating an exact product code, part number, or rare proper noun as something that must match precisely. Two different product SKUs sharing similar surrounding context can end up with very similar embeddings even though a user searching for one specific SKU needs the *other* one filtered out entirely, not ranked as "close enough."
+
+BM25 (sparse/keyword) retrieval has the opposite bias: it scores documents by term-frequency statistics, so an exact rare-term match scores very highly regardless of surrounding semantic context, and it has no notion of "these two terms mean roughly the same thing" to blur its ranking the way dense retrieval can. Hybrid search (Q3) combines both specifically because their failure modes are close to complementary — dense retrieval catches the paraphrased, conceptually-related documents BM25 would miss, and BM25 catches the exact-identifier documents dense retrieval might blur together with semantically similar but factually wrong alternatives.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for hybrid search, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| RRF constant `k` (Q13) | Controls how quickly a rank's contribution decays — smaller `k` weights top ranks more heavily; larger `k` flattens the contribution across a wider rank range | 60 is the standard default from the original RRF literature |
+| Dense/sparse weight blend (if not using pure RRF) | Determines which retriever dominates when they disagree | Start balanced (0.5/0.5) and adjust based on evaluation split by query type (exact-match-heavy vs. paraphrase-heavy) |
+| Top-k per retriever before fusion | More candidates per retriever improve the odds the right document survives to the fusion step, at higher compute cost | 20-100 per retriever is typical before fusing down to a much smaller final top-k |
+| Reranker top-k (Q4) | How many fused candidates get the expensive cross-encoder treatment | 20-100 in, top-5 out is a common shape, balancing reranking's accuracy gain against its per-candidate cost |
+
+The dense/sparse weight blend is the knob most worth tuning per-corpus rather than accepting a universal default: a corpus dominated by technical identifiers and codes (Q16) benefits from weighting sparse retrieval more heavily, while a corpus of narrative prose with few exact-match query patterns benefits from weighting dense retrieval more heavily — the right blend is an empirical question answerable via the segmented evaluation approach in Q18, not a fixed rule of thumb.
+
+</details>
+
+---
+
+## Q18. How do you build your own ablation harness to measure which Advanced RAG enhancements actually help your corpus? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Q9's illustrative ablation table shows the *shape* of the exercise; running your own requires a fixed, representative query set and a harness that can toggle each component independently:
+
+```python
+def run_ablation(query_set: list[dict], configs: dict[str, callable]) -> dict:
+    """configs: {"name": pipeline_fn} — each pipeline_fn implements one
+    configuration (baseline, +HyDE, +hybrid, +reranking, full stack)."""
+    results = {}
+    for name, pipeline_fn in configs.items():
+        precisions, recalls, latencies = [], [], []
+        for item in query_set:
+            start = time.time()
+            retrieved = pipeline_fn(item["query"])
+            latencies.append(time.time() - start)
+            precisions.append(precision_at_k(retrieved, item["relevant_ids"]))
+            recalls.append(recall_at_k(retrieved, item["relevant_ids"]))
+        results[name] = {
+            "precision": mean(precisions), "recall": mean(recalls),
+            "p95_latency": percentile(latencies, 95),
+        }
+    return results
+```
+
+Run configurations cumulatively (baseline, baseline+HyDE, baseline+HyDE+hybrid, ...) rather than each enhancement in isolation, since Q9's table shows enhancements interact — hybrid search's precision gain, for instance, is measured *on top of* whatever HyDE already contributed, not independently, and a component that looks marginal in isolation can still be worth keeping if it meaningfully improves the full stack's Pareto frontier (accuracy vs. latency, Q9's closing recommendation) at an acceptable cost. Re-run this ablation whenever the corpus, embedding model, or query distribution shifts meaningfully, since Q9's specific numbers are corpus- and query-distribution-dependent and don't transfer to a different deployment unchanged.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode of mis-applying reranking, in either direction? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Over-applying reranking** (running the expensive cross-encoder pass even when the first-stage retrieval was already precise) wastes the 150-300ms and per-candidate cost the reranking stage adds (Q11) for no accuracy benefit — Q11's own conditional-reranking optimization (skip reranking when `initial_scores[0] > 0.95`) exists precisely to detect and avoid this case. **Under-applying reranking** (skipping it, or applying it too shallowly, on queries where first-stage retrieval is genuinely ambiguous) leaves low-precision, topically-similar-but-wrong candidates in the final context with no second-stage filter to catch them — exactly the scenario reranking's accuracy gain in Q9's ablation table (+7pp faithfulness) is measuring.
+
+**Detection:** segment production queries by first-stage retrieval confidence (top result's similarity score, or the gap between the top result and the next few) and compare downstream answer quality with reranking on vs. off within each confidence bucket — high-confidence queries should show little to no reranking benefit (confirming it's safe to skip there for cost savings, Q11), while low-confidence queries should show reranking's benefit concentrated exactly there. A system applying a uniform "always rerank" or "never rerank" policy regardless of first-stage confidence is very likely paying for reranking where it doesn't help, missing it where it matters most, or both simultaneously across different query segments.
+
+</details>
+
+---
+
+## Q20. What are the limitations of Advanced RAG as a category, and when do you need Modular or Agentic RAG instead? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Advanced RAG's enhancements (Q1) are all still **single-pass**: one query rewrite, one retrieval fusion, one rerank, one generation — there is no mechanism for the system to notice mid-pipeline that the retrieved evidence is insufficient and try again, decompose a genuinely multi-hop question into sub-questions, or adapt its strategy based on query complexity. A query that needs several rounds of retrieval-then-reasoning (a multi-hop question, an aggregate synthesis across many documents) will run through Advanced RAG's fixed single-pass pipeline exactly once and produce whatever that one pass yields, regardless of whether it was enough.
+
+**When Advanced RAG is no longer sufficient:** the practical signal is the same evaluation discipline used throughout this bank (Q18) — if a meaningful share of your query distribution needs multiple retrieval rounds to answer correctly (multi-hop questions, per Iterative Multi-Hop RAG #19), needs the system to decide *whether* to retrieve at all rather than always doing so (Adaptive RAG, #11), or needs different retrieval/reranking strategies for structurally different query types (Modular RAG, #03, or full agentic orchestration, #04), a single fixed pipeline — however well-tuned its individual stages are — has a hard ceiling that no amount of further stage-level tuning (better HyDE prompts, a stronger reranker) can push past, because the limitation is architectural (single-pass) rather than a matter of component quality.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Advanced RAG Fits |

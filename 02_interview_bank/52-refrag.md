@@ -265,6 +265,324 @@ def refrag_inference(query: str, retriever, chunk_encoder, policy, decoder,
 
 ---
 
+## Q6. What is REFRAG and what problem does it solve? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Retrieved Chunks (raw text passages)
+    │
+    ▼
+Lightweight Chunk Encoder — COMPRESS
+    │  encodes fixed-size token blocks into ONE dense chunk-embedding each
+    ▼
+RL-trained Selection Policy — SENSE
+    │  picks a small subset of chunks worth expanding to full detail
+    ▼
+Hybrid Input Assembly — EXPAND
+    │  selected chunks → full raw tokens; the rest → stay compressed
+    ▼
+Decoder LLM (unmodified) → Answer (~30x faster time-to-first-token)
+```
+
+REFRAG (*Rethinking RAG based Decoding*, Lin et al., Meta Superintelligence Labs, 2025) solves a problem every RAG system faces once retrieval quality is good but context is large: feeding every retrieved chunk to the decoder as full raw tokens means the decoder's quadratic attention cost, and therefore time-to-first-token, scales directly with how much context was retrieved — even though most retrieved chunks only provide broad supporting context that the decoder doesn't need to read at full token resolution. REFRAG's answer is to compress most chunks into single dense embeddings and let a learned policy decide, per query, which handful of chunks actually deserve full-token detail — cutting the effective sequence length the decoder has to attend over, without discarding any chunk's information the way a lossy pre-compression technique (Q1) would.
+
+</details>
+
+---
+
+## Q7. What is the single distinctive mechanism that separates REFRAG from standard RAG's raw-token context feeding? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **reversible, query-conditioned, per-chunk compression** — every retrieved chunk is compressed to a single dense embedding by default, and a lightweight RL-trained policy selectively "expands" only the chunks it judges important back to full raw tokens for that specific query. Standard RAG makes one binary choice per chunk (include it fully, or don't retrieve it at all); REFRAG introduces a third state — "included, but only in compressed form, with the option to zoom in" — which is the property that lets it extend effective context roughly 16x at the same latency budget rather than forcing a trade-off between context breadth and decoding speed.
+
+This differs fundamentally from static prompt-compression techniques (LLMLingua, Q1): those make an irreversible decision about which tokens to keep *before* the decoder ever runs, with no way to recover discarded detail. REFRAG's compression is *reversible per chunk* — any compressed chunk can still be expanded if the policy (or a downstream verification step, Q5) determines it's needed, which is the key architectural property the rest of this file's questions build on.
+
+</details>
+
+---
+
+## Q8. How does REFRAG compare to Cache-Augmented Generation (#17), which also targets inference efficiency? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Dimension | Cache-Augmented Generation (#17) | REFRAG (#52) |
+|---|---|---|
+| What's eliminated | The retrieval step itself — the entire corpus is preloaded into KV cache | Only the *token-level detail* of most chunks — retrieval still happens normally |
+| Scales to | Small, static, fully-cacheable corpora | Any corpus size, since only retrieved chunks (not the whole corpus) are processed per query |
+| Adaptivity | None — the same cached KV state serves every query | Query-conditioned — the selection policy decides what to expand per query |
+| Freshness | Requires re-caching the whole corpus on any change | Compression can be cached per-chunk at ingestion; no whole-corpus rebuild needed |
+| Core lever | Skips retrieval and prefill entirely | Skips most of the *token cost* of retrieved chunks, not retrieval itself |
+
+Both architectures attack the same symptom — too much context reaching the decoder is slow — but from opposite ends: CAG eliminates the need to retrieve or process context at all by preloading everything, which only scales to corpora small enough to fully cache; REFRAG keeps retrieval exactly as-is and instead makes *what gets retrieved* cheap to process by compressing most of it, which scales to arbitrarily large corpora since only the top-k retrieved chunks (not the whole corpus) are ever touched per query. A system with a small, mostly-static knowledge base might prefer CAG; a system with a large, dynamic corpus where only retrieval scales has no CAG-shaped option and is a natural fit for REFRAG instead.
+
+</details>
+
+---
+
+## Q9. What is the research origin of REFRAG, and what result does the paper report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+REFRAG was introduced by Lin, Ghosh, Low, Shrivastava & Mohan, *REFRAG: Rethinking RAG based Decoding* (Meta Superintelligence Labs, 2025, arXiv:2509.01092). The paper's headline result is a reported **up to ~30x improvement in time-to-first-token** versus feeding all retrieved chunks as raw tokens, with no measurable loss in downstream answer perplexity/accuracy — the compression and selective-expansion mechanism (Q7) is specifically designed so that only chunks the policy judges unimportant lose token-level resolution, while the decoder's final output quality on held-out tasks stays comparable to the uncompressed baseline.
+
+A second reported effect, following directly from the same mechanism, is an approximately 16x extension of effective context length at a fixed latency budget (Q2) — since compressed chunks cost the decoder roughly 1/16th of their original token count to attend over, a fixed compute budget can now cover roughly 16x more retrieved content than an uncompressed pipeline could, before the expansion policy even factors in.
+
+</details>
+
+---
+
+## Q10. When would you choose REFRAG over LLMLingua-style compression or Cache-Augmented Generation? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Choose **REFRAG** when: retrieved context is large and variable per query, some queries need fine-grained detail from specific chunks while others don't, and you can afford the upfront training investment (Q3, Q15) in a chunk encoder and RL policy tied to your base decoder.
+
+Choose **LLMLingua-style compression** (file 10) when: you need a drop-in, no-training solution that works with any decoder immediately, and some irreversible information loss is acceptable — it's the pragmatic choice when training investment isn't justified by query volume (Q15) or when swapping base decoders frequently (Q7's coupling cost doesn't apply to a stateless prompt compressor).
+
+Choose **Cache-Augmented Generation** (#17, Q8) when: the corpus is small and static enough to fully preload into KV cache, eliminating retrieval and context-processing cost entirely rather than just compressing it — CAG is a stronger win than REFRAG specifically when its precondition (a fully cacheable corpus) holds, since it removes the retrieval step itself rather than making retrieved content cheaper to process.
+
+These aren't mutually exclusive in a mature system: a corpus with a stable "core" (cacheable via CAG) and a large "long tail" (needing REFRAG-style compression for the retrieved long-tail chunks) can combine both, using each where its precondition is best met.
+
+</details>
+
+---
+
+## Q11. What are the key tuning knobs for REFRAG, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| `CHUNK_SIZE` (tokens per compressed block) | Smaller blocks preserve more granularity per embedding but produce more embeddings (less compression); larger blocks compress harder but risk losing fine detail within a block | 16 tokens, per the paper's setting |
+| `expand_budget` (number of chunks expanded per query) | Higher budget preserves more full-detail context but reduces the latency win | Start small (e.g. 2-4 of 10 retrieved chunks) and increase only if evaluation (Q12) shows quality loss |
+| Curriculum training phases (Q3) | Determines how well the encoder's compressed embeddings are actually usable by the decoder before the RL policy is trained on top | Follow the paper's two-phase structure — skipping straight to RL policy training on a poorly-aligned encoder undermines the whole pipeline |
+| RL reward shaping (negative log-perplexity) | Determines what "important chunk" the policy learns to recognize | Perplexity on the target answer is the paper's default; domain-specific reward shaping (e.g. weighting toward numeric/factual accuracy) is a natural extension for domains where perplexity alone under-weights precision |
+
+`expand_budget` is the most directly cost-vs-quality-tunable knob at inference time (no retraining needed to change it), making it the natural first lever to adjust after deployment if evaluation reveals a quality gap on a specific query segment.
+
+</details>
+
+---
+
+## Q12. How do you evaluate whether REFRAG's compression is hurting answer quality for your corpus? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a golden evaluation set exactly as for any RAG quality check, then compare three conditions on the identical query set: (1) baseline — full raw-token context, no compression; (2) REFRAG with your chosen `expand_budget`; (3) REFRAG with a larger `expand_budget` to establish where returns diminish. Measure both end-to-end answer accuracy/faithfulness and, critically, **latency and effective context length**, since REFRAG's entire value proposition is the latency-quality trade-off, not quality improvement alone — a configuration that matches baseline quality at a much lower budget than expected is the one worth shipping.
+
+Segment the evaluation specifically by query types that stress precision on non-expanded chunks — exact figures, verbatim quotes, rare named entities — since these are exactly the query types most likely to expose the RL policy's failure mode (Q13): if it under-expands a chunk containing the one specific fact a query needs, the decoder only sees that fact in compressed form and may paraphrase or hallucinate rather than state it precisely. A single aggregate accuracy number across all query types can mask this because it's diluted by the (usually larger) share of queries where compression genuinely doesn't lose anything important.
+
+</details>
+
+---
+
+## Q13. What is the characteristic failure mode when the expansion budget is too small for a query's true information need? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+If a query needs a specific fact, figure, or exact wording that lives in a chunk the selection policy didn't expand (either because the budget was too small to include it, or because the policy misjudged the chunk's importance relative to that specific query), the decoder only has access to that chunk as a single compressed embedding. Unlike a chunk that was never retrieved at all (a standard retrieval miss), the information is present in the context in some form — but compressed to the point where the decoder can at best approximate its content, which produces a **subtler and more dangerous failure than an outright retrieval miss**: the answer looks grounded (the relevant chunk genuinely was retrieved and is technically "in context") while actually being paraphrased or hallucinated at the level of specific detail, since the decoder never saw the exact tokens.
+
+**Detection:** this failure concentrates specifically on high-precision query types (Q12's segmentation) — exact-figure and verbatim-quote queries will show accuracy degradation under compression even when general/broad queries don't, which is the signature to watch for. **Mitigation:** raise `expand_budget` for query types known to need precision (a query-type-aware policy, or a fallback rule that always expands the single highest-scoring chunk regardless of budget for queries matching a "needs exact detail" classifier), or route such queries around REFRAG's compression path entirely if the domain has a reliably identifiable high-precision query segment.
+
+</details>
+
+---
+
+## Q14. How do you scale REFRAG's compression and selection pipeline for a high-QPS production RAG service? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The compression step (Q2) is query-independent — a chunk's compressed embeddings depend only on the chunk's own content, not on any specific query — which means it can be computed once per chunk at ingestion time and cached, exactly like precomputing passage embeddings for a standard dense retriever. This is the single biggest scaling lever: at high QPS, the only work that must happen per-query is (1) standard retrieval, (2) looking up the already-cached compressed embeddings for the retrieved chunks (cheap), and (3) running the lightweight selection policy (Q3) — a small transformer, not the full decoder — over those cached embeddings.
+
+Production scaling therefore looks structurally like scaling any RAG retrieval pipeline plus one additional cheap step: cache compressed chunk embeddings alongside (or instead of) raw chunk text in your document store, keyed by chunk ID, so a cache hit avoids re-running the chunk encoder at query time entirely; only re-run compression when a document's content actually changes (the same incremental-update discipline used elsewhere in this bank for streaming/updated corpora). The selection policy itself, being a small transformer over a handful of chunk embeddings per query, adds negligible latency relative to retrieval and generation — the architecture's cost profile at scale is dominated by whatever your retrieval and decoding costs already were, with compression essentially free once ingestion-time caching is in place.
+
+</details>
+
+---
+
+## Q15. How would you build a decision-gate benchmark to decide whether REFRAG's training investment is worth it? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+REFRAG requires training a chunk encoder and an RL policy per base decoder (Q3, Q7) — a real upfront cost that only pays off if query volume and latency sensitivity are high enough to amortize it:
+
+```
+1. Estimate current latency cost: measure your existing pipeline's
+   time-to-first-token at typical retrieved-context sizes, and project
+   the aggregate compute/cost savings from a ~16x effective context
+   reduction at your actual query volume.
+
+2. Estimate training cost: curriculum pretraining (Q3 phase 1) plus RL
+   policy training (phase 2) requires a labeled/synthetic training
+   pipeline and GPU time comparable to a moderate fine-tuning job --
+   quantify this against your team's available ML engineering capacity,
+   not just raw compute cost.
+
+3. Prototype on a subset: train a chunk encoder + policy on a
+   representative slice of your corpus and query distribution BEFORE
+   committing to full-scale training, and measure the Q12 evaluation
+   (accuracy at various expand_budget settings) on this prototype.
+
+4. Gate: proceed to full training only if (a) the projected latency/cost
+   savings at your query volume exceed the training investment within
+   an acceptable payback period, AND (b) the prototype's accuracy at a
+   practical expand_budget matches baseline within an acceptable margin
+   on your precision-sensitive query segment (Q13) specifically, not
+   just in aggregate.
+```
+
+The gate exists because REFRAG's training cost is fixed regardless of query volume, while its benefit scales with volume — a low-QPS internal tool is very unlikely to clear this gate, while a high-QPS consumer-facing RAG service is the clearest case where the investment pays off quickly.
+
+</details>
+
+---
+
+## Q16. What happens when the RL selection policy is poorly calibrated, and how do you debug it? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A miscalibrated policy fails in one of two directions. **Systematic under-expansion** (too conservative about what it expands) manifests as the precision-loss failure mode from Q13 appearing broadly across many query types, not just the hardest ones — a signal that the policy's learned notion of "important chunk" doesn't align well with what your actual query distribution needs, likely because the training data's query/reward distribution didn't match production traffic closely enough. **Systematic over-expansion** (expanding chunks unnecessarily) manifests as latency savings falling well short of the reported ~30x figure — the compression mechanism is technically working, but the policy isn't confidently identifying which chunks can safely stay compressed, eroding the efficiency gain that's REFRAG's entire reason for existing.
+
+**Debugging playbook:** (1) log the expansion rate (fraction of retrieved chunks expanded) per query segment and compare against expectation — a uniformly high or uniformly low rate across very different query types suggests the policy isn't actually discriminating based on content, just applying a roughly constant heuristic; (2) audit a sample of policy decisions against human judgment of "was this chunk actually important for this query" to check whether the reward signal (negative log-perplexity, Q3) is capturing what you'd consider importance, since perplexity-based reward can systematically under-value chunks whose content matters for factual correctness but doesn't strongly affect token-level predictability; (3) if miscalibration persists, retrain the policy (not the encoder) on a reward signal or training distribution better matched to production traffic — the policy is the cheaper of the two components to retrain (Q3), so start there before assuming the encoder itself needs rework.
+
+</details>
+
+---
+
+## Q17. What is the cost and infrastructure overhead of training and serving REFRAG at scale? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Training cost** is a one-time (or infrequent, on base-decoder changes) investment: curriculum pretraining of the chunk encoder plus RL policy training (Q3) requires GPU time comparable to a moderate fine-tuning run, plus the engineering cost of building the curriculum training pipeline and reward-scoring infrastructure — this is REFRAG's primary cost center and the reason Q15's decision gate exists.
+
+**Serving cost**, once trained, is where REFRAG pays for itself: illustrative comparison at 1M queries/month, 10 retrieved chunks/query averaging 200 tokens each (2,000 tokens of context per query without compression). Decoder inference cost scales roughly with sequence length; at REFRAG's reported ~16x effective compression when only a handful of chunks are expanded, the same query's effective decoder input drops to roughly 125-250 tokens (a few expanded chunks at full length plus the rest as single-embedding placeholders) — a substantial reduction in the compute-intensive prefill/attention cost that dominates time-to-first-token, translating directly into lower GPU-time billing per query at scale for a RAG-as-a-service platform, which is exactly the framing REFRAG's own paper uses.
+
+The overhead not captured by this simple picture: cached compressed-embedding storage (Q14) adds a modest, roughly dense-embedding-sized storage cost per chunk on top of existing vector index storage, and the chunk encoder itself must run at inference-adjacent latency whenever a *new* chunk is encountered that hasn't been cached yet — a cold-cache penalty that a mature deployment with high cache hit rates on a stable corpus rarely pays, but that a rapidly-growing or highly dynamic corpus should account for in latency budgeting.
+
+</details>
+
+---
+
+## Q18. What security and trust risks does adaptive chunk compression introduce? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+- **Selection-policy manipulation** — since the policy's expansion decision is learned and query-conditioned, a query specifically crafted to make the policy under-expand a chunk containing a critical caveat or contradicting fact could suppress information the decoder would otherwise have surfaced at full resolution — a subtler variant of the general retrieval-manipulation risk, targeting the *selection* step rather than retrieval itself.
+- **Compressed-chunk information loss exploited adversarially** — an attacker aware that most retrieved content is compressed (Q7) could craft a document whose adversarial content is specifically designed to survive compression's information bottleneck (i.e., remains influential even in single-embedding form) while relying on the fact that a human reviewer auditing the *retrieved* chunks (at full text) would catch it, but an automated pipeline relying on the compressed representation's downstream effect would not.
+- **Auditability gap** — a compressed chunk that was never expanded is harder to audit after the fact than a raw-token chunk, since its actual influence on the generated answer is mediated through a dense embedding rather than inspectable text — this matters specifically for the "when NOT to use REFRAG" case already noted (file 33's Verifiable RAG), where every retrieved chunk needing full-fidelity auditability is a hard requirement REFRAG's default compression works against unless paired with mandatory re-expansion for verification (as sketched in the file's citation-RAG combination idea).
+- **Policy training data poisoning** — since the RL policy is trained on a reward signal derived from decoder output quality, training data that systematically biases the policy toward under- or over-expanding certain content categories (Q16) is a subtler poisoning vector than directly poisoning the retrieval corpus, since it corrupts the *decision-making* component rather than the content itself.
+
+Mitigation follows the general defense-in-depth pattern used elsewhere in this bank: treat the selection policy's decisions as auditable artifacts (log expansion/non-expansion per chunk per query for later review), pair REFRAG with a verification step wherever compliance requires full-fidelity auditability rather than treating compression as universally safe, and validate the policy's training data and reward signal with the same rigor applied to any other model trained on potentially-influenceable production feedback.
+
+</details>
+
+---
+
+## Q19. Design a REFRAG-based production RAG system for a high-volume, cost-sensitive customer support assistant. `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Requirements:** millions of support queries/month against a large, frequently-updated knowledge base; latency directly affects perceived responsiveness; per-query decoding cost must stay low at this volume; occasional queries need exact, verbatim policy language (refund terms, warranty text).
+
+```
+1. Ingestion: standard chunking + retrieval index, PLUS compress every
+   chunk (Q2) at ingestion time and cache the compressed embeddings
+   alongside the raw text (Q14) -- this is a one-time cost per chunk,
+   amortized across all future queries that retrieve it.
+
+2. Training (Q15's gate applied first): curriculum-train a chunk
+   encoder + RL policy on this support corpus specifically, since a
+   policy trained on a different domain's query/reward distribution
+   would likely miscalibrate (Q16) on support-specific query patterns.
+
+3. Query-type-aware expand_budget (Q11, Q13): a lightweight upstream
+   classifier flags queries likely to need verbatim policy language
+   (refund/warranty/legal-sounding queries) and routes them to a HIGHER
+   expand_budget (or bypasses compression entirely for the top-1
+   retrieved chunk), while routine "how do I..." queries use the
+   default, more aggressive budget where compression's latency win
+   matters most and precision risk is lowest.
+
+4. Monitoring (Q12, Q16): track expansion rate and downstream answer
+   quality segmented by the query-type classifier's categories, with
+   alerting if the verbatim-policy-language segment's accuracy drops
+   below a threshold -- this segment is exactly where Q13's failure
+   mode is most costly for a support use case (misquoting a refund
+   policy is a materially worse failure than a slightly-imprecise
+   general troubleshooting answer).
+
+5. Cost tracking (Q17): measure realized GPU-time savings per query at
+   production volume against the pre-REFRAG baseline, validating the
+   Q15 decision gate's projections against actual production numbers
+   and adjusting expand_budget if realized savings fall short of
+   projections.
+```
+
+The key design choice is query-type-aware budget allocation rather than a single global `expand_budget` — this directly addresses REFRAG's main failure mode (Q13) for the specific query segment where it's most costly, while still capturing the bulk of the latency win on the much larger volume of routine queries where full compression is safe.
+
+</details>
+
+---
+
+## Q20. What are the limitations of REFRAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **training investment is non-trivial and decoder-specific** (Q3, Q7, Q15) — swapping base decoders likely requires retraining the chunk encoder and policy, unlike a prompt-level compression technique that's decoder-agnostic; (2) **the RL policy's reward signal (negative log-perplexity) is an imperfect proxy for "importance"** (Q16) — it optimizes for what makes the target answer more predictable, which can under-value content that matters for factual precision without strongly affecting perplexity; (3) **compressed chunks are harder to audit** (Q18) than raw text, creating tension with use cases requiring full-fidelity traceability; (4) **the technique is new (2025) and hasn't yet accumulated the breadth of production deployment experience** that older efficiency techniques (LLMLingua, hybrid retrieval) have, meaning some failure modes may not yet be well characterized outside the original paper's evaluation setting.
+
+Likely evolution: **query-type-aware and confidence-calibrated expansion policies** (as sketched in Q19) that move beyond a single global reward signal toward multi-objective training that explicitly weights factual-precision-sensitive content more heavily than perplexity alone would; **tighter integration with verification/citation architectures** (as the file's own combination ideas with Verifiable RAG and Agentic RAG suggest) to close the auditability gap for compliance-sensitive deployments; and, as with any inference-efficiency technique building on a specific base-decoder coupling, likely follow-on work reducing the retraining cost of adapting a trained encoder/policy pair to a new base decoder, which would substantially lower the adoption barrier the Q15 decision gate is built around.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Meta's production RAG inference stack**: REFRAG is presented as a Meta Superintelligence Labs approach to cutting inference cost for RAG-based assistants operating at scale, where time-to-first-token directly impacts perceived responsiveness

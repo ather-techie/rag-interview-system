@@ -1021,6 +1021,141 @@ Combined, these layers make graph poisoning expensive and detectable.
 
 ---
 
+## Q13. Walk through the Graph RAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Docs → LLM Entity/Relationship Extraction → Knowledge Graph
+                                                    │
+                                          Community Detection (Leiden)
+                                                    │
+                                          LLM Community Summarization
+                                                    │
+Query → Route to local (entity-anchored) or global (community-summary) search
+                                                    │
+                                          Retrieved graph context → Generator → Answer
+```
+
+Every stage after raw documents is an LLM call working over the previous stage's output — extraction reads documents, summarization reads community clusters — which is why Graph RAG's indexing cost (Q11) is dominated by these repeated LLM passes rather than the cheap embedding-only cost of a standard vector index. The community-detection step (Q3) is what gives Graph RAG its ability to answer broad "what are the themes here" questions that flat chunk retrieval structurally cannot, since no single chunk ever represents a cross-document theme the way a pre-built community summary does.
+
+</details>
+
+---
+
+## Q14. What is the research origin of Graph RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Graph RAG in the form this file describes was popularized by Microsoft Research (Edge et al., *From Local to Global: A Graph RAG Approach to Query-Focused Summarization*, arXiv:2404.16130, 2024), which proposed the specific pipeline of LLM-based entity/relationship extraction, Leiden community detection, and LLM-generated community summaries at multiple hierarchy levels, released as the open-source `microsoft/graphrag` library.
+
+The paper's core contribution is framing "global" query-focused summarization (questions about themes across an entire corpus, not a single passage) as a problem flat RAG cannot solve well by construction, and demonstrating that a pre-built community-summary hierarchy answers these queries substantially better than either flat vector retrieval or naive long-context stuffing. This same library later added LazyGraphRAG (#47) as a lower-cost mode, and LightRAG (#15) and HippoRAG (#20) are independent, differently-designed responses to the same original GraphRAG's high indexing cost.
+
+</details>
+
+---
+
+## Q15. How does Graph RAG compare to LightRAG (#15)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both build an LLM-extracted knowledge graph rather than relying on flat chunk retrieval, but GraphRAG's indexing pipeline is substantially heavier: full entity/relationship extraction, Leiden community detection, and LLM summarization at every community, for the whole corpus, before any query arrives. LightRAG (#15) extracts entities and relationships too, but skips Leiden clustering and community summarization entirely, instead maintaining a simpler dual-level (local entity-anchored + global keyword-anchored) retrieval scheme directly over the extracted graph — a meaningfully cheaper indexing pipeline for a similar underlying goal.
+
+The practical trade-off mirrors the general pattern across this bank's graph-based architectures: GraphRAG's heavier upfront investment produces genuinely pre-computed, inspectable global summaries (better for stable, high-repeat-query workloads, following the same logic as LazyGraphRAG's #47 comparison table); LightRAG's lighter approach trades some of that global-summary depth for lower cost and simpler incremental updates (#15 Q8), making it the more practical default when GraphRAG's full indexing cost isn't justified by query volume or repetition.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Graph RAG from standard vector RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **indexing extracted entities and relationships as a structured graph, then pre-computing multi-level community summaries over that graph** — rather than indexing flat, independent chunks with no explicit representation of how entities across different chunks relate to each other. A vector index has no notion that "Company X" mentioned in document 3 and "Company X" mentioned in document 47 are the same entity with an accumulating set of facts; Graph RAG's entity resolution and graph construction step makes that connection explicit and queryable.
+
+This single structural difference is what enables Graph RAG's headline capability (Q1, Q4): multi-hop and cross-document thematic questions that no single chunk answers become answerable by traversing the graph's explicit entity relationships or reading a pre-built community summary that already synthesized the cross-document pattern — a capability flat vector retrieval, which only ever compares one query embedding against independently-embedded chunks, cannot provide no matter how good the underlying embedding model is.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for Graph RAG, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Community detection resolution (Leiden algorithm parameter) | Higher resolution produces more, smaller communities (finer-grained but more numerous summaries); lower resolution produces fewer, larger communities | Tune against how naturally your corpus's entities cluster — a corpus with clearly separable topics needs less tuning than one with heavily interconnected entities |
+| Community hierarchy depth | More levels give more granularity choices for the query router but multiply summarization cost | 2-3 levels is typical; deeper hierarchies mainly help very large, diverse corpora |
+| Local vs. global routing threshold | Determines how a query is classified as needing entity-level (local) vs. theme-level (global) retrieval | Calibrate against a labeled query set the same way any routing decision in this bank is tuned (Adaptive RAG, #11) |
+| Entity/relationship extraction prompt | Determines extraction quality and, indirectly, graph connectivity (Q19) | Iterate against a sample of manually-reviewed extractions before running at full corpus scale, since extraction errors compound into every downstream stage |
+
+Community detection resolution is the knob most specific to Graph RAG among this list, and the hardest to get right without experimentation — it has no equivalent in flat vector RAG, and its right value is a property of your specific corpus's entity-relationship density rather than a value that transfers from another deployment's tuning.
+
+</details>
+
+---
+
+## Q18. How do you decide when a query needs graph traversal vs. simple vector search in a hybrid Graph+Vector system? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The decision mirrors Adaptive RAG's (#11) query-complexity routing, applied specifically to the graph-vs-vector axis: queries asking about a specific, named fact ("what is Company X's revenue") are usually well-served by direct vector or entity lookup; queries asking about relationships, comparisons, or themes across entities ("how are Company X and Company Y connected," "what are the main risks discussed across this collection") need graph traversal or community-summary retrieval to answer well, since no single chunk contains the synthesized answer.
+
+A practical router classifies incoming queries by these surface signals (single named entity + factual question type → vector/local; multiple entities, comparative/thematic language → graph/global) and falls back to running both paths and merging results when the classification is uncertain — the same fallback-to-both-paths pattern used for uncertain routing decisions elsewhere in this bank (e.g., LongRAG's #45 Self-Route). Track routing accuracy the same way as any other routing decision (Adaptive RAG's #11 Q18 evaluation methodology), since a Graph RAG deployment's cost profile depends heavily on not sending every query down the more expensive graph-traversal path by default.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode of an over-fragmented or under-connected knowledge graph? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Over-fragmentation** (entity resolution failing to merge references to the same real-world entity, Q9) produces a graph where "Apple Inc.," "Apple," and "AAPL" exist as three separate, disconnected nodes, each accumulating only a fraction of the entity's actual relationships — multi-hop traversal starting from one variant misses relationships attached to the others, and community detection scatters what should be one entity's connections across multiple communities. **Under-connection** (relationship extraction missing genuine connections between entities that are related but never co-occur in a way the extraction prompt catches) leaves the graph sparser than the actual corpus's relationships would justify, causing multi-hop queries to dead-end at a node that should have had a path forward.
+
+**Detection:** for over-fragmentation, audit high-degree or high-frequency entities for near-duplicate node names in the graph (a systematic scan, not manual case-by-case review, since fragmentation scales with corpus size); for under-connection, sample known ground-truth entity relationships from your source documents and check whether the graph actually contains an edge representing them. Both failure modes degrade Graph RAG's core value proposition silently — the system still returns *an* answer, just one built from an incomplete view of the entity's true connections, with no error surfaced anywhere in the pipeline to indicate the graph itself is the problem rather than the query or the generator.
+
+</details>
+
+---
+
+## Q20. What are the limitations of Graph RAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **indexing cost is substantial and scales with corpus size** (Q11) — full entity/relationship extraction plus community summarization for every document is the most expensive indexing pipeline among this bank's graph-based architectures; (2) **entity resolution quality is a hard ceiling on graph usefulness** (Q9, Q19) — fragmentation or under-connection silently degrades multi-hop capability with no error signal; (3) **freshness is structurally harder than flat vector indexing** — a new document can require re-running community detection on affected communities, not just adding new isolated nodes; (4) **evaluation requires graph-specific metrics** (Q10) beyond standard retrieval metrics, which most teams have less tooling and experience for than standard RAG evaluation.
+
+Likely evolution: this exact cost/limitation profile is precisely what motivated LazyGraphRAG's (#47) deferred-summarization approach and LightRAG's (#15) simpler dual-level retrieval — both are direct responses to Graph RAG's indexing cost, and a mature production deployment increasingly chooses among this family (GraphRAG, LightRAG, LazyGraphRAG, HippoRAG, #20) based on the specific cost/quality/freshness trade-off that matters most for its workload, rather than treating "Graph RAG" as a single fixed architecture — expect continued diversification within this family rather than convergence on one dominant graph-based RAG design.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Graph RAG Fits |

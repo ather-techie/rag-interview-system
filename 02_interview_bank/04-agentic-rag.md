@@ -1145,6 +1145,86 @@ In practice, rewriting runs first (fix an ambiguous or contextless query) and de
 
 ---
 
+## Q16. What is the research origin of Agentic RAG, and how did it evolve from ReAct and FLARE? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Agentic RAG doesn't trace to one paper — it's the application of general LLM-agent research to retrieval specifically. ReAct (Yao et al., *ReAct: Synergizing Reasoning and Acting in Language Models*, arXiv:2210.03629, 2022) established the interleaved think-act-observe loop (Q2) as a general pattern for tool-using LLMs, with retrieval as just one possible tool among others (search engines, calculators, APIs). FLARE (Jiang et al., *Active Retrieval Augmented Generation*, arXiv:2305.06983, 2023) contributed the specific idea of triggering retrieval *proactively*, mid-generation, when the model's own confidence in its next tokens drops below a threshold (Q3), rather than only retrieving reactively when explicitly asked to.
+
+Agentic RAG as described in this file is the synthesis of these two ideas specifically applied to retrieval as the primary tool: ReAct's general loop structure, populated with retrieval-specific stopping criteria and tool definitions, and optionally incorporating FLARE-style proactive triggering as one strategy for deciding when to retrieve within that loop. Plan-and-Execute (Q7) and multi-agent orchestration (Q8) are later extensions addressing ReAct's own limitations (single-agent, single-loop) as agentic systems scaled to more complex tasks.
+
+</details>
+
+---
+
+## Q17. How does Agentic RAG compare to Adaptive RAG (#11)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both decide "how much retrieval work does this query need" rather than applying a fixed strategy to every query, but the decision-making mechanism differs fundamentally. Adaptive RAG (#11) makes this decision **once, up front**, via a query-complexity classifier that routes the query to a no-retrieval, single-hop, or multi-hop path before any generation begins — a single, fast classification step. Agentic RAG makes this decision **continuously, throughout generation**, via an LLM reasoning loop that can decide to retrieve again, stop, or take a different action at every step, with no fixed number of hops committed to upfront.
+
+The practical trade-off: Adaptive RAG's upfront classification is cheap and fast (one classifier call) but commits to a strategy that can't adapt mid-execution if the chosen path turns out to be wrong; Agentic RAG's continuous re-evaluation can course-correct at every step but costs substantially more (many LLM calls per query, Q11's cost estimation) and carries the runaway-loop risk (Q19) that a single upfront classification doesn't have. Adaptive RAG is the better fit when query complexity is reasonably predictable from the query text alone; Agentic RAG is the better fit when the right strategy can only be discovered by actually starting to retrieve and reason.
+
+</details>
+
+---
+
+## Q18. What are the key tuning knobs for an Agentic RAG loop? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| `max_iterations` | Caps how many think-act-observe cycles a single query can run | 5-10, tuned to your domain's genuine multi-hop depth; always set a hard ceiling (Q19) |
+| Per-tool-call timeout | Bounds how long the loop waits for a single tool (retrieval, API call) before treating it as failed | Set based on your slowest tool's p95 latency plus margin, not an arbitrary round number |
+| Stopping-criteria prompt | Determines how confidently the model decides "I have enough to answer" vs. continuing to retrieve | Explicit, example-driven stopping instructions (not just "stop when done") reduce both premature stopping and unnecessary continuation |
+| Model tier per step | Using a cheaper model for intermediate reasoning/tool-selection steps and a stronger model only for final synthesis | Follows the same tiering pattern used across other multi-step architectures in this bank (e.g., ToT-RAG, #37) |
+
+`max_iterations` and the stopping-criteria prompt interact directly: a well-tuned stopping criterion means the hard iteration cap is rarely actually hit (it's a safety net, not the normal termination path); a poorly-tuned one means the loop routinely runs to the cap regardless of whether the query needed that many iterations, which is the detectable signature of Q19's failure mode.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode of runaway or excessively long agent loops, and how do you prevent it? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Without a hard `max_iterations` cap (Q18) and a well-calibrated stopping criterion, an agentic loop can fail to converge: the model retrieves, judges the result insufficient, retrieves again with a similar query, and repeats — either because the corpus genuinely lacks the needed information (no amount of retrying will find it) or because the model's stopping-decision prompt isn't reliably recognizing when it already has enough to answer. This is expensive (every iteration costs a full LLM call plus a retrieval call, Q11) and, without a cap, unbounded in the worst case.
+
+**Detection:** track iteration count per query as a first-class production metric, and flag queries that hit or approach `max_iterations` for review — a rising rate of near-cap queries over time (as opposed to a stable low rate) signals either a stopping-criterion regression or a shift in query difficulty. **Mitigation:** always enforce a hard `max_iterations` ceiling regardless of stopping-criterion quality (defense in depth, not a substitute for good stopping logic); on hitting the cap, return the best partial answer found so far with an explicit caveat rather than silently failing or looping forever; and specifically audit near-duplicate consecutive retrieval queries within a single loop (the same underlying signal Deep Research RAG's #43 Q19 uses to detect diminishing-returns stalling) as a targeted early-stopping trigger distinct from the generic iteration cap.
+
+</details>
+
+---
+
+## Q20. What are the limitations of Agentic RAG, and when is a simpler architecture actually the better choice? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Agentic RAG's core limitations are direct consequences of its own flexibility: (1) **cost and latency scale with iteration count** (Q11, Q18) in a way no fixed-pipeline architecture's cost does, making it the most expensive option in this bank's foundational tier for queries that didn't actually need multi-step reasoning; (2) **runaway loops are a structural risk** (Q19) that a single-pass architecture simply cannot have; (3) **prompt-injection surface area is larger** (Q9, Q12) since every tool-call result is a fresh opportunity for injected content to influence the next reasoning step; (4) **evaluation is harder** (Q10) since there's no single fixed pipeline stage to test in isolation — behavior varies by how many iterations a given query happens to take.
+
+**When a simpler architecture wins:** if evaluation (Q10, and the segmented approach used throughout this bank) shows your query distribution is dominated by questions answerable in one or two retrieval rounds, Advanced RAG (#02) or Adaptive RAG's (#11, Q17) upfront routing captures most of the achievable accuracy at a fraction of the cost and with none of the runaway-loop or injection-surface risks. Agentic RAG earns its cost specifically when query complexity is unpredictable from the query text alone and genuinely requires the model to discover, mid-execution, how much retrieval work is needed — reserving it for that segment of traffic (via a routing layer in front of it, the same discipline used for Deep Research RAG's #43 Q15 decision gate) rather than defaulting every query into the most expensive, most flexible architecture available.
+
+</details>
+
+---
+
 ## Terminology Note: "A-RAG" vs. "Adaptive RAG"
 
 Some sources (including common workshop material) use **"A-RAG" / "Adaptive-Hierarchical RAG"** to mean *progressive disclosure*: the agent first reviews a brief summary or keyword snippet, and only retrieves the full, token-heavy chunk if the summary turns out to be insufficient. For example, asked "What's our incident response process for a P1 outage?", the agent first pulls a one-paragraph summary of the runbook; only if that summary is ambiguous or incomplete does it fetch the full runbook document.

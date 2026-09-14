@@ -1000,6 +1000,170 @@ An attacker must defeat multiple layers, making successful attacks much harder.
 
 ---
 
+## Q13. Walk through the Modular RAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Query ──► Routing Module ──► [Retrieval Module A, B, Memory Module] (parallel)
+                                        │
+                                  Fusion Module
+                                        │
+                                  Reranking Module
+                                        │
+                                  Generation Module → Answer
+```
+
+An Orchestrator wraps this whole flow, wiring modules together and handling fallback if a module fails or times out. The defining property visible in this diagram is that every box is a swappable interface, not a hard-coded implementation: the routing module can send a query to one retrieval module, several in parallel, or none at all (routing to memory only, for a conversational follow-up); which specific retrieval modules exist behind that router (vector, SQL, web, BM25) is a deployment-time configuration choice, not part of the architecture itself. This is what separates Modular RAG from Advanced RAG (#02), which wires a fixed set of enhancement stages in a fixed order.
+
+</details>
+
+---
+
+## Q14. What is the research and practical origin of "Modular RAG" as a term? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+"Modular RAG" is most closely associated with Gao et al.'s survey work on RAG architectures (the same broad survey lineage — *Retrieval-Augmented Generation for Large Language Models: A Survey*, arXiv:2312.10997, 2023 — that provides much of this bank's own taxonomy framing for non-paper-specific architectures like Naive and Advanced RAG), which explicitly categorized RAG systems along a "Naive → Advanced → Modular" progression to describe increasing architectural flexibility rather than any single new algorithmic technique.
+
+Unlike architectures with one specific originating paper and benchmark (DPR, RAPTOR, ColBERT), Modular RAG is a **structural pattern name** describing an engineering property — component swappability and composability — that emerged from practitioners building increasingly complex production RAG systems and needing a vocabulary for "a pipeline where the pieces aren't fixed," formalized retroactively by survey literature rather than introduced by one implementation.
+
+</details>
+
+---
+
+## Q15. How does Modular RAG's orchestrator differ from Agentic RAG's (#04) LLM-driven orchestration? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Modular RAG's orchestrator is typically **deterministic, code-defined wiring**: a router module (which may itself be a small classifier or an LLM call) selects which modules to invoke based on query features, but the overall flow — router, then fusion, then rerank, then generate — is fixed at design time, and the "intelligence" is confined to the routing decision itself. Agentic RAG's (#04) orchestration is **LLM-driven at every step**: the LLM itself decides, dynamically and potentially differently each turn, whether to retrieve, which tool to call, whether to retrieve again, and when to stop — there's no fixed sequence of stages at all, only a loop the LLM navigates based on its own reasoning.
+
+The practical distinction: Modular RAG's flexibility is in *which components exist and how they're wired* (a configuration choice made by engineers); Agentic RAG's flexibility is in *what happens at runtime, decided by the model itself*. A Modular RAG system with a sophisticated LLM-based router can start to resemble Agentic RAG, which is why the two are often described as points on a spectrum of increasing runtime flexibility rather than sharply distinct categories.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Modular RAG from Advanced RAG (#02)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **componentization behind common interfaces, with routing deciding which components run per query**, replacing Advanced RAG's fixed sequence of named enhancement stages applied uniformly to every query. In Advanced RAG, every query passes through query rewriting, then hybrid retrieval, then reranking, then compression, in that order, every time. In Modular RAG, a routing module can send a finance query to a SQL retrieval module and a documentation query to a vector retrieval module, entirely skip reranking for a query the router judges unambiguous, or invoke the memory module alone for a conversational follow-up that needs no new retrieval at all.
+
+This is precisely why Modular RAG is described as a generalization of Advanced RAG (#02 Q15) rather than a competing architecture: Advanced RAG's fixed pipeline is one valid configuration a Modular RAG router could always select, but Modular RAG additionally supports configurations Advanced RAG's fixed sequence cannot express at all — different pipelines for different query types within the same deployed system.
+
+</details>
+
+---
+
+## Q17. What are the key design knobs when composing a Modular RAG pipeline? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Guidance |
+|---|---|---|
+| Router granularity (single classifier vs. cascade of checks) | Coarser routing is cheaper and simpler but less precise; finer-grained routing handles more query types correctly at more engineering cost | Start coarse (2-3 categories) and add routing categories only when evaluation shows a specific query type is being mis-routed |
+| Module fallback ordering | Determines what happens when a preferred module fails, times out, or returns low-confidence results | Always define an explicit fallback chain (e.g., SQL module fails → fall back to vector search over a denormalized copy) rather than letting a module failure propagate as a user-facing error |
+| Per-module timeout budget | Bounds how long the orchestrator waits for a slow module before proceeding without it | Set per-module budgets that sum to well under your end-to-end latency SLA, leaving headroom for fusion/rerank/generation |
+| Parallel vs. sequential module invocation | Parallel invocation (as in this file's architecture diagram) minimizes latency when modules are independent; sequential is needed when one module's output feeds another's input | Default to parallel unless there's a genuine data dependency between modules |
+
+Router granularity is the knob most teams get wrong in both directions — too coarse and query types that need genuinely different handling get routed identically (defeating the purpose of modularity); too fine and the routing layer itself becomes a maintenance burden with more edge cases than the modules it's routing between.
+
+</details>
+
+---
+
+## Q18. How do you evaluate a Modular RAG system's routing accuracy separately from end-to-end accuracy? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+End-to-end accuracy alone can't tell you whether a wrong answer came from bad routing (query sent to the wrong module) or bad execution within a correctly-chosen module — these require different fixes, so they need separate metrics. Build a labeled set of (query, correct module or module combination) pairs, and measure **routing accuracy** directly: does the router send each query to the module(s) that can actually answer it, independent of whether that module's own retrieval and generation succeed.
+
+Then, conditional on correct routing, measure each module's own retrieval/answer quality in isolation — this decomposition reveals whether a quality problem is systemic (a specific module underperforms regardless of how it's reached) or routing-specific (a module performs fine when reached directly but rarely gets routed to correctly). Track this per module and per query category over time, the same segmented-evaluation discipline used throughout this bank, since a router that was well-calibrated at launch can drift as query patterns evolve or new modules are added without a corresponding router update.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when modules have inconsistent output contracts? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Modularity's core promise — swap any retrieval module without touching the rest of the pipeline — breaks down if different modules return results in subtly incompatible shapes: one module's results carry a `score` field normalized 0-1, another's carry a raw BM25 score with no fixed range; one module tags results with `source_url`, another with `doc_id` and no URL at all. The fusion and reranking stages downstream (Q3 for fusion) assume a consistent contract, and a mismatch doesn't necessarily crash — it silently produces wrong fusion rankings (comparing incompatible score scales, exactly the RRF-motivating problem in #02 Q13) or missing citation metadata in the final answer.
+
+**Detection:** this failure is easy to miss in testing if only one retrieval module is exercised per test case — it specifically requires a test that fuses results from *multiple* modules with genuinely different underlying implementations to surface. **Mitigation:** define a strict, versioned output schema every module must conform to (normalized score range, standard metadata field names) as part of the "pluggable retriever interface" contract (Q7), and validate every module's output against that schema at integration time — treating a schema violation as a hard error to catch during development, not a silent inconsistency to discover only when fusion rankings look subtly wrong in production.
+
+</details>
+
+---
+
+## Q20. Design a Modular RAG system for a multi-domain enterprise assistant. `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Requirements:** one assistant serving finance questions (needing SQL over structured financial data), documentation questions (needing vector search over a docs corpus), and current-events questions (needing live web search) — each domain has a genuinely different best-fit retrieval strategy.
+
+```
+1. Router: an LLM-based or fine-tuned classifier categorizes each query
+   into finance / documentation / current-events / multi-domain,
+   using query features (financial terminology, "latest"/"current"
+   language per Agentic Web RAG's #31 routing cues, doc-specific
+   jargon) -- coarse-grained (Q17), with a "multi-domain" catch-all
+   category for queries that don't cleanly fit one bucket.
+
+2. Modules behind a common interface (Q19): SQL retrieval module
+   (Structured RAG's #12 text-to-SQL pattern) for finance; standard
+   vector retrieval module for documentation; Agentic Web RAG's (#31)
+   search-and-fetch module for current events -- each normalized to
+   the same output contract (score, source metadata) before fusion.
+
+3. Multi-domain handling: for queries the router flags as spanning
+   multiple domains ("how does our latest pricing compare to
+   competitor X's"), invoke multiple modules in parallel and fuse
+   (Q3) rather than forcing a single-domain routing decision on a
+   genuinely cross-domain query.
+
+4. Fallback chain (Q17): if the SQL module times out or the query
+   doesn't parse into valid SQL, fall back to a vector-indexed summary
+   of the same financial data rather than surfacing an error --
+   accepting reduced precision over a hard failure.
+
+5. Observability (Q9): trace which module(s) each query was routed to
+   and their individual latency/success, enabling per-domain debugging
+   without needing to reproduce the full multi-module pipeline to
+   diagnose a single domain's issue.
+```
+
+The key design choice is treating domain classification as the router's job and keeping each domain's retrieval strategy as an independently swappable module — this is exactly the scenario Modular RAG's architecture is built for, in contrast to Advanced RAG's single fixed pipeline, which has no way to send fundamentally different query types to fundamentally different retrieval mechanisms.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Modular RAG Fits |

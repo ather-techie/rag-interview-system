@@ -686,6 +686,170 @@ Track:
 
 ---
 
+## Q13. Walk through the Naive RAG pipeline end-to-end, mapping each stage to the failure it can introduce. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+[Offline Indexing]
+Docs → Chunker → Embedder → Vector DB
+                                  ▲
+[Online Query]                    │
+Query → Embedder → ANN Search ────┘ → Top-k chunks → LLM → Answer
+```
+
+Every stage in this pipeline is also a place a specific, well-known failure can enter, which is why the rest of this bank exists as a set of fixes targeted at individual stages: the **chunker** can split a sentence mid-thought (fixed by better chunking, or by RAPTOR/#13's hierarchical summaries); the **embedder** can miss the semantic connection between query and passage wording (fixed by HyDE, #22, or reranking); **ANN search** can return topically-similar-but-wrong chunks with no relevance filter (fixed by Corrective RAG, #06); and the **LLM** can receive contradictory or insufficient context with no mechanism to notice (fixed by Self-RAG, #07, or Verifiable RAG, #33). Understanding Naive RAG well is largely about understanding this list of gaps precisely, since nearly every other architecture in this bank is a targeted patch for exactly one of them.
+
+</details>
+
+---
+
+## Q14. What is the research origin of the RAG pattern, and how does Naive RAG relate to the original paper's architecture? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The RAG pattern traces to Lewis et al., *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks* (Facebook AI Research, arXiv:2005.11401, 2020), which proposed combining a pretrained dense retriever (built on DPR, #38) with a pretrained sequence-to-sequence generator, fine-tuned jointly so the generator learns to make effective use of retrieved passages — a meaningfully more integrated design than what "Naive RAG" describes in modern usage.
+
+What's commonly called "Naive RAG" today is actually a simplification of the original paper's design: it drops the joint fine-tuning of retriever and generator entirely, using an off-the-shelf frozen embedding model and an off-the-shelf frozen LLM connected only by a prompt (retrieved chunks pasted into context) rather than any learned integration. This simplification is precisely what made RAG practical to adopt broadly starting around 2022-2023 — joint fine-tuning requires training infrastructure and labeled data most teams don't have, while frozen-model-plus-prompt "Naive RAG" works immediately with any commercial embedding API and any capable chat LLM.
+
+</details>
+
+---
+
+## Q15. How does Naive RAG compare to Advanced RAG (#02) — what's the first thing Advanced RAG adds? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Naive RAG is a fixed, three-step pipeline with no query understanding and no post-retrieval filtering (Q1) — whatever the top-k ANN search returns is what the LLM sees, unconditionally. Advanced RAG (#02) is best understood as Naive RAG plus two additions layered directly onto the same pipeline: **query rewriting/expansion** before retrieval (so the query better matches how the corpus is written) and **reranking** after retrieval (so a cross-encoder can filter the ANN search's top-k down to a more precise, relevance-checked subset before it reaches the LLM).
+
+Both additions target failures already visible in Naive RAG's own limitations (Q2): query rewriting addresses "no query understanding," and reranking addresses "low precision" from pure cosine similarity. This is why Advanced RAG is the natural first upgrade path from Naive RAG rather than jumping straight to a more architecturally different pattern (Agentic RAG, Graph RAG) — it fixes Naive RAG's two most common failure modes with the smallest possible change to the pipeline shape.
+
+</details>
+
+---
+
+## Q16. What are the key hyperparameters in a Naive RAG system, and how do you choose starting values? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Hyperparameter | Effect | Starting point |
+|---|---|---|
+| Chunk size | Smaller chunks improve retrieval precision but fragment context (Q6); larger chunks preserve context but dilute embedding specificity | 256-512 tokens is a common default, tuned against your document structure |
+| Chunk overlap | Reduces boundary-cutoff artifacts (Q6) at the cost of index size | 10-15% of chunk size |
+| `k` (chunks retrieved) | More chunks improve recall but increase prompt size/cost and dilute attention | 3-5 for focused queries; higher for broad/aggregate queries |
+| Similarity metric | Cosine similarity is standard for normalized embeddings; dot product is equivalent for unit vectors | Cosine, unless your embedding model's documentation specifies otherwise |
+| Embedding model | Determines the ceiling on retrieval quality (Q3) | A strong general-purpose model (BGE, E5, `text-embedding-3-small`) as a baseline; fine-tune only if evaluation (Q4) shows a gap |
+
+These interact: a larger chunk size reduces the effective value of a higher `k` (since each chunk already carries more content), while a smaller chunk size often needs a higher `k` to cover the same amount of context. Tune chunk size and `k` together against your retrieval evaluation metric (Q4) rather than independently, since the right value of one depends on the chosen value of the other.
+
+</details>
+
+---
+
+## Q17. How do you decide between vector databases for a Naive RAG deployment? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Option | Best fit |
+|---|---|
+| FAISS | Local/embedded, no managed infrastructure, full control over index type — good for prototyping or self-hosted deployments with engineering capacity to manage it |
+| Chroma | Lightweight, easy local setup, good for small-to-medium prototypes and single-node deployments |
+| Pinecone | Fully managed, scales without infrastructure management — good when engineering time is scarcer than budget |
+| Weaviate | Managed or self-hosted, strong hybrid (BM25 + dense) search support built in |
+| pgvector | Adds vector search to an existing Postgres deployment — good when you already run Postgres and want to avoid a separate vector-store service |
+
+The decision usually comes down to three questions, in order of importance: (1) do you already operate a database this integrates with (favoring pgvector), (2) do you have infrastructure capacity to self-host and tune an index (favoring FAISS/Weaviate self-hosted) or would you rather pay for a managed service (favoring Pinecone), and (3) do you need hybrid search out of the box (favoring Weaviate) or is pure dense retrieval sufficient. None of these choices lock you into Naive RAG specifically — the same vector store choice carries forward largely unchanged as you add reranking, hybrid search, or other Advanced RAG techniques on top.
+
+</details>
+
+---
+
+## Q18. What is the characteristic failure mode of a mis-tuned top-k, and how do you detect it? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Too small a `k`:** the correct chunk exists in the index but doesn't make the cut — a recall failure that looks identical to "the answer isn't in the corpus" from the LLM's perspective, since it never sees the chunk that would have helped. **Too large a `k`:** irrelevant chunks dilute the context, increasing the odds the LLM anchors on a plausible-but-wrong chunk instead of the correct one, and increasing token cost for every query regardless of whether the extra chunks ever help.
+
+**Detection:** track recall@k at several k values against a labeled evaluation set (Q4) — if recall keeps climbing meaningfully as k increases past your current setting, k is too small; if answer accuracy is flat or declining as k increases even though recall@k is already high, k is too large and the extra chunks are adding noise rather than signal. A single "raise k until it seems to work" approach without measuring both recall and downstream answer accuracy separately can miss the second failure mode entirely, since recall never decreases as k grows — only answer quality does, once enough irrelevant context accumulates.
+
+</details>
+
+---
+
+## Q19. Design a Naive RAG system for an internal HR/policy chatbot. `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Requirements:** answer employee questions from a moderate-sized, infrequently-updated policy document corpus; low query complexity (mostly single-fact lookups); tight budget, no dedicated ML team to maintain a more complex pipeline.
+
+```
+1. Ingestion: chunk policy PDFs/docs at 400 tokens with 10% overlap
+   (Q16), preserving document title and section heading as metadata
+   for citation purposes.
+
+2. Embedding: a strong off-the-shelf model (text-embedding-3-small or
+   BGE-base) -- no fine-tuning investment justified at this query
+   complexity and volume (Q3).
+
+3. Vector store: pgvector if HR already runs a Postgres-backed system
+   for other data, otherwise Chroma for simplicity (Q17).
+
+4. Retrieval: k=4, cosine similarity, no reranking initially -- add a
+   reranker only if evaluation (Q4) shows precision issues, since
+   Naive RAG's whole value proposition here is minimizing complexity.
+
+5. Generation: a cost-efficient model with a system prompt instructing
+   it to cite the source policy section and to say "I don't have
+   information on this" rather than guess when retrieval returns
+   low-relevance chunks.
+
+6. Monitoring: log queries with no high-similarity match (a proxy for
+   corpus gaps) and periodically review for policies that need to be
+   added or clarified in the source documents.
+```
+
+The key design discipline is resisting the urge to add complexity (reranking, hybrid search, agentic loops) until evaluation actually shows Naive RAG's simpler pipeline is insufficient — Q5's "when to still choose Naive RAG" criteria (static corpus, low query complexity, cost constraints) all apply directly to this use case, making it one of the clearest real-world fits for the simplest architecture in this bank.
+
+</details>
+
+---
+
+## Q20. What are the limitations of Naive RAG that motivate every other architecture in this bank, and when is it no longer sufficient? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Naive RAG's limitations (Q2) map directly onto entire categories of this bank's other 51 architectures: no query understanding (motivating HyDE #22, RAG-Fusion #18, RQ-RAG #51); no post-retrieval quality check (motivating Corrective RAG #06, Self-RAG #07); no multi-hop capability (motivating Iterative Multi-Hop RAG #19, Agentic RAG #04); no structural awareness of tables/graphs/images (motivating Structured RAG #12, Graph RAG #05, Multimodal RAG #09); and no conflict resolution when sources disagree (motivating Astute RAG #48). Naive RAG is, in a real sense, the "control group" this entire taxonomy is implicitly measured against.
+
+**When it's no longer sufficient:** the practical signal is evaluation data, not intuition — track recall@k, answer accuracy, and specific failure categories (Q4, Q18) on a representative query set, and only add a specific piece of complexity (reranking, query rewriting, multi-hop, structured extraction) once evaluation shows the specific failure mode that piece of complexity fixes is actually occurring at a rate that matters for your users. Adding architecture layers speculatively, without evaluation evidence that a specific gap exists, tends to add cost and latency without a corresponding accuracy gain — Naive RAG's own guidance (Q5) that it "often gets you 80% of the way" is a reminder to profile before upgrading, for every subsequent architecture choice in this bank, not just the initial one.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Naive RAG Fits |

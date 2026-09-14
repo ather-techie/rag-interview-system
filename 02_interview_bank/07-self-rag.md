@@ -833,6 +833,178 @@ Combining these prevents attackers from easily manipulating `[IsSup]` and `[IsUs
 
 ---
 
+## Q13. Walk through the Self-RAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Query
+  │
+  ▼
+[Retrieve] token: does this query/segment need retrieval? (yes/no, calibrated)
+  │
+  ├── No  → generate directly from parametric knowledge
+  └── Yes → retrieve passages
+              │
+              ▼
+        For each candidate passage, generate a candidate continuation
+        tagged with [IsRel] (is this passage relevant?)
+              │
+              ▼
+        Generate continuation, tagged with [IsSup] (is the continuation
+        supported by the passage?) and [IsUse] (is the output useful?)
+              │
+              ▼
+        Select the best candidate segment by combined reflection-token
+        confidence → continue generating, repeating the loop per segment
+```
+
+The defining property is that all four reflection tokens (`[Retrieve]`, `[IsRel]`, `[IsSup]`, `[IsUse]`) are emitted by the *same* fine-tuned model that does the generation — there's no separate judge, evaluator, or verifier model anywhere in the loop (contrast with Corrective RAG's #06 separate evaluator model, Q15). This single-model design is what Q3's training procedure specifically produces: a model that has learned to critique its own retrieval and generation decisions as a natural part of its own output vocabulary.
+
+</details>
+
+---
+
+## Q14. What is the research origin of Self-RAG, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Self-RAG was introduced by Asai et al., *Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection* (arXiv:2310.11511, 2023), training a single LLM (via the two-stage pipeline in Q3: critic-annotated data generation, then fine-tuning) to emit the four reflection tokens as part of its normal output vocabulary, unifying retrieval-gating and self-critique into one model rather than separate components.
+
+The paper's headline result is that Self-RAG outperforms both standard RAG and ChatGPT-scale models (at the time of publication) on a range of open-domain QA, reasoning, and fact-verification tasks, while also being able to abstain from retrieval on questions that don't need it (via the calibrated `[Retrieve]` token, Q18) — demonstrating that a smaller, specifically fine-tuned model with self-reflection can outperform simply using a larger, more capable but un-fine-tuned model with standard RAG.
+
+</details>
+
+---
+
+## Q15. How does Self-RAG compare to Corrective RAG (#06)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both add a quality-checking step standard RAG lacks, but the mechanism and cost profile differ sharply. Self-RAG bakes the checking capability directly into the generator's own fine-tuned weights — reflection tokens are emitted by the same model doing generation, requiring no separate model call for evaluation, but requiring the substantial upfront cost of fine-tuning (Q3, Q11). Corrective RAG (#06) uses a separate, independently trained (or prompted) evaluator model that scores retrieved documents before generation ever happens — no fine-tuning of the generator itself is required, but every query pays for an additional model call.
+
+The practical trade-off is the same fine-tune-vs-prompt/separate-component pattern seen throughout this bank (WebGPT vs. Agentic Web RAG, #39/#31): Self-RAG's investment pays off at high query volume where inference-time savings (no separate evaluator call) amortize the fine-tuning cost; Corrective RAG's separate-evaluator approach is faster to stand up and doesn't require access to fine-tune the generator itself, at the ongoing cost of an extra model call per query.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Self-RAG from standard RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is a **single model fine-tuned to emit its own retrieval-gating and self-critique decisions as reflection tokens**, rather than treating retrieval as an unconditional, ungated step and generation as a one-shot process with no self-assessment. Standard RAG always retrieves and always trusts the generator's output; Self-RAG's `[Retrieve]` token lets the model skip retrieval when its own calibrated judgment says it isn't needed, and its `[IsRel]`/`[IsSup]`/`[IsUse]` tokens let it select among multiple candidate continuations based on which one it judges best-supported and most useful — all without any external evaluator, verifier, or separate model call.
+
+This single-model design is Self-RAG's most consequential architectural choice: it means the self-critique capability is exactly as good as whatever the fine-tuning process (Q3) taught the model, with no opportunity to improve critique quality independently of the generation model itself — a trade-off directly contrasted by Q15's comparison to Corrective RAG's separately-improvable evaluator.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for Self-RAG at inference time? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Segment beam width (how many candidate continuations are generated and scored per segment) | Wider beams improve the odds the best-supported candidate is found, at proportional generation cost | 2-4 candidates per segment is a reasonable default, balancing selection quality against cost |
+| Reflection-token weighting in the selection score | Determines how much each of `[IsRel]`/`[IsSup]`/`[IsUse]` contributes to picking the winning candidate | Weight `[IsSup]` (factual grounding) most heavily for factual-QA use cases; weight `[IsUse]` more for open-ended/helpfulness-oriented tasks |
+| `[Retrieve]` token confidence threshold (Q18) | Determines how readily the model skips retrieval | Calibrate against a labeled set of retrieval-necessary vs. retrieval-unnecessary queries, biasing toward retrieval on low confidence given the asymmetric cost of a missed necessary retrieval |
+| Segment granularity (sentence vs. paragraph-level reflection) | Finer granularity gives more precise per-segment control but multiplies the number of reflection-token decisions per response | Sentence-level, per the original paper's design |
+
+Segment beam width is the most directly cost-controlling knob at inference time, since it's the one most clearly multiplying generation cost linearly — teams cost-optimizing a Self-RAG deployment (Q9, Q11) typically start by tuning this down before touching the reflection-token weighting, since beam width affects cost more predictably than weighting affects quality.
+
+</details>
+
+---
+
+## Q18. How do you decide when to retrieve using the `[Retrieve]` token's calibration, and what happens when it's miscalibrated? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The `[Retrieve]` token's whole value proposition is that it's a *calibrated* signal — trained specifically so that its confidence correlates with whether retrieval would actually help, rather than an arbitrary heuristic. In production, this token's output is thresholded like any calibrated classifier: above the threshold, retrieve; below it, answer directly from parametric knowledge, exactly the same skip-retrieval-for-efficiency pattern used by TARG (#11 Q13) and Auto-RAG/DeepRAG's (#49) PARAMETRIC decisions, but here emerging naturally from Self-RAG's own fine-tuning rather than requiring a separate training-free heuristic or a separate action-selection model.
+
+**When miscalibrated:** if the `[Retrieve]` token systematically under-triggers (too confident it doesn't need retrieval), the model answers confidently from potentially stale or absent parametric knowledge with no retrieved evidence to catch the error — the same silent, dangerous failure mode as a false-PARAMETRIC decision elsewhere in this bank (#49 Q5). If it over-triggers, retrieval happens unnecessarily, costing latency without an accuracy benefit. Detecting this requires the same segmented monitoring approach used for any calibrated retrieval-skip decision (#49 Q19): track downstream answer accuracy specifically on the subset of queries where `[Retrieve]` said "no," watching for a degradation that would indicate the calibration has drifted from the training distribution it was tuned against.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when reflection tokens disagree with each other? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A candidate continuation can score high on `[IsRel]` (the retrieved passage is topically relevant) while scoring low on `[IsSup]` (the generated continuation isn't actually well-supported by that passage) — this specific disagreement pattern signals that retrieval succeeded but generation drifted away from what the retrieved evidence actually says, a distinct failure from either "bad retrieval" or "bad generation" in isolation, and one that a system only looking at `[IsRel]` alone (or only at final output plausibility) would miss entirely.
+
+**Detection:** log the full four-token profile for every generated segment, not just the final selected candidate's aggregate score, and specifically flag segments with high `[IsRel]`/low `[IsSup]` disagreement for review — this pattern concentrated in a specific query category or topic area points at a generation-fidelity problem (the model paraphrasing loosely from otherwise-good evidence) rather than a retrieval problem, which calls for a different fix (tightening the generation objective or fine-tuning data around faithful paraphrasing) than a retrieval-quality issue would. **Mitigation:** when this disagreement pattern is detected for a candidate, treat `[IsSup]`'s lower score as the more actionable signal and either regenerate the segment or select a different candidate from the beam (Q17) rather than trusting `[IsRel]`'s topical-relevance judgment as sufficient evidence the segment is trustworthy.
+
+</details>
+
+---
+
+## Q20. Design a Self-RAG deployment, and justify the fine-tuning investment against a prompted alternative. `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Requirements:** a high-volume QA product where both retrieval-skip efficiency (many queries are answerable parametrically) and answer faithfulness (many queries are consequential enough to need self-critique) matter, and query volume is high enough to justify a fine-tuning investment.
+
+```
+1. Decision gate (mirroring the training-investment gates used elsewhere
+   in this bank, e.g. WebGPT's #39 Q15): confirm you have (or can build)
+   a training pipeline for the two-stage process in Q3 (critic-annotated
+   data generation, then fine-tuning), and that expected query volume
+   justifies it over Q6's prompted-Self-RAG approximation.
+
+2. Baseline: measure prompted-Self-RAG (Q6) -- asking a frozen model to
+   self-report relevance/support/usefulness via prompting rather than
+   fine-tuned reflection tokens -- on your actual query distribution.
+
+3. Fine-tune (Q3) if the baseline's calibration (specifically, how well
+   its self-reported confidence correlates with actual correctness) is
+   inadequate -- prompted self-assessment is typically less reliably
+   calibrated than a model specifically fine-tuned to produce
+   calibrated reflection tokens, which is Self-RAG's core research
+   contribution (Q14).
+
+4. Tune inference-time knobs (Q17) against your latency/cost budget --
+   segment beam width is the primary lever, with reflection-token
+   weighting adjusted for your domain's factuality-vs-helpfulness balance.
+
+5. Monitor the [Retrieve] token's calibration (Q18) and reflection-token
+   disagreement patterns (Q19) as ongoing production health metrics,
+   the same way any calibrated classifier's drift would be monitored.
+```
+
+The key decision-gate discipline, consistent with every other fine-tuning-investment decision in this bank, is confirming the prompted alternative (Q6) is genuinely inadequate — measured via calibration quality, not just convenience — before committing to Self-RAG's substantially higher upfront training cost.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Self-RAG Fits |

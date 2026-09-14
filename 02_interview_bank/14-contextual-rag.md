@@ -598,6 +598,144 @@ async def index_document(doc):
 
 ---
 
+## Q13. Walk through the Contextual Retrieval architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Document → Chunk (standard fixed-size or semantic chunking)
+                │
+                ▼
+For each chunk: LLM generates a short contextual prefix describing
+what the chunk is about relative to the WHOLE document
+                │
+                ▼
+Prefix + chunk, concatenated → Embedder → Vector Store
+                │
+(also indexed for BM25, Q3, using the same prefixed text)
+                │
+Query → Hybrid (BM25 + dense) retrieval over prefixed chunks → Generator
+```
+
+The single addition over standard chunking is the contextual-prefix generation step — everything else in the pipeline (chunking, embedding, hybrid retrieval, generation) is unchanged from Advanced RAG (#02). This is what makes Contextual Retrieval one of the cheapest architectural upgrades in this bank to adopt: it doesn't change the retrieval algorithm at all, only what text gets embedded and indexed in the first place, which is why Q9's cost analysis is entirely about the one-time (or per-update) prefix-generation cost rather than any change to query-time cost.
+
+</details>
+
+---
+
+## Q14. What is the research origin of Contextual Retrieval? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Contextual Retrieval was introduced by Anthropic in a 2024 engineering blog post (*Introducing Contextual Retrieval*), building directly on Claude's prompt caching feature (#10 Q6) to make the per-chunk context-generation step economically practical — without caching the full document in context across many chunk-generation calls, generating a bespoke context prefix for every chunk of every document would be prohibitively expensive at corpus scale, since each call would otherwise re-process the whole source document from scratch.
+
+Like Agentic Web RAG (#31 Q8) and LazyGraphRAG (#47 Q9), Contextual Retrieval is a product/engineering-blog-originated technique rather than a peer-reviewed paper's contribution — its reported results (a meaningful reduction in retrieval failure rate when combined with hybrid search and reranking, per Q3) are drawn from Anthropic's own internal benchmarking rather than an academic benchmark suite, which is worth noting explicitly when discussing "the paper" for this specific architecture in an interview setting.
+
+</details>
+
+---
+
+## Q15. How does Contextual Retrieval compare to HyDE (#22)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both use an LLM to generate additional text that improves retrieval, but they intervene at different points and for different purposes. HyDE (#22) generates a hypothetical *answer* to the query, at query time, and embeds that instead of the raw query — it's a query-side technique addressing the query-document vocabulary gap for whatever chunks already exist in the index. Contextual Retrieval generates a *context prefix* for each chunk, at index time (once, not per query), addressing the problem of a chunk being ambiguous or under-specified in isolation — it's a document-side technique that changes what gets indexed in the first place, with no per-query LLM call at all.
+
+The two are complementary and address genuinely different gaps: HyDE helps regardless of how well-formed the indexed chunks are, by improving what the *query* embeds as; Contextual Retrieval helps regardless of how the query is phrased, by improving what the *chunks* embed as. A production system could use both simultaneously — contextualized chunks in the index, queried via HyDE-generated hypothetical documents — since neither technique's mechanism interferes with the other.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Contextual Retrieval from standard chunking? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **prepending an LLM-generated, whole-document-aware summary to each chunk before embedding**, so a chunk's embedding reflects not just its own isolated content but also its role within the source document. Standard chunking embeds a chunk exactly as it appears — if a chunk reads "the company's revenue grew by that amount," with the specific company and quarter established only in an earlier, now-separated part of the document, the chunk's embedding has no way to represent that missing context, since the embedding model only ever sees the chunk's own text.
+
+This single addition directly targets Naive RAG's (#01 Q1) chunking-artifact failure mode from a different angle than large retrieval units (LongRAG, #45) or hierarchical summarization (RAPTOR, #13, Q4 of this file) — rather than making chunks bigger or building a separate summary tree, Contextual Retrieval keeps chunks exactly the same size but enriches what gets embedded for each one, which is why it composes cleanly with hybrid search and reranking (Q3, Q7) without requiring any change to the retrieval algorithm itself.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for Contextual Retrieval, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Context prefix length | Longer prefixes capture more document-level context but dilute the chunk's own content in the combined embedding and cost more to generate | 1-2 sentences (50-100 tokens) is a common target — enough to disambiguate, not so much it overwhelms the chunk itself |
+| Context-generation model | A stronger model produces more accurate, useful prefixes but costs more per chunk at index time | A mid-tier model is often sufficient for this relatively simple summarization-in-context task; validate against Q18's evaluation before defaulting to the cheapest option |
+| Prompt-caching strategy (Q2) | Determines how much the whole-document context is reused across a document's many chunk-generation calls | Cache the full document once per document, generating all its chunks' prefixes against that single cached context, rather than re-sending the document per chunk |
+| Chunk size (unchanged from standard chunking, but interacts with prefix length) | Smaller base chunks benefit more from context prefixes (more disambiguation needed relative to content); larger chunks need less | Tune chunk size using the same considerations as Naive RAG (#01 Q16), then validate whether adding prefixes changes the optimal chunk size |
+
+Prompt-caching strategy is the knob most specific to why Contextual Retrieval is economically practical at all (Q9, Q14) — without effectively caching the source document across a document's many chunk-generation calls, the per-chunk cost of context generation would scale with document length on every single chunk, rather than being amortized across the whole document's chunks via a cached context.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether the contextual prefix is actually improving retrieval vs. just adding noise? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a golden set specifically containing queries whose correct chunk is genuinely ambiguous in isolation (Q1's own motivating example — a chunk that only makes sense given surrounding document context) alongside queries whose correct chunk is already self-contained and unambiguous — a benchmark dominated by already-clear chunks won't show Contextual Retrieval's benefit, since there's nothing for the prefix to disambiguate. Compare retrieval recall@k with and without context prefixes on both segments, expecting a measurable gain specifically on the ambiguous-chunk segment and little to no difference (or possibly slight noise-driven regression) on the already-clear segment.
+
+This segmented approach is what Q5's own "measure whether Contextual Retrieval improves your specific corpus" question is really asking beneath its general framing — a corpus dominated by short, self-contained FAQ-style chunks (little ambiguity to resolve) is a poor fit for this technique regardless of what Anthropic's own benchmarks reported, while a corpus of long, narrative documents with heavy cross-reference and pronoun usage across paragraphs is exactly where the measured gain should be largest, mirroring the same "measure on your corpus, don't trust published numbers to transfer" discipline used throughout this bank.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when the context-generation LLM hallucinates a misleading prefix? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Q6 already flags this general risk category; the specific failure mode worth isolating is a prefix that doesn't just add unhelpful noise but actively **misrepresents** what the chunk is about — for example, summarizing a chunk as being "about Q3 2024 results" when the chunk actually discusses Q3 2023 results, because the context-generation model made an off-by-one error reading the surrounding document. Since the prefix is concatenated with the chunk before embedding, a misleading prefix doesn't just fail to help — it can actively pull the chunk's embedding toward queries about the *wrong* topic (Q3 2024) while the chunk's actual content (Q3 2023) sits underneath, unseen by the embedding until a human reads the retrieved result directly.
+
+**Detection:** for a sample of generated prefixes, verify factual claims in the prefix (specific numbers, dates, named entities) against the actual chunk content — an automated check comparing entities/numbers mentioned in the prefix against entities/numbers present in the chunk itself catches many of these cases without requiring full human review of every prefix. **Mitigation:** constrain the context-generation prompt to only reference information that's genuinely present in the document (an explicit "do not add facts not stated in the source" instruction, the same anti-hallucination framing used for summarization prompts elsewhere in this bank, e.g. MemoRAG's #44 Q2), and treat this automated fact-consistency check as a standard part of the indexing pipeline rather than a one-time quality spot-check.
+
+</details>
+
+---
+
+## Q20. What are the limitations of Contextual Retrieval, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **benefit is corpus-dependent and can be near-zero for already-clear chunks** (Q18) — this isn't a universal upgrade, and applying it indiscriminately to a corpus that doesn't need disambiguation wastes indexing cost for no retrieval gain; (2) **hallucinated prefixes are a real, hard-to-fully-eliminate risk** (Q6, Q19) — an automated fact-consistency check catches many but not necessarily all misrepresentations; (3) **indexing cost and complexity increase** (Q9) relative to standard chunking, even if made economical via prompt caching; (4) **doesn't address every chunking-boundary failure** — a genuinely fragmented mid-sentence split (Q1's original example) is helped by a context prefix, but a chunk that's simply too short to contain a complete unit of meaning may need larger chunks or hierarchical summarization (RAPTOR, #13) rather than more context about what it's missing.
+
+Likely evolution: automated, corpus-aware decision tooling that estimates expected benefit before committing indexing cost (directly addressing limitation 1) — analyzing a corpus sample for chunk-level ambiguity rate and projecting likely retrieval-recall gain, similar in spirit to the decision-gate benchmarks used to justify other architectural investments throughout this bank; and tighter integration of the fact-consistency check (Q19) as a standard, automated pipeline stage rather than a manual spot-check, as prompt-caching costs continue to fall and make more thorough per-chunk validation economically routine.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Contextual RAG Fits |

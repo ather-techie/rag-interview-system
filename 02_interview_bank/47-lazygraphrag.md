@@ -251,6 +251,359 @@ Deferring cost to query time is not free — it just moves the bill and changes 
 
 ---
 
+## Q6. Walk through the LazyGraphRAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+INDEX TIME (cheap -- no LLM calls)
+Docs → NLP Noun-Phrase Extractor → Noun-Phrase Co-occurrence Graph
+     → Graph stored (indexing cost ~= vector RAG, ~0.1% of GraphRAG's)
+
+════════════════════════════════════════
+QUERY TIME (expensive work deferred to here)
+Query → Relevance Test Budget (iterative LLM relevance testing)
+      → Best-First Subgraph Expansion (only expand regions that pass)
+      → Query-Time-Only Summarization (summarize ONLY the relevant subgraph)
+      → Generator → Answer
+```
+
+The architecture's entire design principle is visible in where the double line sits: everything above it costs roughly the same as plain vector RAG regardless of corpus size, and everything below it scales with how hard the *specific query* is, not with corpus size at all. This is the opposite allocation of cost from GraphRAG (#05), which spends heavily above the line (LLM entity/relationship extraction, community summarization) so that below the line is cheap and fast for every query.
+
+</details>
+
+---
+
+## Q7. What is the single distinctive mechanism that separates LazyGraphRAG from GraphRAG and LightRAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **deferring all LLM-based summarization from index time to query time**, replacing GraphRAG's eager "summarize every community whether or not it's ever queried" with a lazy "summarize only the specific subgraph this specific query's relevance-testing loop actually surfaced." The index itself is built with zero LLM calls — just cheap, deterministic NLP noun-phrase extraction and co-occurrence counting (Q4) — which is what makes indexing cost comparable to plain vector RAG rather than the substantial LLM-extraction-plus-clustering cost GraphRAG and LightRAG both pay upfront.
+
+This single choice inverts the cost profile entirely: GraphRAG and LightRAG pay a large, fixed, corpus-size-proportional cost once and then answer every subsequent query cheaply from pre-built summaries; LazyGraphRAG pays almost nothing upfront and instead pays a variable, query-difficulty-proportional cost on every single query (Q2's relevance budget). Which allocation is better depends entirely on query volume and repetition (Q5's comparison table) — there's no universally correct choice, only a trade-off that suits different workload shapes.
+
+</details>
+
+---
+
+## Q8. How does LazyGraphRAG compare to KAG (#24)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+KAG (#24) builds a knowledge graph with LLM-extracted, typed entities and relationships specifically to support logical-form reasoning — it needs the graph to encode precise, structured semantics (`ACQUIRED`, `CEO_OF`) because its downstream reasoning step depends on being able to traverse and combine typed relationships reliably. LazyGraphRAG's co-occurrence graph deliberately has none of that structure (Q4) — no typed edges, no entity resolution — because it isn't trying to support structured logical reasoning at all, only to give a cheap, useful signal for narrowing down which text regions are worth an LLM's attention at query time.
+
+The practical consequence: KAG is the right choice when a query genuinely requires following a specific, typed relationship chain to reach a correct answer (a professional/regulated domain needing auditable, structured reasoning); LazyGraphRAG is the right choice when the task is fundamentally about summarizing relevant textual context, where a precise relationship type was never actually needed to answer well, and the cost savings from skipping structured extraction (Q1's ~0.1% indexing cost figure) matter more than structured traversal capability.
+
+</details>
+
+---
+
+## Q9. What is the origin of LazyGraphRAG, and why was it published as a blog post rather than a paper? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+LazyGraphRAG comes from Microsoft Research (Edge, Trinh & Larson, *LazyGraphRAG: Setting a new standard for quality and cost*, Microsoft Research Blog, November 2024) — the same team behind the original GraphRAG paper and open-source library, publishing LazyGraphRAG as a new mode/approach within the existing `microsoft/graphrag` repository rather than as a standalone arXiv paper. This reflects that LazyGraphRAG is positioned as an engineering and systems contribution — a different point on an already-established cost/quality trade-off space (established by the original GraphRAG research) — rather than a novel algorithmic or modeling technique requiring its own peer-reviewed research paper.
+
+This is a useful distinction to recognize in this bank's broader landscape: some architectures here (DPR, RAPTOR, ColBERT) originate from formal academic papers with reproducible benchmarks and citations; others (Agentic Web RAG, #31; LazyGraphRAG) originate from industry blog posts or product engineering writeups describing a practical system built by combining and re-balancing existing techniques — both are legitimate sources of architectural knowledge, but they carry different levels of peer-reviewed rigor and reproducibility that's worth being explicit about when discussing "the paper" for a given architecture.
+
+</details>
+
+---
+
+## Q10. What are the key tuning knobs for LazyGraphRAG, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| `relevance_budget` (Q2) | The primary cost/quality dial — higher budget explores more of the graph per query, improving recall on broad questions at higher per-query LLM cost | Set a moderate default and consider making it query-difficulty-adaptive (Q14) rather than a fixed global constant |
+| `window_size` (co-occurrence window, Q4) | Larger windows link more distant phrase pairs, capturing looser thematic relatedness at the cost of more false-positive edges (Q12) | Start narrow (tens of tokens) and widen only if recall on broad/thematic queries is inadequate |
+| Best-first frontier scoring (Q2's `pop_best_first`) | Determines which candidate subgraph region gets tested next, directly affecting how efficiently the budget is spent | A co-occurrence-strength-weighted heuristic (test the most strongly-connected untested candidates first) makes better use of a limited budget than an arbitrary or purely breadth-first order |
+| Relevance-test model choice (cheap classifier vs. full LLM) | A cheaper model for the per-candidate relevance test allows a larger effective budget at the same cost | Use a fast, cheap model for the high-volume relevance-testing loop, reserving a stronger model only for the final subgraph summarization step |
+
+`window_size` and `relevance_budget` interact: a wider co-occurrence window produces a denser graph with more candidate edges to test, which either requires a larger budget to adequately explore or forces the best-first heuristic to work harder to avoid wasting budget on the increased number of false-positive-prone candidates (Q12) that a wider window introduces.
+
+</details>
+
+---
+
+## Q11. How do you evaluate LazyGraphRAG against GraphRAG's global search quality? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Since LazyGraphRAG's own headline claim (Q1) is matching or beating GraphRAG's global-question answer quality at a fraction of the indexing cost, evaluation should directly reproduce that comparison on your own corpus rather than trusting the published claim to transfer: build a golden set of genuinely broad, corpus-level questions ("what are the main themes across this collection") alongside narrow, specific-fact questions, and measure both **answer quality** (via human or LLM-judge comparison against GraphRAG's pre-built community-summary answers) and **total cost** — indexing cost plus query-time cost, since comparing only one or the other misses the actual trade-off (Q1's cost comparison is total-cost-of-ownership, not just query-time cost).
+
+Critically, measure cost **as a function of query volume and repetition** (Q5's core trade-off): a single-query comparison understates GraphRAG's amortization advantage and overstates LazyGraphRAG's cost advantage, while a very-high-repeat-query benchmark does the opposite — report cost curves across a range of query volumes/repetition rates rather than a single cost snapshot, since the crossover point (where one architecture becomes cheaper than the other) is workload-dependent and is exactly the number Q15's decision gate needs.
+
+</details>
+
+---
+
+## Q12. What is the characteristic failure mode of co-occurrence-based relevance signals, and how do you detect it? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Q4 already flags this risk: co-occurrence is a cheap proxy for relatedness, not a guarantee — two noun phrases can appear near each other repeatedly in text for reasons unrelated to any meaningful semantic connection (both frequently mentioned in boilerplate sections, both common terms that co-occur across nearly any document in the corpus, or a coincidental stylistic pattern in how a particular author writes). A dense but semantically weak co-occurrence edge can pull the relevance-testing loop's best-first expansion (Q2) toward a graph region that looks structurally promising (strong co-occurrence signal) but is actually irrelevant to the query's true information need, wasting relevance-test budget on false-positive candidates before the loop discovers the actually-relevant region.
+
+**Detection:** for queries where LazyGraphRAG's answer quality underperforms expectations despite an adequate relevance budget, inspect the relevance-test trace (which candidates were tested, which passed, in what order) to check whether budget was disproportionately spent testing candidates connected via generic, high-frequency co-occurrence edges rather than genuinely query-specific ones — a signature distinguishable from a simple "budget too small" problem, since more budget spent testing the same low-value candidates wouldn't help. **Mitigation:** down-weight or filter extremely high-frequency co-occurrence edges (common-term pairs that co-occur across a large fraction of the corpus, analogous to stop-word filtering) before they're eligible as frontier candidates, since a phrase pair's co-occurrence frequency across the *whole corpus* being unusually high is itself a signal that the connection is generic rather than topically specific.
+
+</details>
+
+---
+
+## Q13. How do you implement caching to mitigate LazyGraphRAG's repeat-query cost weakness? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Since LazyGraphRAG re-runs the full relevance-testing-and-summarization loop on every query by default (Q5's main weakness relative to GraphRAG/LightRAG's pre-computed, reusable summaries), caching the *result* of that loop — not just the final answer, but the discovered relevant subgraph and its summary — lets semantically similar future queries skip re-paying the relevance-test budget entirely:
+
+```python
+def lazygraphrag_query_cached(query: str, graph, llm, cache, relevance_budget: int = 50,
+                                similarity_threshold: float = 0.9) -> str:
+    query_emb = embed(query)
+
+    # Check cache for a semantically similar prior query
+    cached_entry = cache.find_similar(query_emb, threshold=similarity_threshold)
+    if cached_entry:
+        # Reuse the cached subgraph summary; skip relevance testing entirely
+        return llm.generate_answer(query, cached_entry.summary)
+
+    # Cache miss: run the full relevance-test loop (Q2)
+    result = lazygraphrag_query(query, graph, llm, relevance_budget)
+    cache.store(query_emb, summary=result.summary, subgraph=result.relevant_subgraph)
+    return result.answer
+```
+
+This is conceptually the same semantic-caching pattern used for query-level caching in Naive RAG (#01 Q9), applied here to the more expensive unit of work (a relevance-tested subgraph summary, not just a final answer) — the cache hit avoids the entire iterative search, not just the final generation call, which is where most of LazyGraphRAG's per-query cost actually lives. Cache invalidation needs the same discipline as any RAG cache: when underlying documents change, cached subgraph summaries touching those documents need to be invalidated, since a stale cached summary silently returns outdated information exactly as any stale cache would.
+
+</details>
+
+---
+
+## Q14. How would you make the relevance budget adaptive to query difficulty rather than a fixed constant? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A fixed `relevance_budget` (Q2, Q10) either over-spends on easy, narrow questions (wasting budget continuing to test candidates after the answer is already well-supported) or under-spends on genuinely broad questions (running out of budget before adequately exploring a wide, thematic query's relevant subgraph). An adaptive approach ties the budget to observable signals during the search itself rather than committing to a number upfront:
+
+```python
+def adaptive_lazygraphrag_query(query: str, graph, llm, max_budget: int = 100,
+                                  min_budget: int = 10, plateau_patience: int = 5) -> str:
+    frontier = graph.get_seed_candidates(query)
+    relevant_subgraph, tests_spent, consecutive_misses = set(), 0, 0
+
+    while frontier and tests_spent < max_budget:
+        candidate = frontier.pop_best_first()
+        is_relevant = llm.judge_relevance(query, candidate)
+        tests_spent += 1
+
+        if is_relevant:
+            relevant_subgraph.add(candidate)
+            frontier.extend(graph.neighbors(candidate))
+            consecutive_misses = 0
+        else:
+            consecutive_misses += 1
+
+        # Stop early once past the minimum budget if relevance tests keep failing
+        # (the search has likely exhausted the genuinely relevant region)
+        if tests_spent >= min_budget and consecutive_misses >= plateau_patience:
+            break
+
+    return llm.generate_answer(query, llm.summarize(relevant_subgraph))
+```
+
+This "stop on a plateau of consecutive misses" heuristic lets narrow queries terminate early (cheap) while allowing genuinely broad queries to keep expanding as long as new relevant candidates keep being found (up to the hard `max_budget` ceiling) — turning the single fixed dial from Q2 into a self-terminating search that spends roughly proportional to actual query difficulty rather than a one-size-fits-all constant.
+
+</details>
+
+---
+
+## Q15. How would you build a decision-gate benchmark to choose between LazyGraphRAG, GraphRAG, and LightRAG for a given workload? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Q5's comparison table already identifies the deciding factors qualitatively; a decision-gate benchmark makes them quantitative for your specific workload:
+
+```
+1. Characterize your workload: estimate query volume, repeat-query rate
+   (what fraction of queries are similar to previously-seen queries),
+   corpus change frequency, and latency SLA.
+
+2. Baseline costs: compute GraphRAG/LightRAG's fixed indexing cost for
+   your corpus size (LLM extraction + clustering + summarization,
+   scaling with corpus size) vs. LazyGraphRAG's near-zero indexing cost.
+
+3. Query-time cost model: for GraphRAG/LightRAG, query-time cost is
+   roughly flat (reads pre-built summaries); for LazyGraphRAG, model
+   query-time cost as a function of relevance_budget and query breadth
+   (Q11's cost curve), reduced by your estimated cache hit rate (Q13)
+   given your repeat-query rate.
+
+4. Cross over point: at what query volume does GraphRAG/LightRAG's
+   fixed cost amortize below LazyGraphRAG's cumulative query-time cost?
+   Compare this crossover point against your actual expected query
+   volume over the corpus's useful lifetime.
+
+5. Gate: choose LazyGraphRAG if expected query volume stays below the
+   crossover point, corpus changes frequently (favoring cheap
+   re-indexing), or typed-relationship reasoning (Q8) isn't needed.
+   Choose GraphRAG/LightRAG if query volume will clearly exceed the
+   crossover point, latency SLA is tight (Q16), or structured graph
+   queries are required.
+```
+
+This turns Q5's qualitative "it depends on your workload" table into an actual computed threshold specific to your corpus size, expected query volume, and caching effectiveness — the right choice genuinely does invert depending on where your workload falls relative to that threshold, so a benchmark beats a rule of thumb here.
+
+</details>
+
+---
+
+## Q16. What is the cost and latency overhead of LazyGraphRAG at scale, and what is its worst case? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+At the index level, cost stays flat and low regardless of corpus size growth (Q1's ~0.1% figure) — this is LazyGraphRAG's structural advantage and doesn't degrade at scale the way GraphRAG's LLM-extraction cost does. At the query level, cost and latency scale with `relevance_budget` (Q2, Q10) and, without caching (Q13), with total query volume linearly — every query pays its own relevance-testing cost from scratch.
+
+**Worst case:** a workload with high query volume, low repeat-query similarity (poor cache hit rate), and a query mix skewed toward broad/global questions (each requiring a larger effective budget, Q14) can make LazyGraphRAG's *aggregate* cost exceed what GraphRAG/LightRAG would have cost for the same workload — this is exactly the scenario Q5's comparison table flags ("high query volume, similar questions" favors GraphRAG/LightRAG) and Q15's decision gate is built to detect before committing to an architecture. Illustrative worst-case cost model: at `relevance_budget=50` LLM relevance-test calls per query (each a small, cheap call) plus one summarization call, 1M queries/month with no cache hits implies 50M relevance-test calls plus 1M summarization calls monthly — a substantial aggregate cost that a well-tuned cache (Q13) or a workload genuinely suited to LazyGraphRAG's strengths (Q15) would reduce dramatically, but which a mismatched deployment could accumulate unnecessarily.
+
+**Controls:** aggressive semantic caching (Q13) is the single highest-leverage lever for high-volume workloads; adaptive budgeting (Q14) prevents overspending on queries that don't need a large budget; and, per Q15, the most effective control is simply recognizing via the decision gate when a workload doesn't fit LazyGraphRAG's cost profile at all, rather than trying to tune around a fundamental workload mismatch.
+
+</details>
+
+---
+
+## Q17. What security and trust risks does a co-occurrence-based graph introduce? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+- **Adversarial co-occurrence injection** — since edges in LazyGraphRAG's index are purely statistical (phrases appearing near each other, Q4), an adversarial document repeatedly placing an unrelated phrase near a high-value target phrase can artificially manufacture a strong co-occurrence edge, biasing the best-first expansion (Q2) toward surfacing the adversarial content whenever a query touches the target phrase — a manipulation vector that's cheaper for an attacker to execute than manipulating an LLM-extracted relationship graph (GraphRAG/LightRAG), since it requires no sophistication about what a relationship-extraction LLM would find convincing, only repeated textual proximity.
+- **Relevance-test gaming** — a document crafted to score well on the query-time relevance test (topically plausible-looking phrasing near the target phrases) without actually containing useful or accurate content can consume relevance-test budget and, if it passes, contribute directly to the final query-time summary — since there's no upfront LLM vetting of graph content the way there might incidentally be during GraphRAG's entity-extraction pass, LazyGraphRAG's minimal indexing step also means minimal opportunity to catch suspicious content before it's eligible for query-time surfacing.
+- **No entity resolution means no consolidated trust scoring** — since LazyGraphRAG never resolves "Apple" and "Apple Inc." to one entity (Q4), any entity-level trust or provenance scoring (weighting content from trusted sources more heavily) has to operate at the raw-phrase or document level rather than at a clean entity level, making trust propagation coarser than in an entity-resolved graph.
+
+Mitigation: apply the same source-trust screening to documents before they're eligible for the co-occurrence graph as for any RAG corpus; monitor for corpus contributions producing anomalously high-frequency co-occurrence with high-value/frequently-queried phrases as a poisoning-detection heuristic (analogous to Q12's generic-edge filtering, but framed defensively); and recognize that the relevance-testing LLM call (Q2) is the only content-quality gate in the entire pipeline, making its robustness to adversarially-crafted, plausible-looking-but-low-quality content more load-bearing here than in architectures with additional upstream vetting steps.
+
+</details>
+
+---
+
+## Q18. Design a LazyGraphRAG-based system for an exploratory research archive with unpredictable query patterns. `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Requirements:** a large, continuously-growing archive (research papers, reports) that's indexed "just in case" but where most content is never queried; researchers ask a long tail of unique, often broad exploratory questions with low repeat rate; indexing cost must stay low given the archive's scale and growth rate.
+
+```
+1. Indexing (Q1, Q4): NLP-only co-occurrence graph construction as new
+   documents arrive -- cost stays proportional to ingestion volume, not
+   to a fixed corpus-wide LLM extraction pass, which matters given this
+   archive's continuous growth and the fact that most content will
+   never be queried (Q1's Real-World Applications framing).
+
+2. Adaptive budgeting (Q14): given genuinely unpredictable query
+   breadth (some researchers ask narrow fact-lookups, others ask broad
+   "what's the state of research on X" questions), a fixed budget would
+   either overspend on the former or underspend on the latter -- the
+   plateau-based adaptive approach handles both without manual per-
+   query tuning.
+
+3. Light caching (Q13), tuned for low expected hit rate: since
+   exploratory research queries are inherently low-repeat by nature
+   (Q16's worst-case scenario), don't over-invest in caching
+   infrastructure sized for a high-hit-rate workload -- cache what
+   naturally repeats (common orientation questions like "what are the
+   main themes in this sub-collection") without expecting it to be the
+   primary cost control here.
+
+4. Edge filtering (Q12): given the archive's scale and topical breadth,
+   generic high-frequency co-occurrence edges (common academic
+   boilerplate phrases) are likely to be a significant fraction of the
+   graph -- filter aggressively to keep relevance-test budget focused
+   on topically specific connections.
+
+5. Decision-gate monitoring (Q15): periodically re-run the cost
+   comparison against GraphRAG/LightRAG as query volume grows over
+   time -- an archive that starts as genuinely low-volume/exploratory
+   could shift toward high-repeat-query patterns as it matures (e.g.,
+   a canonical set of "getting started" questions emerges), at which
+   point the crossover analysis might favor migrating to a pre-built-
+   summary architecture for the now-popular subset of common questions.
+```
+
+The key design choice is treating LazyGraphRAG's fit for this use case as a starting point to monitor, not a permanent architectural commitment — exploratory, unpredictable query workloads are exactly LazyGraphRAG's ideal fit today (Q5's Real-World Applications), but workload characteristics can drift as an archive and its user base mature.
+
+</details>
+
+---
+
+## Q19. What happens when relevance testing itself is miscalibrated, and how do you debug it? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A relevance test that's **too strict** (frequently judges genuinely relevant candidates as irrelevant) causes the best-first expansion (Q2) to prune promising graph regions early, terminating the search with an incomplete subgraph and, consequently, an incomplete or wrong answer — this failure is silent in exactly the way a false-PARAMETRIC decision is silent in Auto-RAG/DeepRAG (#49 Q5): no artifact signals that a relevant region was found and then discarded, since a rejected candidate simply never enters `relevant_subgraph` at all. A relevance test that's **too lenient** wastes budget expanding into low-value regions (Q12's related but distinct failure), which degrades cost-efficiency without necessarily degrading final answer quality, since the summarization step can still filter noise from an over-inclusive subgraph.
+
+**Debugging asymmetry:** because over-strictness is the silent, more dangerous failure, it deserves more monitoring attention — (1) sample queries where the answer seems incomplete or where the relevance-test trace shows early termination (few candidates passed, small final subgraph) and manually verify against the source corpus whether relevant content was actually available but rejected by the relevance test; (2) compare relevance-test verdicts against a stronger, more expensive model's verdicts on a sample of borderline candidates, to check whether the production relevance-test model (chosen for speed/cost, Q10) is systematically more conservative than a more capable model would be; (3) if strictness is confirmed as the issue, either use a less conservative relevance-test prompt/threshold, or use a stronger model specifically for the relevance-test step despite the cost increase, since Q16's cost-scaling analysis assumed a cheap model — trading some of the architecture's cost advantage for correctness is often the right call once systematic under-recall is confirmed.
+
+</details>
+
+---
+
+## Q20. What are the limitations of LazyGraphRAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **cost is variable and workload-dependent rather than predictable** (Q15, Q16) — unlike GraphRAG's fixed indexing bill, LazyGraphRAG's total cost of ownership depends on query volume, repetition, and breadth in ways that require active modeling (Q15's decision gate) to predict confidently; (2) **co-occurrence is a noisy relevance proxy** (Q4, Q12) — no amount of budget tuning eliminates the fundamental false-positive risk of a purely statistical, untyped signal; (3) **no structured/typed graph queries are possible** (Q8) — ruling it out for use cases needing precise relationship traversal regardless of cost considerations; (4) **repeat-query workloads erode its main advantage** (Q5, Q13) without deliberate caching investment, meaning the architecture's benefit isn't automatic — it depends on either genuinely low query repetition or a well-built caching layer.
+
+Likely evolution: **hybrid indexing** that selectively applies cheap LLM extraction to a small, high-value subset of the corpus (frequently-touched documents identified after some query history accumulates) while keeping the bulk of the corpus on pure co-occurrence indexing — a middle ground between LazyGraphRAG's all-lazy and GraphRAG's all-eager extremes, informed by actual observed query patterns rather than committed to upfront; **smarter frontier scoring** incorporating light-weight semantic signals (cheap embedding similarity alongside raw co-occurrence frequency) to reduce the false-positive rate in Q12 without paying full LLM-extraction cost; and continued refinement of adaptive budgeting (Q14) as a standard feature rather than a manual extension, given how directly it addresses the cost-unpredictability limitation that's LazyGraphRAG's most significant practical drawback today.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Microsoft's GraphRAG open-source library**: LazyGraphRAG ships as a lower-cost mode within [microsoft/graphrag](https://github.com/microsoft/graphrag), positioned as the cost-sensitive alternative to full GraphRAG indexing

@@ -473,6 +473,141 @@ Missing nodes/paths yield silent wrong answers ("not found" presented as "no").
 
 ---
 
+## Q13. Walk through the GraphReader and GNN-RAG architectures end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+GraphReader:
+Docs → build a graph of notes/atomic facts → Agent explores the graph
+     step by step, taking notes, deciding where to explore next →
+     synthesizes an answer from accumulated notes
+
+GNN-RAG:
+Docs → build a knowledge graph → Graph Neural Network learns to score/
+     retrieve relevant subgraphs (trained, not prompted) → retrieved
+     subgraph → LLM generates answer from it
+```
+
+Both replace an LLM's own free-form graph traversal (as a prompted Graph RAG agent might do) with a more structured or learned exploration mechanism — GraphReader formalizes the exploration into an explicit agent loop with note-taking as external memory (Q2), while GNN-RAG replaces exploration with a trained neural network that has learned, from labeled data, which subgraphs are likely relevant to a given query (Q3) — directly answering Q5's "why use a GNN instead of LLM traversal" question with "because it can be trained to do this task specifically, rather than relying on general-purpose LLM reasoning applied ad hoc to graph structure."
+
+</details>
+
+---
+
+## Q14. What is the research origin of GraphReader and GNN-RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+GraphReader (Li et al., *GraphReader: Building Graph-based Agent to Enhance Long-Context Abilities of Large Language Models*, arXiv:2406.14550, 2024) targets long-document reasoning specifically — converting a long document into a graph of atomic facts and having an LLM agent explore it step-by-step with explicit note-taking, addressing the same long-context degradation problem Long-Context RAG (#10) faces from a graph-structured-exploration angle rather than a raw-context-window angle.
+
+GNN-RAG (Mavromatis & Karypis, *GNN-RAG: Graph Neural Retrieval for Large Language Model Reasoning*, arXiv:2405.20139, 2024) instead trains a graph neural network specifically for the retrieval step over a knowledge graph, reporting competitive or improved multi-hop QA accuracy relative to LLM-based graph traversal while being substantially cheaper at inference time, since a trained GNN's forward pass is far cheaper than an LLM reasoning step-by-step through graph exploration.
+
+</details>
+
+---
+
+## Q15. How do GraphReader/GNN-RAG compare to HippoRAG (#20)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+All three retrieve from a graph structure rather than flat chunks, but via different mechanisms. HippoRAG (#20) uses Personalized PageRank — a classical, untrained graph algorithm — for single-pass spreading activation from query-matched entities. GNN-RAG uses a **trained** graph neural network specifically learned to score subgraph relevance from labeled data, requiring a training pipeline HippoRAG's algorithmic approach doesn't need. GraphReader uses neither — it's an **LLM agent** explicitly exploring the graph step-by-step with note-taking, more flexible and interpretable than either PPR or a GNN, but also the most expensive per query since it requires multiple LLM reasoning calls during exploration.
+
+The practical decision axis: HippoRAG is the cheapest and simplest to deploy (no training, one fast algorithmic pass); GNN-RAG is a training investment that pays off with cheap, fast retrieval once trained, similar to Search-R1's (#42) fine-tune-once-serve-cheaply trade-off; GraphReader is the most expensive but requires no training investment and produces the most inspectable, step-by-step reasoning trace of the three, useful when auditability matters more than raw cost efficiency.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates GNN-RAG from Graph RAG's community-detection approach? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is a **trained neural network performing the retrieval/relevance-scoring step**, replacing Graph RAG's (#05) pre-computed, LLM-summarized community hierarchy entirely. Graph RAG answers queries by reading pre-written community summaries (computed once, generically, regardless of the specific query) or by LLM-mediated entity-neighborhood traversal. GNN-RAG instead trains a graph neural network on labeled (query, relevant-subgraph) examples, so at inference time, retrieval is a fast, learned forward pass through the trained network — no LLM call and no pre-written summary involved in the retrieval step itself, only in final answer generation from whatever subgraph the GNN retrieved.
+
+This is the same learned-vs-engineered trade-off seen throughout this bank's more advanced architectures (Search-R1's #42 learned search policy vs. prompted Agentic RAG) applied specifically to graph retrieval — GNN-RAG trades Graph RAG's expensive-but-training-free indexing pipeline for a training investment that, once paid, produces cheaper and potentially more accurate per-query retrieval than either community summaries or algorithmic traversal.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for GraphReader and GNN-RAG, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| GraphReader: exploration step budget | More steps allow deeper exploration of the graph of notes but increase LLM call count and cost | Cap based on document length/complexity, following the same hard-ceiling discipline as any agentic loop (#04 Q18) |
+| GraphReader: note-taking granularity | Finer-grained notes preserve more detail per exploration step but grow the agent's working memory faster | Atomic-fact-level notes, matching the graph's own atomic-fact node granularity |
+| GNN-RAG: number of GNN layers | More layers let the network aggregate information from further-away graph nodes (more hops), at higher training and inference cost | 2-3 layers is typical for graph neural networks generally, corresponding to 2-3 hop reasoning depth |
+| GNN-RAG: aggregation function (how a node combines its neighbors' information) | Different aggregation functions (mean, attention-weighted, max) trade off expressiveness against training stability | Attention-based aggregation is a reasonable default, letting the network learn which neighbors matter most per query rather than treating them uniformly |
+
+GNN-RAG's layer count is the knob most analogous to other architectures' "how many hops" knobs (Iterative Multi-hop RAG's #19 max-hops, HippoRAG's #20 damping factor) — it directly controls how far multi-hop reasoning can reach through the graph, but unlike those algorithmic knobs, it's fixed at training time rather than tunable per-query at inference.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether GNN-RAG's learned retrieval is actually better than a simpler heuristic like PPR for your graph? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a multi-hop evaluation set on your own knowledge graph and compare three approaches head-to-head: HippoRAG-style PPR (#20, no training required), a trained GNN-RAG model, and (if feasible) GraphReader's LLM-agent exploration — tracking accuracy, query-time latency, and total cost including GNN-RAG's training investment amortized over expected query volume, mirroring the same training-investment decision-gate discipline used throughout this bank (Search-R1's #42 Q15, RQ-RAG's #51 Q15).
+
+The comparison that matters most: does GNN-RAG's trained retrieval meaningfully outperform PPR's untrained algorithmic approach on your specific graph's structure and your specific query distribution? A GNN trained on insufficient or unrepresentative labeled data can underperform even a training-free heuristic (Q19), so this comparison should never be skipped in favor of assuming a trained approach is automatically superior — the training investment (data collection, training pipeline, ongoing retraining as the graph evolves) is only worthwhile if it clears this bar by a margin that justifies the added complexity relative to HippoRAG's simpler, training-free alternative.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when GNN-RAG's training graph doesn't match production graph structure? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A GNN trained on one graph's structure (a specific entity-type distribution, a specific typical node degree, a specific relationship-type vocabulary) learns patterns specific to that structure — if the production knowledge graph later evolves to include new entity types, denser or sparser connectivity, or relationship types the training data didn't represent, the trained network's learned aggregation patterns (Q17) may not transfer well, producing systematically degraded retrieval quality on the newly-different graph regions with no explicit error, since the GNN still produces a confident-looking output regardless of whether its training distribution actually covers the query at hand.
+
+**Detection:** segment retrieval quality by graph region/entity-type, specifically comparing regions that closely resemble the training graph's structure against regions added or restructured since training — a quality gap concentrated in the newer or structurally different regions is the signature of this training-production mismatch, distinguishable from a general retrieval-quality problem that would affect all regions roughly equally. **Mitigation:** retrain periodically as the graph evolves structurally (not just as new nodes are added, but specifically when the graph's structural characteristics shift), and monitor graph-structure drift (average node degree, entity-type distribution) as a leading indicator that retraining is due, the same drift-monitoring discipline used for Adaptive RAG's query-complexity classifier (#11 Q20).
+
+</details>
+
+---
+
+## Q20. What are the limitations of GraphReader and GNN-RAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **GraphReader's exploration cost scales with document complexity** (Q11) — multiple LLM calls per query make it the most expensive of the three approaches compared in Q15; (2) **GNN-RAG requires a training investment and labeled data** (Q18) that HippoRAG's (#20) algorithmic approach doesn't need, and that investment can underperform if training data doesn't match production structure (Q19); (3) **both approaches inherit general graph-based RAG's robustness-to-incompleteness risk** (this file's own security section) — missing graph structure produces silent wrong answers rather than an explicit "I don't know"; (4) **neither has GraphRAG's (#05) pre-computed, human-readable community summaries** available for auditing what the system "believes" about a corpus's themes, since GNN-RAG's learned representations and GraphReader's exploration notes are both harder to inspect at a glance than a written summary.
+
+Likely evolution: continued cross-pollination within this bank's graph-based RAG family — GNN-RAG's learned-retrieval efficiency combined with GraphReader's inspectable note-taking trail, or a GNN-scored candidate-generation step feeding into a lighter final LLM verification pass (mirroring the drafter-verifier pattern from Speculative RAG, #08); and, as graph neural network research continues to mature, likely improvements in GNN transferability across evolving graph structures (directly addressing Q19's training-production mismatch), narrowing the retraining burden that currently favors HippoRAG's training-free approach for graphs expected to change structurally over time.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why GraphReader / GNN-RAG Fits |

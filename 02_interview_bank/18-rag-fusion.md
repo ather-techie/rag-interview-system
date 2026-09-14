@@ -599,6 +599,146 @@ With N=4 queries, there are N opportunities for a poisoned document to surface i
 
 ---
 
+## Q13. Walk through the RAG-Fusion architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Query → LLM generates N query reformulations (Q3)
+      → Retrieve top-k for EACH of the N+1 queries (original + reformulations)
+        in parallel
+      → Reciprocal Rank Fusion merges all N+1 ranked lists into one (Q2)
+      → Top-k of the fused list → Generator → Answer
+```
+
+Every stage exists to solve the same underlying problem from a different angle: a single query's phrasing may not match how the corpus is written, and rather than trying to fix the query once (query rewriting) or fix the embedding space (fine-tuning), RAG-Fusion generates several different phrasings and lets RRF's rank-based merge (#02 Q13) surface documents that any *one* of those phrasings found, even if no single phrasing alone would have ranked it highly enough to matter.
+
+</details>
+
+---
+
+## Q14. What is the research origin of RAG-Fusion? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+RAG-Fusion is credited to Adrian Raudaschl's 2023 blog post and open-source implementation, combining two already-established techniques — LLM-based multi-query generation and Reciprocal Rank Fusion (originally from information-retrieval research on combining ranked lists, predating RAG entirely) — into one named, formalized pattern specifically for RAG retrieval. Like Agentic Web RAG (#31 Q8) and LazyGraphRAG (#47 Q9), RAG-Fusion doesn't trace to a peer-reviewed paper with its own benchmark; it's a practitioner-assembled combination that became a standard reference pattern through widespread adoption and its resemblance to Advanced RAG's (#02) own multi-query technique.
+
+This origin is worth being explicit about in an interview: RAG-Fusion's individual components (query generation, RRF) each have solid research grounding independently, but "RAG-Fusion" as a named end-to-end pipeline is a synthesis rather than a single validated research contribution, meaning its effectiveness claims rest more on practitioner reports and the strength of its individual components than on a dedicated benchmark study.
+
+</details>
+
+---
+
+## Q15. How does RAG-Fusion compare to CoRAG's (#50) chain-of-retrieval? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both use multiple retrieval attempts rather than a single pass, but structure them completely differently. RAG-Fusion's `N` reformulated queries are generated **in parallel**, independent of each other — none of them depends on what any other retrieval found, and they're merged in one fusion step at the end. CoRAG's (#50) retrieval chain is **sequential** — each step's query reformulation is conditioned on the accumulated results of every prior step, building toward a multi-hop answer that no single, independent reformulation could reach on its own.
+
+This structural difference maps directly to what each is good for: RAG-Fusion's parallel reformulations address *query phrasing ambiguity* for a fundamentally single-hop question (the answer exists in one place, but different phrasings might find it more or less reliably); CoRAG's sequential chain addresses *genuine multi-hop* questions where later retrieval steps can only be correctly formulated once earlier steps' findings are known. Applying RAG-Fusion's parallel-reformulation approach to a genuinely multi-hop question won't help, since no single reformulation phrasing change fixes the fact that the question requires information not yet retrieved to even know what to search for next.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates RAG-Fusion from Multi-Query retrieval? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+RAG-Fusion and Advanced RAG's Multi-Query retrieval (#02 Q6) share the same core mechanism — generate several query reformulations, retrieve for each, merge results — and in practice the two names are often used interchangeably for the same technique. The distinction, where one is drawn at all, is that RAG-Fusion specifically prescribes **Reciprocal Rank Fusion** as the merge step, while "Multi-Query retrieval" more generally just refers to the reformulation-and-retrieve pattern without committing to a specific merge algorithm (a Multi-Query implementation could, in principle, deduplicate and simply pool results, or use a different fusion method entirely).
+
+In practice, this is more a naming/framing distinction than a substantive architectural one — most production "Multi-Query" implementations (including LangChain's `MultiQueryRetriever`, referenced in #02 Q6) do use RRF or an equivalent rank-based merge, making RAG-Fusion best understood as the more precisely-specified name for what is largely the same underlying technique, rather than a genuinely different architecture.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for RAG-Fusion beyond RRF's k parameter? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Number of query reformulations (`N`) | More reformulations improve the odds of covering diverse phrasings but multiply retrieval calls and cost linearly | 3-5 is typical; validate against Q18's diversity measurement rather than assuming more is always better |
+| Reformulation generation prompt/temperature | Higher temperature and a prompt encouraging genuinely different angles produce more diverse reformulations; a low-temperature or narrowly-scoped prompt risks near-duplicate reformulations (Q18's failure mode) | Explicitly instruct the reformulation prompt to vary vocabulary, specificity level, and phrasing angle, not just paraphrase superficially |
+| Whether to include the original query in the fusion set | Including it hedges against reformulations drifting from the original intent (Q19); excluding it fully commits to the reformulations' quality | Always include the original query as one of the fused lists, following the same "never make retrieval solely dependent on a rewrite" principle used in Memory/Conversational RAG (#21) |
+| Per-query-variant `k` before fusion | More candidates per variant improve fusion's raw material but increase compute | 10-20 per variant is typical before fusing down to a smaller final top-k |
+
+The reformulation generation prompt is the highest-leverage and least mechanical knob here — unlike RRF's `k` constant (Q11), which has a well-understood default (60) that rarely needs much tuning, reformulation quality depends entirely on prompt engineering specific to your domain's query patterns, making it the component most worth iterating on directly.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether RAG-Fusion's reformulations are adding genuine diversity vs. redundant near-duplicates? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Measure pairwise semantic similarity among the `N` generated reformulations for a sample of queries — if reformulations consistently cluster very close together in embedding space, they're functionally near-duplicates of each other (the same anti-pattern flagged for Few-Shot Example RAG's #32 Q12 near-duplicate retrieval, applied here to generated queries rather than retrieved examples), and RAG-Fusion is paying for `N` retrieval calls while getting close to the recall benefit of just one.
+
+```python
+def measure_reformulation_diversity(query: str, llm, embed_fn, n: int = 5) -> float:
+    reformulations = generate_reformulations(query, llm, n=n)
+    embeddings = [embed_fn(r) for r in reformulations]
+    pairwise_sims = [cosine_sim(embeddings[i], embeddings[j])
+                      for i in range(len(embeddings)) for j in range(i+1, len(embeddings))]
+    return mean(pairwise_sims)  # high average similarity = low diversity, wasted fusion calls
+```
+
+Track this diversity metric alongside the actual downstream benefit (does fusion's final recall meaningfully exceed single-query retrieval's recall on the same queries, per Q7's evaluation) — a low-diversity reformulation set that still shows a recall improvement suggests the improvement is coming from somewhere other than phrasing diversity (perhaps just from retrieving more candidates overall before fusion), which would mean the same benefit might be achievable more cheaply by simply raising `k` on a single query rather than generating multiple reformulations at all.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when reformulated queries drift from the original intent? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+An LLM generating "diverse" reformulations (Q17's diversity-encouraging prompt) can, in pursuit of genuine phrasing variety, produce a reformulation that subtly shifts the question's actual meaning rather than just its wording — "what caused the Q3 revenue decline" reformulated as "what are common causes of revenue decline" drifts from a specific, factual question toward a generic one, and if that drifted reformulation retrieves well (generic questions often have abundant generic content to match against), its results can dilute or outrank the original query's genuinely on-target results in the RRF fusion.
+
+**Detection:** for queries with a known-correct, specific answer, check whether any of the `N` reformulations' *individual* top results are off-target relative to the original query's actual intent — a reformulation that retrieves confidently but for a subtly different question is harder to catch than one that simply retrieves poorly, since it produces results that look plausible in isolation. **Mitigation:** constrain the reformulation prompt to preserve the query's specific entities, scope, and question type explicitly (vary phrasing and angle, not the actual object of the question), and always include the original, unmodified query in the fusion set (Q17) as a hedge — RRF's rank-based merge means a drifted reformulation's off-target results have to consistently outrank the original query's on-target results across the fusion to actually win, which a single well-chosen original-query inclusion substantially guards against.
+
+</details>
+
+---
+
+## Q20. What are the limitations of RAG-Fusion, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **cost scales linearly with `N`** (Q5, Q17) with no adaptive mechanism to spend more reformulations on genuinely ambiguous queries and fewer on already-clear ones, unlike the adaptive-budget patterns used elsewhere in this bank (LazyGraphRAG's #47 adaptive relevance budget, CoRAG's #50 adaptive chain length); (2) **reformulation diversity and quality are entirely prompt-dependent** (Q17, Q18) with no principled way to guarantee genuinely diverse, non-drifted reformulations beyond careful prompt engineering and ongoing monitoring; (3) **only addresses single-hop phrasing ambiguity** (Q15) — it provides no benefit for genuinely multi-hop questions, which need a fundamentally different (sequential, chain-based) architecture; (4) **larger attack surface** (this file's own security section) from multiple parallel retrieval paths, each an independent opportunity for a poisoned document to surface.
+
+Likely evolution: adaptive reformulation count (generating more variants for queries a cheap upfront classifier flags as ambiguous, fewer for clear ones) as a natural cost-control extension, following the same adaptive-compute pattern maturing across this bank's other architectures; tighter integration of diversity measurement (Q18) directly into the reformulation-generation step itself (rejecting and regenerating a reformulation that scores too similar to ones already generated) rather than treating diversity as a post-hoc evaluation concern; and continued clarification of RAG-Fusion's relationship to Multi-Query retrieval (Q16) as the field's terminology matures, likely converging on one name for what is substantially the same technique.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RAG Fusion Fits |

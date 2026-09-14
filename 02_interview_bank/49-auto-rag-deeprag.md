@@ -298,6 +298,305 @@ but erodes the whole efficiency benefit these architectures are built for.
 
 ---
 
+## Q6. Walk through the Auto-RAG and DeepRAG architectures end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Auto-RAG: Query → Turn Loop (LLM decides retrieve-again vs. stop, in free-form
+          dialogue with the retriever) → Final Answer (iteration count self-decided)
+
+DeepRAG: Query → Query Decomposer (atomic subqueries) → Per-Subquery Decision
+         (RETRIEVE or PARAMETRIC, an MDP action) → Update reasoning state →
+         repeat per subquery → Final Answer (synthesized from the full chain)
+```
+
+Both share the same underlying principle (Q1): treat retrieve-vs-reason as a decision made fresh at every step rather than once up front. They differ in *how* that decision is structured — Auto-RAG expresses it as free-form natural-language reasoning within a continuous dialogue (no explicit subquery list), while DeepRAG explicitly decomposes the question into atomic subqueries first and attaches a formal RETRIEVE/PARAMETRIC action to each one (Q4's worked comparison). This structural difference is what makes DeepRAG's decisions individually inspectable and independently trainable via its MDP formulation (Q3), while Auto-RAG's decisions are embedded in whatever reasoning trace the model happened to produce.
+
+</details>
+
+---
+
+## Q7. What is the single distinctive mechanism that separates Auto-RAG/DeepRAG from CoRAG (#50)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+CoRAG (#50) chains a sequence of retrieval steps where each step is, by design, a retrieval — the learnable/tunable dimension is the *chain length* (a test-time compute knob) and which passages to retrieve at each hop, but retrieval itself happens at every step of the chain by construction. Auto-RAG and DeepRAG's distinctive mechanism is the **retrieve-or-reason choice itself being a first-class decision at every step** — a step can resolve via parametric memory alone, with no retrieval call at all, which CoRAG's chain-of-retrieval framing doesn't provide for.
+
+This difference matters directly for efficiency: a CoRAG-style chain pays a retrieval cost at every hop regardless of whether the model already confidently knows that hop's answer, while DeepRAG specifically optimizes for skipping retrieval on subqueries the model can answer parametrically (Q3's reported efficiency gain). The two are not mutually exclusive — a chain-of-retrieval architecture could, in principle, adopt DeepRAG's per-hop retrieve-or-skip decision as an efficiency layer on top of its own chaining logic.
+
+</details>
+
+---
+
+## Q8. What is the research origin of Auto-RAG and DeepRAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Auto-RAG (Yu, Zhang, Feng, *Auto-RAG: Autonomous Retrieval-Augmented Generation for Large Language Models*, arXiv:2411.19443, November 2024) trains a model on synthesized autonomous-reasoning traces (Q2) — a strong LLM's own iterative retrieval decisions on training questions become the fine-tuning data for a target model, which then internalizes the retrieve/stop policy without any externally-imposed prompt scaffold. DeepRAG (Guan et al., *DeepRAG: Thinking to Retrieve Step by Step for Large Language Models*, arXiv:2502.01142, February 2025) formalizes the same underlying goal as a Markov Decision Process, trained via binary tree search over decision sequences (Q3, Q12) to discover the minimal retrieval path that still reaches the correct answer.
+
+DeepRAG's reported headline result is a 26.4% accuracy improvement alongside improved retrieval efficiency, driven mainly by learning to skip retrieval calls the tree search shows were unnecessary — i.e., the model learns to trust its own parametric knowledge more often than an always-retrieve baseline, directly demonstrating that per-step retrieve-or-reason decisions can outperform both "always retrieve" and a single up-front routing decision (Adaptive RAG, #11) on the same multi-hop benchmarks.
+
+</details>
+
+---
+
+## Q9. How do Auto-RAG/DeepRAG compare to Self-RAG's (#07) reflection-token approach? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Self-RAG (#07) trains a model to emit special reflection tokens (`[Retrieve]`, `[IsRel]`, `[IsSup]`, `[IsUse]`) that gate retrieval and self-critique the resulting generation, deciding whether to retrieve based on the model's own trained judgment of whether retrieval would help — conceptually similar to Auto-RAG/DeepRAG's core idea of a learned, per-decision-point retrieve gate. The key difference is scope and granularity: Self-RAG's reflection tokens operate per *segment* of generated text within a single response, primarily deciding whether to retrieve and then critiquing the quality of what was retrieved and generated. Auto-RAG and DeepRAG operate specifically over **multi-hop reasoning chains**, where the decision at each step is tied to an explicit sub-question (DeepRAG) or an evolving natural-language plan (Auto-RAG) rather than a segment-level reflection token vocabulary.
+
+In practice, Self-RAG's reflection tokens are better understood as a general retrieval-and-quality-control mechanism applicable to any generation task, while Auto-RAG/DeepRAG are purpose-built for the specific structure of multi-hop question answering, where "should I retrieve for this particular sub-fact" is a more naturally decomposable question than "should I retrieve for this segment of free-form text."
+
+</details>
+
+---
+
+## Q10. What are the key tuning knobs for Auto-RAG/DeepRAG, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| `max_turns` (Auto-RAG) / `max_steps` (DeepRAG) | Caps how many retrieve-or-reason decisions a single query can make | 10 for Auto-RAG, 6 for DeepRAG per this file's pseudocode — tuned to the deepest multi-hop chains your domain actually needs |
+| Confidence threshold for RETRIEVE vs. PARAMETRIC (Q5's mitigation) | Determines how conservatively the policy defaults to retrieval when uncertain | Set to favor RETRIEVE on ties given the asymmetric cost of a false-PARAMETRIC error (Q5's failure mode 1) vs. a false-RETRIEVE error (failure mode 2) |
+| `k` (passages per retrieval call) | More passages per call improve recall at that step but increase per-step token cost | 3-5, consistent with other iterative-retrieval architectures in this bank |
+| Time-sensitivity override rules (Q5's mitigation) | Force RETRIEVE regardless of policy confidence for known-volatile fact categories | Domain-specific allowlist of volatility cues ("current," "latest," named entities with high update frequency) |
+
+The confidence threshold is the highest-leverage knob precisely because of the asymmetry Q5 identifies: a false PARAMETRIC decision silently corrupts a chain with no artifact to catch it later, while a false RETRIEVE decision only costs latency/money — this asymmetry argues for biasing the threshold toward retrieval whenever the policy's own confidence signal is ambiguous, even at some efficiency cost.
+
+</details>
+
+---
+
+## Q11. How do you evaluate whether the adaptive per-step decision is actually saving retrieval calls without hurting accuracy? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Compare three conditions on the same held-out multi-hop benchmark: (1) always-retrieve baseline (retrieve at every step regardless of the policy); (2) the trained Auto-RAG/DeepRAG policy; (3) an oracle upper bound if available (the minimal retrieval path a tree search, as in DeepRAG's training, shows was actually sufficient). Track both **accuracy** (does adaptive retrieval match or beat always-retrieve) and **retrieval-call count per query** (the efficiency metric this whole architecture family exists to improve) — a policy achieving comparable accuracy at meaningfully fewer retrieval calls is the success case DeepRAG's own reported result (Q8) demonstrates.
+
+Segment by question difficulty/hop-count: the adaptive policy's efficiency gain should be concentrated on questions with genuinely easy sub-steps (where parametric knowledge is reliable), and its accuracy should hold steady even on the hardest multi-hop questions where most steps genuinely need retrieval — a policy that's "efficient" only because it's under-retrieving even on hard questions is not actually succeeding at the adaptive decision, it's just retrieving less indiscriminately, which Q19's calibration-drift concern is specifically about detecting.
+
+</details>
+
+---
+
+## Q12. How is DeepRAG's binary tree search training data construction implemented, and why is it needed? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+For each atomic subquery in a training question's decomposition, DeepRAG's training process explores *both* the RETRIEVE and PARAMETRIC branches — running the model both ways and checking which choice (or sequence of choices) still leads to a correct final answer. This produces a binary tree of possible decision sequences per training question, from which the *minimal* retrieval path (the sequence using RETRIEVE only where it was actually necessary for correctness) can be identified and used as the training label.
+
+This tree search is necessary specifically because there's no ground-truth "should you retrieve for this subquery" label available any other way — unlike final-answer correctness (which a QA dataset already provides), "was retrieval necessary for *this specific* subquery" is a property that can only be discovered empirically, by actually trying both options and observing which one the model can handle without external help. Naively training on "always retrieve" labels (imitating a conservative baseline) would never teach the model when parametric knowledge suffices; the tree search is what surfaces genuine examples of "the model got this right without retrieval" to imitate, which is the entire basis for DeepRAG's efficiency gains (Q8).
+
+</details>
+
+---
+
+## Q13. What is the characteristic difference in interpretability between Auto-RAG's free-form dialogue and DeepRAG's structured MDP? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+DeepRAG's explicit atomic-subquery decomposition with a formal RETRIEVE/PARAMETRIC label per subquery (Q4) produces a trace that's directly auditable: a reviewer can look at the decision log and see exactly which sub-fact was retrieved, which was answered from memory, and — since each subquery is a discrete, labeled unit — measure per-subquery-type accuracy and calibration (Q19) with a clean unit of analysis. Auto-RAG's free-form natural-language dialogue (Q2) is harder to systematically audit at this granularity: the model's retrieve-or-stop decision is embedded within its own reasoning prose, which is readable by a human reviewer case-by-case but doesn't decompose into a clean, structured log the way DeepRAG's action sequence does.
+
+The practical consequence: DeepRAG is the easier architecture to build systematic production monitoring around (Q11's segmented evaluation, Q19's calibration tracking), since its decisions are already structured data; Auto-RAG's dialogue trace requires an additional parsing/extraction step (or an LLM-based trace analyzer) to get the same structured visibility into what was retrieved, when, and why, even though the underlying natural-language trace is often more immediately readable to a human reviewing a single case by eye.
+
+</details>
+
+---
+
+## Q14. When would you choose Auto-RAG's autonomous dialogue over DeepRAG's structured decomposition for a production system? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Choose DeepRAG's structured MDP approach when: you need systematic, per-decision auditability (Q13) for compliance or debugging reasons; your domain's questions decompose cleanly into a discoverable atomic-subquery structure (multi-hop factual QA is the clearest fit); or you want to directly optimize retrieval efficiency via the tree-search training process (Q12), which requires the explicit action-per-subquery structure to even be well-defined.
+
+Choose Auto-RAG's free-form dialogue approach when: the task's reasoning doesn't naturally decompose into clean atomic subqueries (open-ended research or analysis questions where "what do I still need to know" is itself an evolving, non-atomic judgment); you want the model's full reasoning trace preserved in natural language for human review (Q13's readability trade-off, favoring case-by-case inspection over structured aggregate monitoring); or your training data construction process is better suited to distilling a strong model's autonomous reasoning traces (Auto-RAG's approach) rather than running a tree search over discrete actions (DeepRAG's approach, which requires the atomic-subquery structure to exist in the first place).
+
+</details>
+
+---
+
+## Q15. How would you build a decision-gate benchmark to decide whether per-step retrieve-or-reason training is worth it over Adaptive RAG's simpler routing? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Adaptive RAG's (#11) single up-front classification is far cheaper to build and maintain than fine-tuning a per-step decision policy (Q16) — the decision to invest in the latter should be measured against the specific limitation Q1 identifies (a fixed strategy can't adapt mid-reasoning):
+
+```
+1. Build a benchmark specifically containing multi-hop questions where
+   sub-step difficulty genuinely VARIES within the same question (some
+   hops trivially answerable parametrically, others requiring retrieval)
+   -- if your question distribution doesn't actually have this property,
+   per-step adaptation has nothing to gain over up-front routing.
+
+2. Baseline: measure Adaptive RAG's accuracy and retrieval-call count on
+   this benchmark (routing each question once to a fixed strategy).
+
+3. Candidate: measure Auto-RAG or DeepRAG's accuracy and retrieval-call
+   count on the same benchmark.
+
+4. Compare specifically on retrieval-call efficiency at matched accuracy
+   -- the value proposition of per-step decisions IS efficiency (Q8,
+   Q11), so a candidate that matches Adaptive RAG's accuracy while using
+   meaningfully fewer retrieval calls is the success case; if efficiency
+   gains are marginal, the added training/maintenance cost isn't justified.
+
+5. Gate: adopt per-step training only if (a) your query distribution has
+   genuine within-question sub-step difficulty variance, AND (b) the
+   measured efficiency gain at matched accuracy clears the added
+   training and infrastructure investment (Q16) within your query volume.
+```
+
+The critical precondition this gate surfaces is question (1) — many production QA workloads are dominated by questions where hop difficulty is fairly uniform within a question (either all hops are easy or all are hard), in which case Adaptive RAG's cheaper up-front routing captures most of the achievable value and the additional complexity of per-step training buys little.
+
+</details>
+
+---
+
+## Q16. What is the cost and infrastructure overhead of training and running Auto-RAG/DeepRAG at scale? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both require a non-trivial training pipeline beyond standard fine-tuning: Auto-RAG needs a strong "teacher" LLM to generate autonomous reasoning traces at scale across training questions (an inference-heavy data-generation step before any fine-tuning happens), and DeepRAG needs the binary tree search (Q12) run across every training question's decomposition — exploring both RETRIEVE and PARAMETRIC branches at each subquery multiplies training-time compute similarly to the rollout-multiplication cost noted for Search-R1 (#42, Q16), though DeepRAG's tree search is a one-time data-construction cost rather than an ongoing RL training loop.
+
+At inference/serving time, however, both architectures are relatively cheap compared to prompted multi-step alternatives — a single fine-tuned model handles the entire decision policy with no separate classifier or orchestration layer beyond the retrieve/reason loop itself, and DeepRAG's efficiency gains (fewer retrieval calls per query) directly reduce serving-time retrieval infrastructure load relative to an always-retrieve baseline. The overhead is front-loaded into training-data construction and the fine-tuning run itself, not into ongoing per-query serving cost, which is the opposite cost profile from, say, Deep Research's (#43) per-query-scaling cost structure — this makes Auto-RAG/DeepRAG's economics more favorable at very high query volume, where the one-time training investment amortizes over more queries.
+
+</details>
+
+---
+
+## Q17. What security and trust risks are specific to a per-step retrieve-or-reason policy? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+- **Adversarial queries designed to trigger false-PARAMETRIC on a volatile fact** — since the policy's PARAMETRIC decision relies on the model's own confidence, a query specifically phrased to make a genuinely-outdated fact seem like something the model should "just know" (avoiding the volatility cues that Q5's time-sensitivity heuristic watches for) could bypass the retrieve trigger and produce a confidently stale answer with no retrieved artifact to flag the staleness — a subtler version of the same risk Q5 identifies, but adversarially targeted rather than incidental.
+- **Training-trace poisoning** (Auto-RAG specifically) — since Auto-RAG's training data is generated by a teacher LLM's own autonomous reasoning traces (Q8), a systematic bias or blind spot in the teacher model propagates directly into the student's learned retrieve/stop policy; the student has no independent check on whether the teacher's demonstrated retrieval decisions were actually well-calibrated, only that they led to correct final answers on the training set.
+- **Tree-search label gaming** (DeepRAG specifically) — the "minimal retrieval path" label (Q12) is only as trustworthy as the retriever and training-question set used to discover it; if the training-time retriever has blind spots (analogous to Search-R1's frozen-retriever risk, #42 Q14), the tree search may label a subquery as "safely PARAMETRIC" simply because the training-time retrieval also failed to find anything useful for it, teaching the model to skip retrieval precisely where a *better* retriever would have actually helped.
+- **Chain-level cascading risk** (Q5) is itself a security-relevant property beyond just an accuracy concern — a single manipulated or poisoned early-chain decision (whether via a poisoned document if RETRIEVE was chosen, or a manipulated parametric confidence if PARAMETRIC was chosen) propagates through every downstream subquery with no natural circuit breaker, unlike a single-hop system where a bad answer doesn't compound.
+
+Mitigation: apply Q5's mitigation table (post-hoc consistency checks, confidence thresholding, time-sensitivity overrides) as baseline production hygiene; audit teacher-model traces (Auto-RAG) or training-time retriever quality (DeepRAG) for the same blind-spot risks that would need addressing in the deployed system itself, since training-time weaknesses propagate directly into the learned policy; and treat chain-level error tracking (Q5's fourth mitigation) as a security monitoring tool, not just a quality one, since the cascading-failure structure is exactly what an adversarial early-chain manipulation would exploit.
+
+</details>
+
+---
+
+## Q18. Design an Auto-RAG or DeepRAG-based system for an enterprise knowledge assistant with mixed fresh/stable knowledge. `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Requirements:** the assistant answers questions spanning stable knowledge (product definitions, historical policy, established procedures) and volatile knowledge (current pricing, active org chart, in-flight policy changes); retrieval should be skipped for the former (cost/latency win) and mandatory for the latter (correctness requirement).
+
+```
+1. Architecture choice (Q14): DeepRAG's structured decomposition, given
+   the need for auditable per-subquery decisions in an enterprise
+   context where "why did the assistant answer this way" needs to be
+   answerable, and given many enterprise questions decompose cleanly
+   into atomic sub-facts (an org-chart lookup, a policy-version check).
+
+2. Volatility-aware training data (Q12): construct the binary-tree-search
+   training set with explicit examples covering both stable subqueries
+   (where PARAMETRIC should be the discovered-minimal path) and volatile
+   subqueries (where the training corpus's ground truth should force
+   RETRIEVE regardless of the model's parametric confidence, since a
+   stable-seeming fact type can still change without warning).
+
+3. Time-sensitivity override (Q5, Q10): a domain-specific volatility
+   classifier flags subqueries touching known-volatile categories
+   (pricing, personnel, active policy) and forces RETRIEVE regardless of
+   the trained policy's own confidence -- a hard override layered on
+   top of the learned policy rather than trusting the policy alone for
+   the highest-stakes fact categories.
+
+4. Monitoring (Q11, Q19): segment production accuracy and retrieval-skip
+   rate by fact category (stable vs. volatile); a rising skip rate on
+   volatile categories over time is the calibration-drift signature
+   (Q19) requiring intervention -- e.g., the model's parametric
+   knowledge of "current" org structure ages as its training cutoff
+   recedes further into the past, potentially eroding the reliability
+   of a PARAMETRIC decision that was well-calibrated at deployment time.
+
+5. Chain-level audit logging (Q17): every subquery decision (RETRIEVE
+   vs PARAMETRIC, and why) is logged per query, giving both a debugging
+   tool and a defensible audit trail for enterprise compliance review.
+```
+
+The key design choice is layering a hard, domain-specific volatility override on top of the learned policy rather than trusting the trained confidence signal alone for known-high-stakes fact categories — this directly addresses Q5's asymmetric-cost concern (a false PARAMETRIC on a volatile fact is much more costly than a false RETRIEVE) with a simple, auditable rule rather than relying entirely on the policy's own calibration.
+
+</details>
+
+---
+
+## Q19. What happens when the model's parametric confidence is systematically miscalibrated over time, and how do you detect it? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A policy trained to trust its own parametric knowledge for certain subquery types (Q3, Q12) was calibrated against the model's knowledge *at training time* — as real-world facts change (a company changes CEOs, a policy is updated) and the deployed model's training cutoff recedes further into the past relative to the current date, subqueries that were genuinely safe to answer parametrically at deployment time can silently become unsafe, with the policy's confidence signal never having been retrained to reflect this drift. This is functionally the same time-decay risk any system relying on a frozen model's parametric knowledge faces, but it's more consequential here specifically because the policy actively *chooses* to skip retrieval based on that now-stale confidence, rather than a human deciding case-by-case.
+
+**Detection:** the post-hoc consistency check from Q5's mitigation table is the primary tool — periodically spot-retrieve a sample of subqueries the policy answered PARAMETRIC and compare against fresh retrieval, tracking the disagreement rate over time specifically (not just at one point) to catch a *rising* rate as the signature of drift rather than a static, already-known error rate. Segment this by fact category and by how much time has elapsed since the model's training cutoff — categories with naturally higher real-world change rates (personnel, pricing) should show drift sooner than genuinely stable categories (historical facts, mathematical definitions). **Correction:** once meaningful drift is detected for a category, either retrain/fine-tune the policy with updated examples, or — faster and cheaper — add that category to the time-sensitivity override list (Q5, Q18) that forces RETRIEVE regardless of the (now-known-unreliable) trained confidence signal for that category specifically.
+
+</details>
+
+---
+
+## Q20. What are the limitations of Auto-RAG/DeepRAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **PARAMETRIC decisions decay over time as the world changes and the model doesn't** (Q19) — a policy calibrated at training time has no built-in mechanism to notice its own parametric knowledge has gone stale, requiring external monitoring to catch; (2) **chain-level cascading risk has no natural circuit breaker** (Q5, Q17) — a single bad early decision propagates through an entire multi-hop answer with nothing structurally stopping it; (3) **training data construction is expensive and architecture-specific** (Q12, Q16) — DeepRAG's tree search and Auto-RAG's teacher-trace distillation are each substantial one-time investments that don't transfer between the two approaches; (4) **DeepRAG's structured decomposition assumes questions cleanly atomize** (Q14), which doesn't hold for genuinely open-ended or exploratory questions where "what atomic fact do I need next" isn't well-defined.
+
+Likely evolution: **continuous recalibration mechanisms** that periodically refresh the retrieve/parametric confidence boundary as time passes (directly addressing limitation 1) rather than treating the policy as calibrated once at training time and stable indefinitely; **hybrid architectures combining DeepRAG's auditable per-subquery structure with Auto-RAG's more flexible free-form reasoning** for questions that don't fully atomize; and, following the same trajectory as Search-R1's family (#42, Q20), a plausible shift toward RL-based training (optimizing the retrieve/parametric decision against outcome reward directly, rather than DeepRAG's tree-search-then-imitate two-stage process) as RL-for-reasoning infrastructure matures and becomes cheaper to run at the scale these architectures' training data construction currently requires.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Open-domain multi-hop QA assistants** (HotpotQA/2WikiMultiHopQA-style deployments): variable-depth reasoning chains where retrieval depth should track question difficulty, not a fixed hop budget

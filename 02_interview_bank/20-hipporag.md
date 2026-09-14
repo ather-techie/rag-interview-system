@@ -431,6 +431,141 @@ The analogy is a *design principle* — "build a cheap associative index offline
 
 ---
 
+## Q13. Walk through the HippoRAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+OFFLINE (index-time):
+Docs → LLM Entity/Relationship Extraction → Knowledge Graph
+     → Add synonymy/similarity edges (Q6) between related entities
+
+ONLINE (query-time):
+Query → Extract query entities → Seed nodes on the graph
+      → Personalized PageRank spreading activation from seed nodes
+      → Rank passages by their entities' PPR scores
+      → Top-ranked passages → Generator → Answer
+```
+
+The single query-time retrieval step (one PPR computation) is what gives HippoRAG its efficiency advantage over iterative multi-hop architectures (#19, Q8): a multi-hop question that would otherwise need several sequential retrieve-then-reason rounds is instead answered by one spreading-activation pass over a graph that already encodes the multi-hop connections as paths — the "hops" happen inside the graph traversal, not as separate LLM-mediated retrieval rounds.
+
+</details>
+
+---
+
+## Q14. What is the research origin of HippoRAG, and what headline result does the paper report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+HippoRAG was introduced by Gutiérrez et al., *HippoRAG: Neurobiologically Inspired Long-Term Memory for Large Language Models* (arXiv:2405.14831, 2024), drawing an explicit analogy to the hippocampal indexing theory of human memory (Q12) — the idea that the brain doesn't store full memories redundantly but maintains a cheap associative index (the hippocampus) that can rapidly reactivate related memories stored elsewhere (the neocortex) via spreading activation, which HippoRAG implements computationally via Personalized PageRank over an LLM-built knowledge graph.
+
+The paper's headline result is single-pass multi-hop retrieval competitive with or exceeding iterative multi-hop retrieval methods (#19), at substantially lower query-time cost since HippoRAG needs exactly one PPR computation per query rather than several sequential LLM-mediated retrieval rounds — demonstrating that a pre-built graph structure can substitute for the LLM-driven iterative reasoning that other multi-hop architectures use to chain retrieval steps together.
+
+</details>
+
+---
+
+## Q15. How does HippoRAG compare to LazyGraphRAG (#47)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both build a cheaper index than full GraphRAG (#05) and defer expensive work relative to it, but in different ways. LazyGraphRAG (#47) defers essentially *all* LLM-based work to query time — its index is a purely statistical co-occurrence graph with no entity extraction or relationship typing at all, and relevance is determined via iterative LLM relevance-testing per query. HippoRAG still performs LLM-based entity/relationship extraction at index time (Q13) — its efficiency gain is specifically at query time, where a single PPR computation (a fast graph algorithm, not an LLM call) replaces what other multi-hop architectures spend several LLM calls to achieve.
+
+The practical distinction: LazyGraphRAG's cost is index-cheap but query-variable (scales with query difficulty and relevance-budget, #47 Q16); HippoRAG's cost is index-moderate (one LLM extraction pass) but query-cheap and predictable (one PPR computation regardless of query complexity) — HippoRAG is the better fit for high query volume with a stable, moderate-sized corpus, while LazyGraphRAG (per its own comparison table, #47 Q5) fits lower-volume, more exploratory workloads better.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates HippoRAG from Graph RAG's community-detection approach? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **single-pass retrieval via Personalized PageRank spreading activation**, replacing GraphRAG's (#05) pre-computed community-summary hierarchy as the way multi-hop and thematic questions get answered. GraphRAG answers a broad question by retrieving a pre-written summary of the relevant community, computed once at index time regardless of the specific query. HippoRAG answers a broad or multi-hop question by running a fresh graph algorithm (PPR) at query time, seeded from the specific entities the current query mentions — no pre-computed summary exists at all; the "answer" to "what's relevant here" is recomputed fresh for every query via spreading activation.
+
+This means HippoRAG skips GraphRAG's most expensive index-time step (community detection and summarization, #05 Q11) entirely, at the cost of not having a pre-written, LLM-synthesized summary available — HippoRAG's PPR ranks *existing* passages by relevance, it doesn't generate new synthesized text the way a GraphRAG community summary does, which is why HippoRAG's own comparison to Graph RAG (Q4) frames it as solving a narrower problem (single-step multi-hop retrieval) rather than GraphRAG's broader "produce a synthesized answer to a thematic question" scope.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for HippoRAG, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Damping factor (PPR parameter, Q11 covers its effect in depth) | Controls how far activation spreads from seed nodes before decaying | 0.5-0.85 is typical; lower values keep retrieval closer to the literal query entities, higher values reach further into multi-hop territory |
+| Seed node selection strategy | Determines which graph nodes activation starts from — how query entities are matched to graph nodes | Exact entity-name match as a baseline; fuzzy/embedding-based matching to handle query phrasing that doesn't exactly match extracted entity names |
+| Synonymy/similarity edge threshold (Q6) | Determines how aggressively near-duplicate entities get linked, affecting graph connectivity | Calibrate against the fragmentation-vs-false-connection trade-off (Q19) — too loose merges unrelated entities, too tight leaves true duplicates unconnected |
+| Top-k passages returned after PPR ranking | More passages improve recall but dilute context, the same trade-off as any retrieval top-k | Tune against your generation context budget and downstream answer-quality evaluation |
+
+Seed node selection is the knob most likely to silently degrade HippoRAG's performance if under-tuned: if a query's entity mention doesn't exactly match how that entity was named during graph construction (a common name variant, an abbreviation), the PPR computation starts from the wrong place — or nowhere at all — regardless of how well-tuned the damping factor or synonymy edges are downstream.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether HippoRAG's PPR-based retrieval is actually outperforming simple graph traversal for your corpus? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a multi-hop evaluation set (queries requiring information from multiple, graph-connected passages) and compare three conditions on identical corpus and queries: (1) simple BFS/DFS graph traversal from seed nodes to a fixed hop depth (the naive alternative HippoRAG's own Q5 argues against); (2) HippoRAG's PPR-based spreading activation; (3) an iterative multi-hop baseline (#19) for reference, since HippoRAG's paper claims (Q14) competitiveness with iterative methods specifically.
+
+Track recall and answer accuracy for all three, plus **query-time cost/latency** — the comparison's real value is confirming that PPR's accuracy is comparable to iterative multi-hop's at PPR's much lower query-time cost (Q13), and that this accuracy is *also* meaningfully better than a cheaper BFS/DFS traversal would achieve, since if simple traversal performs comparably to PPR on your specific corpus and query distribution, the added complexity of a PPR implementation over a simpler traversal algorithm isn't earning its keep. This segmented comparison is what Q5's "why PPR and not simple traversal" argument should be validated against empirically, not assumed to hold universally across every corpus and query mix.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when synonymy/similarity edges introduce false connections? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Synonymy edges (Q6) exist to merge references to the same entity that the extraction step didn't already unify (name variants, abbreviations) — but an overly aggressive similarity threshold can link genuinely *different* entities that merely have similar names or embeddings (two different people who share a surname, two different products with similar model numbers), creating a false bridge in the graph that PPR's spreading activation will happily traverse, pulling irrelevant passages about the wrong entity into a query's retrieved context with no signal that the connection was spurious.
+
+**Symptom:** retrieved passages that are topically adjacent but reference a different specific entity than the one the query asked about — a subtler failure than an outright miss, since the passages are plausible-looking and often pass a superficial relevance check, but are wrong at the level of the specific fact needed. **Detection:** for queries about entities known to have common-name collisions in your domain (people with common names, product lines with similar model numbers), specifically audit whether retrieved passages reference the correct specific entity, not just a plausible one; **mitigation:** tighten the similarity threshold for synonymy-edge creation (Q17) and prefer additional disambiguating context (co-occurring entities, document metadata) over name/embedding similarity alone when deciding whether two graph nodes represent the same real-world entity.
+
+</details>
+
+---
+
+## Q20. What are the limitations of HippoRAG, and how might the field evolve? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations, several of which Q7's own failure-mode discussion already identifies: (1) **weak on entity-poor queries** — with no query entity to seed PPR from, spreading activation has nothing to start from, exactly as Q12's memory analogy predicts (no cue, no pattern completion); (2) **synonymy-edge quality is a hard trade-off** (Q19) between fragmentation and false connection, with no threshold that eliminates both risks simultaneously; (3) **index-time extraction cost remains real** (Q13) even though it's cheaper than full GraphRAG's pipeline; (4) **PPR's single-pass design has no mechanism to notice and recover from a bad seed-node match** (Q17) the way an iterative multi-hop system could potentially self-correct across rounds.
+
+Likely evolution: hybrid entity-matching for seed selection (combining exact match, fuzzy match, and embedding similarity with explicit disambiguation signals) to reduce the seed-selection fragility in Q17; adaptive damping-factor selection per query (rather than one global constant) based on query characteristics, similar in spirit to the adaptive-parameter patterns used elsewhere in this bank's iterative architectures (CoRAG's #50 adaptive chain length, LazyGraphRAG's #47 adaptive budget); and continued cross-pollination with LazyGraphRAG (#47) and LightRAG (#15) as this family of graph-based architectures converges on a shared understanding of which specific cost/quality trade-off point fits which production workload.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why HippoRAG Fits |
