@@ -34,6 +34,17 @@ body:
         - New / not sure
     validations:
       required: true
+  - type: dropdown
+    id: style
+    attributes:
+      label: Question style
+      description: Was this a conceptual/definitional question, or did the interviewer describe a concrete system, incident, or constraint and ask you to design/diagnose/decide?
+      options:
+        - Conceptual / definitional
+        - Scenario / situational (describes a concrete system, incident, or constraint)
+        - Not sure
+    validations:
+      required: false
   - type: textarea
     id: context
     attributes:

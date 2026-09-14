@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
 import { gfmHeadingId } from 'marked-gfm-heading-id';
-import { countQuestions } from './lib/questions.mjs';
+import { countQuestions, DIFFICULTIES, TAGS } from './lib/questions.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const OUT = path.join(ROOT, '_site');
@@ -171,19 +171,31 @@ function rebaseRelativeUrls(html, srcDirRel) {
 const QUESTION_RE =
   /<h2 id="([^"]+)">(Q\d+\.[\s\S]*?)<\/h2>\s*<details>\s*(?:<summary>[\s\S]*?<\/summary>)?([\s\S]*?)<\/details>/g;
 
-/** Pulls {id, question, difficulty, answer} quiz items out of a rendered quiz-page fragment. */
+// The trailing run of one or more `<code>[Tag]</code>` spans on a rendered
+// question heading (mirrors the markdown-level trailing-tag-run definition
+// in scripts/lib/questions.mjs's HEADING_RE — see that file for why this
+// must be a trailing, not a first, match: mid-sentence backticked tokens
+// like Self-RAG's `[IsSup]` must not be mistaken for tags).
+const TAG_RUN_RE = /(?:\s*<code>\[([A-Za-z]+)\]<\/code>)+\s*$/;
+const ALL_TAG_TOKENS = new Set([...DIFFICULTIES, ...TAGS]);
+
+/** Pulls {id, question, difficulty, tags, answer} quiz items out of a rendered quiz-page fragment. */
 function extractQuizItems(html, { srcDirRel, pageHref, srcRel }) {
   const items = [];
   for (const match of html.matchAll(QUESTION_RE)) {
     const [, id, headingHtml, answerHtml] = match;
-    const diffMatch = headingHtml.match(/<code>\[(Basic|Intermediate|Advanced)\]<\/code>/);
-    const difficulty = diffMatch ? diffMatch[1] : 'Basic';
+    const runMatch = headingHtml.match(TAG_RUN_RE);
+    const tokens = runMatch
+      ? [...runMatch[0].matchAll(/<code>\[([A-Za-z]+)\]<\/code>/g)].map((t) => t[1]).filter((t) => ALL_TAG_TOKENS.has(t))
+      : [];
+    const difficulty = tokens.find((t) => DIFFICULTIES.includes(t)) || 'Basic';
+    const tags = tokens.filter((t) => TAGS.includes(t));
     const question = headingHtml
-      .replace(/<code>\[(Basic|Intermediate|Advanced)\]<\/code>\s*$/, '')
+      .replace(TAG_RUN_RE, '')
       .replace(/^Q\d+\.\s*/, '')
       .trim();
     const answer = rebaseRelativeUrls(answerHtml.trim(), srcDirRel);
-    items.push({ id, question, difficulty, answer, href: `${pageHref}#${id}` });
+    items.push({ id, question, difficulty, tags, answer, href: `${pageHref}#${id}` });
   }
   if (items.length === 0) {
     extractionErrors++;
@@ -192,22 +204,30 @@ function extractQuizItems(html, { srcDirRel, pageHref, srcRel }) {
   return items;
 }
 
+/**
+ * Renders the shared "▶ Start Quiz / Filter: All Basic Intermediate Advanced
+ * / Scenario only" control bar used on both individual section pages and the
+ * aggregated quiz page. `extraControlsHtml`, when given, is appended inside
+ * the same bar (the aggregated page's section `<select>` and shuffle toggle).
+ */
+function filterBarHtml(extraControlsHtml = '') {
+  return `<div class="quiz-bar">
+  <button id="quiz-start-btn" onclick="startQuiz()">▶ Start Quiz</button>
+  <span style="font-weight: 500;">Filter:</span>
+  <button class="filter-btn active" onclick="setFilter('All', this)">All</button>
+  <button class="filter-btn" onclick="setFilter('Basic', this)">Basic</button>
+  <button class="filter-btn" onclick="setFilter('Intermediate', this)">Intermediate</button>
+  <button class="filter-btn" onclick="setFilter('Advanced', this)">Advanced</button>
+  <label><input type="checkbox" id="scenario-toggle" onchange="onScenarioChange()"> Scenario only</label>${extraControlsHtml}
+</div>
+`;
+}
+
 /** Wraps rendered body HTML in the shared page shell. */
 function wrapPage({ title, bodyHtml, depth, quiz }) {
   const backHref = '../'.repeat(depth) + 'index.html';
   const backLink = depth >= 1 ? `<a class="back" href="${backHref}">← Back to Index</a>\n` : '';
-  const quizBar = quiz
-    ? `<div class="quiz-bar">
-  <button id="quiz-start-btn" onclick="startQuiz()">▶ Start Quiz</button>
-  <span style="font-weight: 500;">Filter:</span>
-  <button class="filter-btn active" onclick="setFilter('All')">All</button>
-  <button class="filter-btn" onclick="setFilter('Basic')">Basic</button>
-  <button class="filter-btn" onclick="setFilter('Intermediate')">Intermediate</button>
-  <button class="filter-btn" onclick="setFilter('Advanced')">Advanced</button>
-</div>
-<div id="main-content">
-`
-    : '';
+  const quizBar = quiz ? `${filterBarHtml()}<div id="main-content">\n` : '';
   const quizClose = quiz
     ? `</div>
 <div class="quiz-panel-overlay" id="quiz-overlay"></div>
@@ -259,10 +279,10 @@ function buildQuizPage(items, sections) {
     .filter((dir) => quizSectionsFor(dir).length > 0)
     .map((dir) => {
       const rows = quizSectionsFor(dir)
-        .map(
-          (s) =>
-            `<li><a href="${s.href}">${s.title}</a><span class="count">${s.count} question${s.count === 1 ? '' : 's'}</span></li>`
-        )
+        .map((s) => {
+          const scenarioSuffix = s.scenarioCount > 0 ? ` · ${s.scenarioCount} scenario${s.scenarioCount === 1 ? '' : 's'}` : '';
+          return `<li><a href="${s.href}">${s.title}</a><span class="count">${s.count} question${s.count === 1 ? '' : 's'}${scenarioSuffix}</span></li>`;
+        })
         .join('\n');
       return `<h2>${QUIZ_GROUP_LABELS[dir]}</h2>\n<ul class="quiz-toc">\n${rows}\n</ul>`;
     })
@@ -279,23 +299,18 @@ function buildQuizPage(items, sections) {
     .join('\n');
 
   const dataJson = JSON.stringify(items).replace(/</g, '\\u003c');
+  const scenarioTotal = items.filter((it) => it.tags.includes('Scenario')).length;
 
-  const body = `<h1>RAG Interview Quiz</h1>
-<p>${items.length} questions across ${quizSectionsFor('02_interview_bank').length} architectures and ${quizSectionsFor('03_failure_modes').length} failure modes. Filter by difficulty or section, then start the quiz.</p>
-<div class="quiz-bar">
-  <button id="quiz-start-btn" onclick="startQuiz()">▶ Start Quiz</button>
-  <span style="font-weight: 500;">Filter:</span>
-  <button class="filter-btn active" onclick="setFilter('All', this)">All</button>
-  <button class="filter-btn" onclick="setFilter('Basic', this)">Basic</button>
-  <button class="filter-btn" onclick="setFilter('Intermediate', this)">Intermediate</button>
-  <button class="filter-btn" onclick="setFilter('Advanced', this)">Advanced</button>
+  const extraControls = `
   <select id="section-select" onchange="onSectionChange()">
     <option value="All">All sections</option>
 ${sectionOptions}
   </select>
-  <label><input type="checkbox" id="shuffle-toggle" onchange="onShuffleChange()"> Shuffle</label>
-</div>
-<div id="main-content">
+  <label><input type="checkbox" id="shuffle-toggle" onchange="onShuffleChange()"> Shuffle</label>`;
+
+  const body = `<h1>RAG Interview Quiz</h1>
+<p>${items.length} questions (including ${scenarioTotal} scenario-based) across ${quizSectionsFor('02_interview_bank').length} architectures and ${quizSectionsFor('03_failure_modes').length} failure modes. Filter by difficulty, scenario, or section, then start the quiz.</p>
+${filterBarHtml(extraControls)}<div id="main-content">
 ${tocGroups}
 </div>
 <div class="quiz-panel-overlay" id="quiz-overlay"></div>
@@ -381,6 +396,7 @@ function main() {
         title: sectionTitle,
         href: pageHref,
         count: items.length,
+        scenarioCount: items.filter((it) => it.tags.includes('Scenario')).length,
       });
     }
 

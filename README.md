@@ -20,7 +20,7 @@
 | Link | Use it for |
 |---|---|
 | 🧾 [Cheatsheet](cheatsheets/CHEATSHEET.md) | All 52 RAG types compared in one table — best for a phone screen the same day |
-| 🕹️ [Interactive Quiz Site][quiz-url] | Flip through every Q&A as flashcards with a difficulty and section filter, right in the browser |
+| 🕹️ [Interactive Quiz Site][quiz-url] | Flip through every Q&A as flashcards, filterable by difficulty, section, and a "Scenario only" toggle, right in the browser |
 | 🗺️ [Learning Path](00_overview/learning_path.md) | Structured curriculum if you have more than a few days to prepare |
 | ▶️ [Run Lab 01 in Colab](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/01_naive_rag.ipynb) | Build a working RAG pipeline in your browser, no local setup |
 
@@ -293,6 +293,8 @@ REFRAG                             — Compresses chunks into embeddings, RL pol
 
 <!-- questions:mix -->**Difficulty distribution across the interview bank and failure modes: 275 Basic, 448 Intermediate, 396 Advanced**<!-- /questions:mix -->
 
+<!-- questions:scenarios -->**Scenario-based questions (tagged `[Scenario]`): 0**<!-- /questions:scenarios -->
+
 All cited papers with arXiv/DOI links: [REFERENCES.md](./REFERENCES.md)
 
 ### 🔬 Labs & Patterns
@@ -358,9 +360,10 @@ Hands-on Jupyter notebooks and composition pattern guides:
    - Each file opens with a plain "What is X?" definition before going deep
    - Comparison tables, ASCII diagrams, code examples, and system design patterns
 
-3. **Interview Questions (02_interview_bank/)** — 12 questions per architecture
-   - Every section: original 10 questions + Q11 on cost optimization + Q12 on security
+3. **Interview Questions (02_interview_bank/)** — 22 questions per architecture
+   - Covers definitions, mechanisms, comparisons, implementation, evaluation, failure modes, production ops, and security
    - Questions are tagged with difficulty: `[Basic]` `[Intermediate]` `[Advanced]`
+   - Situational questions also carry a `[Scenario]` tag (e.g. `` `[Advanced]` `[Scenario]` ``) — use the quiz's "Scenario only" filter to drill just these
 
 4. **Failure Modes (03_failure_modes/)** — 10 questions per failure pattern
    - Nine critical production failure scenarios with diagnostic Q&A
