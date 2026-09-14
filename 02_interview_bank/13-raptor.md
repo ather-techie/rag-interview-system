@@ -527,6 +527,204 @@ When the summarization LLM processes this cluster, the injected instruction may 
 
 ---
 
+## Q13. Walk through the RAPTOR architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Chunks (leaf nodes)
+    │
+    ▼
+Embed chunks → Gaussian Mixture Model soft clustering (Q17)
+    │
+    ▼
+LLM summarizes each cluster → new, higher-level nodes
+    │
+    ▼
+Repeat: embed summaries, cluster again, summarize again
+    │
+    ▼
+... until a single root-level summary remains → multi-level tree
+─────────────────── query time ───────────────────
+Query → either (a) collapsed-tree: flat ANN search across all tree
+        levels at once, or (b) tree-traversal: top-down from root (Q3)
+      → retrieved nodes (mix of leaf chunks and summaries) → Generator
+```
+
+The tree-building process is recursive by construction — each level's input is the previous level's output, repeated until clustering converges to a single node — which is exactly what "Recursive Abstractive Processing for Tree-Organized Retrieval" describes literally in RAPTOR's own name. This structure is what lets a single query retrieve at whatever abstraction level actually matches its scope (Q1), without a separate query-time routing decision the way Recursive Document Summarization RAG (#41) needs one, since RAPTOR's two retrieval strategies (Q3) both search across all levels rather than committing to one level upfront.
+
+</details>
+
+---
+
+## Q14. What is the research origin of RAPTOR, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+RAPTOR was introduced by Sarthi et al. (Stanford), *RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval* (arXiv:2401.18059, 2024), proposing recursive GMM-based clustering and LLM summarization to build a multi-level tree over a corpus, with retrieval able to draw from any level rather than being confined to raw chunks.
+
+The paper's headline result is improved performance specifically on question-answering tasks requiring complex, multi-step reasoning across long documents — QuALITY, a benchmark of long-document QA requiring synthesis across the full document rather than a single passage lookup — where RAPTOR's tree-based retrieval outperformed flat chunk retrieval by giving the generator access to pre-computed summaries at the right level of abstraction for a given question, rather than forcing every question through the same fixed chunk granularity.
+
+</details>
+
+---
+
+## Q15. How does RAPTOR compare to Recursive Document Summarization RAG (#41)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both build a multi-level tree of summaries rather than relying on flat chunks, but cluster along different axes (this comparison is drawn in detail from #41's own side, #41 Q6-Q7). RAPTOR clusters chunks **bottom-up by semantic similarity**, regardless of which document they came from — a single cluster node can blend content from several different source documents that happen to discuss a similar theme. Recursive Document Summarization RAG (#41) summarizes **top-down within document boundaries** — every node belongs to exactly one source document, preserving provenance at every level.
+
+The deciding factor for which to use: RAPTOR fits when users ask cross-document thematic questions ("what do all these papers say about attention") where losing individual-document identity is an acceptable trade for finding thematic connections; Recursive Document Summarization RAG fits when users navigate documents individually (a specific contract, a specific report) and need "which document says X" to remain answerable, which RAPTOR's cross-document cluster nodes cannot reliably provide.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates RAPTOR from standard hierarchical chunking? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **soft clustering by semantic similarity via a Gaussian Mixture Model**, rather than hierarchical chunking's structural splitting (grouping chunks by document position — paragraph into section, section into document). Standard hierarchical chunking's tree reflects the document's own physical structure; RAPTOR's tree reflects semantic relatedness discovered algorithmically, and — critically — GMM clustering is *soft*, meaning a single chunk can belong to multiple clusters simultaneously with different membership probabilities, unlike structural grouping where a paragraph belongs to exactly one section.
+
+This soft-membership property is what lets RAPTOR's clusters capture a chunk's multiple potential thematic relevances (a chunk discussing "climate policy's economic impact" can meaningfully belong to both a climate-themed cluster and an economics-themed cluster) rather than forcing an arbitrary single assignment the way a chunk's physical position in a document forces exactly one section membership — this is the specific algorithmic choice (Q2's tree-building walkthrough) that most differentiates RAPTOR from simpler hierarchical grouping schemes.
+
+</details>
+
+---
+
+## Q17. How do you implement RAPTOR's Gaussian Mixture Model soft clustering step? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+RAPTOR's clustering step fits a GMM over the embeddings at each tree level, first reducing dimensionality (UMAP is standard, since GMM performance degrades in very high-dimensional spaces), then assigning soft cluster memberships:
+
+```python
+import umap
+from sklearn.mixture import GaussianMixture
+import numpy as np
+
+def cluster_level(embeddings: np.ndarray, max_clusters: int = 50, threshold: float = 0.1) -> list[list[int]]:
+    """Soft-cluster one tree level's embeddings; returns node indices per cluster."""
+    # Reduce dimensionality first -- GMM struggles directly on raw high-dim embeddings
+    reduced = umap.UMAP(n_neighbors=15, n_components=10, metric="cosine").fit_transform(embeddings)
+
+    # Select cluster count via BIC (Bayesian Information Criterion) over a range
+    best_gmm, best_bic = None, float("inf")
+    for n in range(2, min(max_clusters, len(embeddings))):
+        gmm = GaussianMixture(n_components=n).fit(reduced)
+        bic = gmm.bic(reduced)
+        if bic < best_bic:
+            best_gmm, best_bic = gmm, bic
+
+    # Soft assignment: a node belongs to every cluster where its membership
+    # probability exceeds the threshold, not just its single best cluster
+    probs = best_gmm.predict_proba(reduced)
+    clusters = [[] for _ in range(best_gmm.n_components)]
+    for i, p in enumerate(probs):
+        for c in range(len(p)):
+            if p[c] > threshold:
+                clusters[c].append(i)
+    return clusters
+```
+
+The BIC-based cluster-count selection and the soft membership threshold are the two choices most worth tuning: BIC automatically balances cluster granularity against model complexity rather than requiring a hand-picked cluster count, and the membership threshold directly controls how much a node's soft-membership property (Q16) actually manifests — a very high threshold degenerates toward hard clustering, while a very low one lets nodes join many clusters with only marginal relevance.
+
+</details>
+
+---
+
+## Q18. What is the characteristic failure mode when RAPTOR's cluster boundaries don't align with genuine topical boundaries? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+GMM clustering (Q17) groups by embedding-space proximity, which is a good proxy for topical similarity but not a perfect one — chunks that are stylistically or structurally similar (similar sentence length, similar generic phrasing) but topically unrelated can end up clustered together, while chunks that are topically related but phrased very differently (a technical description and a plain-language summary of the same concept) can end up in different clusters. When this happens, the LLM summarization step (Q2) is asked to synthesize a coherent summary from a cluster that doesn't actually share a coherent theme, producing a summary that's either vague (hedging across the cluster's actual topical diversity) or misleadingly narrow (focusing on whichever sub-theme dominates, silently dropping the rest).
+
+**Detection:** for a sample of generated cluster summaries, manually check whether the constituent chunks are genuinely topically coherent — a summary that reads as suspiciously generic, or that a domain expert judges as not actually representative of what's in the cluster, is the signature of a boundary misalignment. **Mitigation:** this is a direct downstream consequence of clustering hyperparameters (Q17's BIC cluster count and membership threshold) — a boundary-misalignment problem concentrated at a specific tree level suggests that level's clustering needs re-tuning, distinct from Q6's hallucinated-summary risk, which is a generation-quality problem rather than a clustering-input problem; the two compound (a poorly-clustered input makes hallucination more likely, since the LLM has less genuinely coherent material to summarize faithfully).
+
+</details>
+
+---
+
+## Q19. What are the limitations of RAPTOR, and how might the field evolve? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **cross-document cluster nodes lose provenance** (Q15) — a fundamental trade-off of RAPTOR's bottom-up clustering design, not a fixable implementation detail; (2) **cluster-boundary misalignment silently degrades summary quality** (Q18) with no error signal distinguishing it from a generation-quality problem; (3) **build cost scales with tree depth and corpus size** (Q5) — every additional level requires another full clustering-and-summarization pass; (4) **hallucination risk compounds across levels** (Q6) — a factual error introduced at a low level can propagate upward through multiple further summarization passes, the same compounding risk flagged for Recursive Document Summarization RAG (#41 Q17).
+
+Likely evolution: hybrid designs combining RAPTOR's cross-document thematic clustering with document-preserving structures (Recursive Document Summarization RAG, #41) for use cases needing both capabilities simultaneously, as sketched in #41's own legal-contract system design (#41 Q18); automated cluster-coherence scoring integrated into the build pipeline (directly addressing Q18) to catch boundary misalignment before it propagates into a poor summary, rather than discovering it only via manual spot-checking or downstream retrieval-quality regressions; and continued exploration of cheaper clustering/summarization cost curves as smaller, faster models make deeper trees more economically viable at larger corpus scales.
+
+</details>
+
+---
+
+## Q20. Design a decision framework for choosing RAPTOR's tree depth and clustering granularity for a new corpus. `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Requirements:** a new corpus with unknown optimal tree depth and clustering granularity — building the full tree at multiple hyperparameter settings to compare empirically is expensive, so the framework needs to bound that cost.
+
+```
+1. Corpus characterization: estimate topical diversity via a cheap
+   proxy (embed a sample of chunks, measure embedding-space spread/
+   cluster-ability with a quick k-means silhouette score) before
+   committing to a full RAPTOR build -- a corpus with naturally tight,
+   well-separated topics needs fewer levels than a highly diffuse one.
+
+2. Pilot build: construct the tree on a representative SUBSET of the
+   corpus first (Q5's cost concern) at 2-3 candidate depths, rather
+   than committing to full-corpus construction before validating depth
+   choice at all.
+
+3. Evaluate each candidate depth (Q9's methodology) on a query set
+   spanning both narrow factual and broad thematic questions -- track
+   whether deeper trees actually improve broad-question accuracy
+   proportionally to their added build cost, since returns diminish
+   past the depth where clusters stop corresponding to genuinely
+   distinct themes (Q18).
+
+4. Select the shallowest depth that captures the accuracy needed for
+   your broad-question segment, then build the full corpus tree at
+   that depth -- avoiding the common mistake of defaulting to the
+   deepest tree the paper's own examples used, which may not match
+   your corpus's actual topical structure.
+
+5. Re-run this pilot-then-scale process whenever the corpus grows
+   substantially or shifts topically, since a tree depth well-suited
+   to an early, narrower corpus may under- or over-cluster as the
+   corpus's topical diversity changes over time.
+```
+
+The key discipline is treating tree depth and clustering granularity as empirically-determined properties of a specific corpus, validated on a cheap pilot subset, rather than as fixed hyperparameters copied from the original paper's examples or from a different corpus's prior tuning.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RAPTOR Fits |

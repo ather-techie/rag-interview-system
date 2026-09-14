@@ -1459,6 +1459,137 @@ The design principle: **prompt-level defenses are advisory; database-enforced co
 
 ---
 
+## Q13. Walk through the Structured RAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Query → Schema Linking (identify relevant tables/columns, Q3)
+      → LLM generates SQL, conditioned on the linked schema
+      → Execute SQL against the database (or a sandboxed replica)
+      → On error/empty result: error-correction loop (Q5), retry
+      → Format result rows into a natural-language answer
+```
+
+The core departure from vector RAG is visible in the second stage: instead of retrieving semantically similar text, the "retrieval" step here is generating a precise, executable query against a queryable, schema-defined store — the result is exact (a database's own `SUM`/`COUNT`/`JOIN` never hallucinates a number), in exchange for depending entirely on the LLM correctly translating natural language intent into valid SQL against the actual schema, which is why schema linking and error correction are load-bearing components rather than optional refinements.
+
+</details>
+
+---
+
+## Q14. What is the research origin of text-to-SQL RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Text-to-SQL as a benchmark task predates RAG as a pattern — Spider (Yu et al., *Spider: A Large-Scale Human-Labeled Dataset for Complex and Cross-Domain Semantic Parsing and Text-to-SQL Task*, 2018) established the standard cross-domain evaluation setup requiring generalization to unseen database schemas, which is exactly the schema-linking challenge (Q3) this file's architecture addresses. DIN-SQL (Pourreza & Rafiei, *DIN-SQL: Decomposed In-Context Learning of Text-to-SQL with Self-Correction*, arXiv:2304.11015, 2023) and DAIL-SQL (Gao et al., arXiv:2308.15363, 2023) (Q4) later demonstrated that decomposing the generation task (schema linking, then query classification, then SQL generation, then self-correction) substantially outperforms asking an LLM to generate SQL directly from a raw question and schema in one shot.
+
+The BIRD benchmark (Q6) extended this line of work specifically toward real-world database complexity (large schemas, noisy data, external knowledge requirements) beyond Spider's more controlled setup, which is why BIRD is the more production-relevant benchmark to evaluate against when your own schema and data are similarly messy rather than academically clean.
+
+</details>
+
+---
+
+## Q15. How does Structured RAG compare to Table-Aware RAG (#36)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both handle structured/tabular data, but for fundamentally different data situations. Structured RAG (this file) assumes a **live, queryable relational database** exists — the "table" is a real database table with a schema, and the system's job is translating natural language into a query the database engine executes directly, giving exact, verifiable arithmetic. Table-Aware RAG (#36) handles tables that are **embedded in documents** (PDFs, HTML reports, spreadsheets exported as static files) with no live query engine behind them — there's no schema to link against and no SQL to generate, only retrieval over linearized or row-chunked table text followed by LLM-based reading.
+
+The deciding factor, as #36's own comparison (Q6) states, is whether a live, queryable schema exists: if your data lives in an actual database, Structured RAG's Text-to-SQL path gives exact arithmetic that Table-Aware RAG's LLM-based reading cannot guarantee; if your "table" is a static artifact with no query engine, Table-Aware RAG is the only applicable option since there's nothing for Structured RAG's schema-linking and SQL-generation steps to target.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Structured RAG from vector RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **generating an executable query against a schema-defined data store**, rather than retrieving semantically similar unstructured text. Vector RAG's retrieval step is inherently approximate — cosine similarity finds passages that are *probably* relevant, and the generator has to read and synthesize an answer from prose. Structured RAG's retrieval step is a compiled, deterministic operation: once correct SQL is generated, the database's own query engine returns an exact, verifiable result — `SUM(revenue)` is either computed correctly by the database or it fails to execute, with no equivalent to a vector search's graded, probabilistic relevance score.
+
+This is what makes Structured RAG's core challenge entirely different from every embedding-based architecture in this bank: the hard problem isn't finding relevant content (the data's exact location is fully specified by the schema), it's correctly translating natural language intent into a query the schema-linking and SQL-generation pipeline (Q2) can execute without error — precision of translation, not precision of similarity ranking, is the bottleneck.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for a text-to-SQL pipeline, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Schema serialization format (how table/column definitions are presented to the LLM) | A clearer, more structured serialization (with sample values, column descriptions) improves generation accuracy but costs more tokens per call | Include column names, types, and 2-3 sample values per column; add natural-language column descriptions where available |
+| Few-shot example count and selection | More examples improve accuracy on unfamiliar query patterns but increase prompt cost; poorly-chosen examples can mislead | Use dynamic example retrieval (Few-Shot Example RAG, #32) rather than a fixed static set, selecting examples with similar schema/query-pattern shape |
+| Generation temperature | Lower temperature improves SQL syntactic consistency; some diversity can help error-correction retry attempts explore different query structures | Near-zero for the initial generation attempt; slightly higher for retry attempts after a failure, to avoid regenerating the identical failing query |
+| Error-correction retry limit (Q5) | More retries improve the odds of eventually generating valid SQL but increase latency and cost per query | 2-3 retries is typical; always cap it, since an unbounded retry loop on a genuinely malformed request wastes cost with no eventual success |
+
+Schema serialization format has the widest-reaching effect among these knobs because it's the one input every subsequent stage (schema linking, generation, self-correction) depends on — a poorly-serialized schema with ambiguous or missing column descriptions makes every downstream stage's job harder regardless of how well those stages are otherwise tuned.
+
+</details>
+
+---
+
+## Q18. How do you evaluate text-to-SQL accuracy beyond exact-match? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Exact-match (comparing the generated SQL string to a reference query) is a poor primary metric because semantically equivalent queries can be written many syntactically different ways (`JOIN` order, column aliasing, equivalent `WHERE` clause formulations) — a correct but differently-phrased query would incorrectly score as wrong. **Execution accuracy** — running both the generated and reference SQL against the actual database and comparing the returned result sets — is the standard, more meaningful metric, since it credits any query that produces the correct data regardless of how it's phrased.
+
+Beyond execution accuracy, track **partial credit and failure categorization**: does the query fail to execute at all (a syntax or schema-reference error, most decisively resolved before it ever reaches a user), execute but return an empty/wrong result (a semantic error, potentially more dangerous since it looks like a valid answer), or execute correctly but inefficiently (a performance concern separate from correctness)? Segmenting failures this way — following the same failure-categorization discipline as other evaluation questions in this bank — reveals whether your pipeline's weak point is generation, schema linking, or error correction, each of which calls for a different fix.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode of syntactically valid but semantically wrong SQL? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A generated query can execute successfully and return a plausible-looking result while still answering the wrong question — the classic case is an incorrect aggregation (using `AVG` when the question asked for `SUM`, or a `COUNT(*)` that double-counts due to an unintended `JOIN` fan-out) or a subtly wrong `WHERE` clause (an off-by-one date boundary, an inclusive/exclusive range mismatch). Unlike a query that fails to execute — which is loud and immediately visible — this failure is silent: the database returns a real number, and nothing in the pipeline flags that the number answers a subtly different question than the one asked.
+
+**Detection:** this is exactly why execution-accuracy evaluation (Q18) against a reference query, rather than just "did it execute successfully," is necessary — a failure-to-execute rate alone systematically understates the true error rate by missing every syntactically-valid-but-wrong query. **Mitigation:** for high-stakes queries (financial reporting, compliance), add a verification step that either shows the user the generated SQL for review before trusting the result, or generates the query twice via different prompting strategies and flags disagreement between the two results as a signal to escalate for human review rather than silently returning either answer — the same disagreement-as-a-signal pattern used for verifying draft-vs-verifier disagreement in Speculative RAG (#08 Q19).
+
+</details>
+
+---
+
+## Q20. What are the limitations of Structured RAG, and when is a simpler semantic-layer approach better? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations: (1) **semantically-wrong-but-executable queries are hard to catch automatically** (Q19) — the database's successful execution provides no signal that the query answered the intended question; (2) **schema complexity scales the difficulty of correct generation** — a schema with hundreds of tables and ambiguous naming conventions makes schema linking (Q3) substantially harder, and accuracy on BIRD-style messy, real-world schemas (Q14) lags accuracy on cleaner academic benchmarks; (3) **security surface is broader than classic SQL injection** (Q12) — an LLM that can write arbitrary queries needs database-enforced sandboxing, not just prompt-level defenses; (4) **doesn't handle genuinely unstructured content at all** — Structured RAG only helps when the answer lives in a queryable schema, with no fallback for questions needing information from documents or free text.
+
+**When a simpler semantic-layer/metrics-store approach is better:** if your actual query patterns are dominated by a well-known, finite set of business questions ("what was revenue last quarter," "how many active users this month"), a pre-defined semantic layer (a metrics store with named, vetted metric definitions that a simpler NL-to-metric-name mapper routes to) is more reliable and auditable than open-ended text-to-SQL generation — it trades Structured RAG's flexibility for arbitrary novel questions against the much lower risk profile of a fixed, pre-validated set of queries that can never generate a semantically wrong aggregation, since the aggregation logic was written and reviewed by a human once rather than generated fresh by an LLM per query.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Structured RAG Fits |
