@@ -385,7 +385,7 @@ Emit `freshness_lag_seconds` as a metric on every processed event (not just a sa
 
 ---
 
-## Q12. How would you build a decision-gate benchmark to validate a streaming pipeline meets its freshness SLO under load? `[Advanced]`
+## Q12. How would you build a decision-gate benchmark to validate a streaming pipeline meets its freshness SLO under load? `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -535,7 +535,7 @@ The general lesson: streaming RAG's speed advantage is also its main new risk �
 
 ---
 
-## Q18. Design a streaming RAG system for a live financial news / market-data assistant with a 30-second freshness SLO. `[Advanced]`
+## Q18. Design a streaming RAG system for a live financial news / market-data assistant with a 30-second freshness SLO. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

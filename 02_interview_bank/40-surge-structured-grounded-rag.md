@@ -498,7 +498,7 @@ Mitigation follows the same defense-in-depth pattern used elsewhere in this bank
 
 ---
 
-## Q18. Design a SURGE system for a financial-data ETL pipeline extracting structured filings data into a database. `[Advanced]`
+## Q18. Design a SURGE system for a financial-data ETL pipeline extracting structured filings data into a database. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

@@ -628,7 +628,7 @@ Mitigation: require human review before any example enters the library from an a
 
 ---
 
-## Q18. Design a Few-Shot Example RAG system combined with document retrieval for a customer support assistant. `[Advanced]`
+## Q18. Design a Few-Shot Example RAG system combined with document retrieval for a customer support assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

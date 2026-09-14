@@ -328,7 +328,7 @@ Single-turn metrics miss the multi-turn failure modes. Evaluate at the *conversa
 
 ---
 
-## Q9. Design a conversational RAG system for a customer-support assistant. `[Advanced]`
+## Q9. Design a conversational RAG system for a customer-support assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

@@ -572,7 +572,7 @@ This is fundamentally a **retrieval problem wearing a citation-verification cost
 
 ---
 
-## Q16. How would you build a decision-gate benchmark to certify a Verifiable RAG deployment's citation quality before shipping to a compliance-sensitive domain? `[Advanced]`
+## Q16. How would you build a decision-gate benchmark to certify a Verifiable RAG deployment's citation quality before shipping to a compliance-sensitive domain? `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -629,7 +629,7 @@ Mitigation follows the same defense-in-depth pattern used throughout this bank: 
 
 ---
 
-## Q18. Design a Verifiable RAG system for a legal research assistant. `[Advanced]`
+## Q18. Design a Verifiable RAG system for a legal research assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

@@ -365,7 +365,7 @@ This is the key to knowing *when* HyDE earns its keep.
 
 ---
 
-## Q10. Design a retrieval system using HyDE for a multilingual or cross-lingual use case. `[Advanced]`
+## Q10. Design a retrieval system using HyDE for a multilingual or cross-lingual use case. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

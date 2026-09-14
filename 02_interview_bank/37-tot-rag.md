@@ -520,7 +520,7 @@ Mitigation for all four centers on treating retrieved evidence feeding into eval
 
 ---
 
-## Q18. Design a ToT-RAG system for a production root-cause-analysis assistant. `[Advanced]`
+## Q18. Design a ToT-RAG system for a production root-cause-analysis assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

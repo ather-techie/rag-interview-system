@@ -464,7 +464,7 @@ Before deploying CAG, run a NIAH evaluation on your specific corpus:
 
 ---
 
-## Q10. Design a production CAG system for a product support chatbot backed by a 40K-token product manual. `[Advanced]`
+## Q10. Design a production CAG system for a product support chatbot backed by a 40K-token product manual. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

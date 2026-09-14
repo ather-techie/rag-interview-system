@@ -502,7 +502,7 @@ Mitigation: apply the same source-screening discipline to documents before they'
 
 ---
 
-## Q18. Design a MemoRAG-based system for a due-diligence tool surfacing cross-document patterns in a legal contract repository. `[Advanced]`
+## Q18. Design a MemoRAG-based system for a due-diligence tool surfacing cross-document patterns in a legal contract repository. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

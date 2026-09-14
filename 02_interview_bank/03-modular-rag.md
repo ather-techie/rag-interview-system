@@ -1118,7 +1118,7 @@ Modularity's core promise — swap any retrieval module without touching the res
 
 ---
 
-## Q20. Design a Modular RAG system for a multi-domain enterprise assistant. `[Advanced]`
+## Q20. Design a Modular RAG system for a multi-domain enterprise assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

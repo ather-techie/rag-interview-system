@@ -566,7 +566,7 @@ Mitigation: enforce hard caps on sub-query count and total branch-driven retriev
 
 ---
 
-## Q18. Design an RQ-RAG-based enterprise search system for a jargon-heavy corpus. `[Advanced]`
+## Q18. Design an RQ-RAG-based enterprise search system for a jargon-heavy corpus. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

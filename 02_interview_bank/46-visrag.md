@@ -506,7 +506,7 @@ Mitigation: if content screening is required for compliance reasons, maintain a 
 
 ---
 
-## Q18. Design a hybrid VisRAG + text-pipeline system for financial 10-K report analysis. `[Advanced]`
+## Q18. Design a hybrid VisRAG + text-pipeline system for financial 10-K report analysis. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

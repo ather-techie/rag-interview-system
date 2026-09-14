@@ -522,7 +522,7 @@ Mitigation: apply the same source-trust screening to documents before they're el
 
 ---
 
-## Q18. Design a LazyGraphRAG-based system for an exploratory research archive with unpredictable query patterns. `[Advanced]`
+## Q18. Design a LazyGraphRAG-based system for an exploratory research archive with unpredictable query patterns. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

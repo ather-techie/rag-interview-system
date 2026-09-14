@@ -502,7 +502,7 @@ Mitigation: apply content screening at the sub-unit level (the same granularity 
 
 ---
 
-## Q18. Design a LongRAG + Self-Route system for an enterprise legal-contract search product. `[Advanced]`
+## Q18. Design a LongRAG + Self-Route system for an enterprise legal-contract search product. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

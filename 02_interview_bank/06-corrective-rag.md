@@ -1059,7 +1059,7 @@ An evaluator trained or prompted with a bias toward certain surface features —
 
 ---
 
-## Q20. Design a CRAG-based system for a customer support assistant with web-search fallback. `[Advanced]`
+## Q20. Design a CRAG-based system for a customer support assistant with web-search fallback. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

@@ -526,7 +526,7 @@ Mitigation: apply source-quality filtering at the sub-agent level before finding
 
 ---
 
-## Q18. Design a Deep Research system for an enterprise competitive-intelligence use case with strict source-reliability requirements. `[Advanced]`
+## Q18. Design a Deep Research system for an enterprise competitive-intelligence use case with strict source-reliability requirements. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

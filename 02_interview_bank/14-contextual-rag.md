@@ -460,7 +460,7 @@ Total: ~$995 (79% reduction)
 
 ---
 
-## Q10. Design a production Contextual Retrieval pipeline with hybrid search for an enterprise knowledge base. `[Advanced]`
+## Q10. Design a production Contextual Retrieval pipeline with hybrid search for an enterprise knowledge base. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

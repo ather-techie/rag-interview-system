@@ -519,7 +519,7 @@ Mitigation follows the general defense-in-depth pattern used elsewhere in this b
 
 ---
 
-## Q19. Design a REFRAG-based production RAG system for a high-volume, cost-sensitive customer support assistant. `[Advanced]`
+## Q19. Design a REFRAG-based production RAG system for a high-volume, cost-sensitive customer support assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

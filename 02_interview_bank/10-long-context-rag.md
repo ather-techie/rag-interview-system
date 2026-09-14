@@ -169,7 +169,7 @@ llm_answer = llm.invoke(compressed["compressed_prompt"])
 
 ---
 
-## Q5. Design a hybrid system that combines retrieval with long-context to handle a 10,000-document legal corpus. `[Advanced]`
+## Q5. Design a hybrid system that combines retrieval with long-context to handle a 10,000-document legal corpus. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

@@ -164,7 +164,7 @@ Embed the table header + column names for retrieval. At generation time, pass th
 
 ---
 
-## Q5. How would you architect a Multi-modal RAG system for a technical documentation chatbot that includes diagrams and code? `[Advanced]`
+## Q5. How would you architect a Multi-modal RAG system for a technical documentation chatbot that includes diagrams and code? `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

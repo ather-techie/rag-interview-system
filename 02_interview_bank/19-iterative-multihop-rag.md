@@ -334,7 +334,7 @@ Hybrid systems classify the question type first, then pick the strategy.
 
 ---
 
-## Q10. Design an iterative RAG system for a financial-research analyst assistant. `[Advanced]`
+## Q10. Design an iterative RAG system for a financial-research analyst assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

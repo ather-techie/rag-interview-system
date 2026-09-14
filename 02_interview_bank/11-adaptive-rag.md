@@ -531,7 +531,7 @@ Cost per query: $0.035 (vs. $0.10 for always-multi-hop)
 
 ---
 
-## Q10. Design a production Adaptive RAG deployment that handles query routing at 500 QPS. `[Advanced]`
+## Q10. Design a production Adaptive RAG deployment that handles query routing at 500 QPS. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

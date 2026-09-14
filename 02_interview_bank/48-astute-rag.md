@@ -544,7 +544,7 @@ Mitigation: apply the same source-trust discipline to what's eligible for extern
 
 ---
 
-## Q18. Design an Astute RAG-based system for enterprise Q&A over frequently-changing knowledge bases. `[Advanced]`
+## Q18. Design an Astute RAG-based system for enterprise Q&A over frequently-changing knowledge bases. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

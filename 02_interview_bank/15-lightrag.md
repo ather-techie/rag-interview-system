@@ -417,7 +417,7 @@ Measure: Precision@5, Recall@5, answer correctness (LLM-as-judge).
 
 ---
 
-## Q10. Design a production LightRAG system for a financial research corpus. `[Advanced]`
+## Q10. Design a production LightRAG system for a financial research corpus. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

@@ -460,7 +460,7 @@ For a corpus where the first retrieval result is almost always the exact right d
 
 ---
 
-## Q10. Design a RAG-Fusion pipeline for a customer support knowledge base with 500K articles. `[Advanced]`
+## Q10. Design a RAG-Fusion pipeline for a customer support knowledge base with 500K articles. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

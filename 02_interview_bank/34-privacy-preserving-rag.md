@@ -378,7 +378,7 @@ Treat the resulting curve as a per-deployment artifact, not a one-time calculati
 
 ---
 
-## Q12. How would you build a decision-gate evaluation to certify a Privacy-Preserving RAG deployment meets a target epsilon while holding an SLA recall? `[Advanced]`
+## Q12. How would you build a decision-gate evaluation to certify a Privacy-Preserving RAG deployment meets a target epsilon while holding an SLA recall? `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -531,7 +531,7 @@ The practical takeaway: privacy-preserving RAG techniques are about the query an
 
 ---
 
-## Q18. Design a privacy-preserving RAG system for a multi-hospital healthcare consortium. `[Advanced]`
+## Q18. Design a privacy-preserving RAG system for a multi-hospital healthcare consortium. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

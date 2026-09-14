@@ -486,7 +486,7 @@ Mitigation: validate training data quality (gold-answer correctness) with the sa
 
 ---
 
-## Q18. Design a Search-R1-style system for a biomedical literature research assistant. `[Advanced]`
+## Q18. Design a Search-R1-style system for a biomedical literature research assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

@@ -300,7 +300,7 @@ KAG's value is **reasoning correctness in professional domains**, so evaluation 
 
 ---
 
-## Q9. Design a KAG system for a medical clinical-decision-support assistant. `[Advanced]`
+## Q9. Design a KAG system for a medical clinical-decision-support assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

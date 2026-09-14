@@ -314,7 +314,7 @@ They can be combined: HippoRAG for the retrieval, an iterative reasoning layer o
 
 ---
 
-## Q10. Design a HippoRAG deployment for an enterprise knowledge base of technical documentation. `[Advanced]`
+## Q10. Design a HippoRAG deployment for an enterprise knowledge base of technical documentation. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

@@ -521,7 +521,7 @@ The core principle: table updates need row-level, not document-level, change tra
 
 ---
 
-## Q18. Design a Table-Aware RAG system for a financial analyst assistant handling a 500-row quarterly report table. `[Advanced]`
+## Q18. Design a Table-Aware RAG system for a financial analyst assistant handling a 500-row quarterly report table. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

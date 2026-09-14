@@ -705,7 +705,7 @@ Defense-in-depth here mirrors general web-facing infrastructure security practic
 
 ---
 
-## Q19. Design a production Agentic Web RAG system for a financial research assistant needing real-time market data with source reliability guarantees. `[Advanced]`
+## Q19. Design a production Agentic Web RAG system for a financial research assistant needing real-time market data with source reliability guarantees. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

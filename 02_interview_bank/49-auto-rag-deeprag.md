@@ -518,7 +518,7 @@ Mitigation: apply Q5's mitigation table (post-hoc consistency checks, confidence
 
 ---
 
-## Q18. Design an Auto-RAG or DeepRAG-based system for an enterprise knowledge assistant with mixed fresh/stable knowledge. `[Advanced]`
+## Q18. Design an Auto-RAG or DeepRAG-based system for an enterprise knowledge assistant with mixed fresh/stable knowledge. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

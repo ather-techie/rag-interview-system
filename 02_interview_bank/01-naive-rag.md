@@ -794,7 +794,7 @@ The decision usually comes down to three questions, in order of importance: (1) 
 
 ---
 
-## Q19. Design a Naive RAG system for an internal HR/policy chatbot. `[Advanced]`
+## Q19. Design a Naive RAG system for an internal HR/policy chatbot. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

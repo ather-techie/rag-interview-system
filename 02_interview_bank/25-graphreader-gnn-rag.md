@@ -306,7 +306,7 @@ This is GraphReader's core value: **multi-hop reasoning over content larger than
 
 ---
 
-## Q9. Design a system using GNN-RAG for enterprise knowledge-graph question answering. `[Advanced]`
+## Q9. Design a system using GNN-RAG for enterprise knowledge-graph question answering. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

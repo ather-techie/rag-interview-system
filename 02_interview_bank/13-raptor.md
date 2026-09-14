@@ -390,7 +390,7 @@ Deploy RAPTOR only if:
 
 ---
 
-## Q10. Design a production RAG system using RAPTOR for a large multi-document enterprise knowledge base. `[Advanced]`
+## Q10. Design a production RAG system using RAPTOR for a large multi-document enterprise knowledge base. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

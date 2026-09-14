@@ -353,7 +353,7 @@ FLARE is often listed as a *technique within* Agentic RAG (and this repo's Agent
 
 ---
 
-## Q10. Design a FLARE-based system for generating a long technical report with citations. `[Advanced]`
+## Q10. Design a FLARE-based system for generating a long technical report with citations. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

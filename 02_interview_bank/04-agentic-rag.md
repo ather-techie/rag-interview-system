@@ -147,7 +147,7 @@ Testing agentic systems requires **trace-level evaluation** (not just final answ
 
 ---
 
-## Q5. How would you design an Agentic RAG system for a customer support use case? `[Advanced]`
+## Q5. How would you design an Agentic RAG system for a customer support use case? `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

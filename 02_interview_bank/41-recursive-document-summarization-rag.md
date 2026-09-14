@@ -545,7 +545,7 @@ Mitigation: apply the same faithfulness auditing (Q12) as an ongoing production 
 
 ---
 
-## Q18. Design a Recursive Document Summarization RAG system for a large legal contract repository. `[Advanced]`
+## Q18. Design a Recursive Document Summarization RAG system for a large legal contract repository. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

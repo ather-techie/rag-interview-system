@@ -567,7 +567,7 @@ Illustrative cost at 100M passages: uncompressed storage would be roughly 2.5 TB
 
 ---
 
-## Q19. Design a ColBERT-based retrieval system for a code-search product with hard, low-lexical-overlap queries. `[Advanced]`
+## Q19. Design a ColBERT-based retrieval system for a code-search product with hard, low-lexical-overlap queries. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

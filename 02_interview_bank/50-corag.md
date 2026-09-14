@@ -563,7 +563,7 @@ Mitigation: validate gold-answer quality in the source dataset before treating i
 
 ---
 
-## Q18. Design a domain-adapted CoRAG system for a legal or medical multi-hop research assistant. `[Advanced]`
+## Q18. Design a domain-adapted CoRAG system for a legal or medical multi-hop research assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
