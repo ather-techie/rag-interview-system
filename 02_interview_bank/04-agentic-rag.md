@@ -147,7 +147,7 @@ Testing agentic systems requires **trace-level evaluation** (not just final answ
 
 ---
 
-## Q5. How would you design an Agentic RAG system for a customer support use case? `[Advanced]`
+## Q5. How would you design an Agentic RAG system for a customer support use case? `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1220,6 +1220,40 @@ Without a hard `max_iterations` cap (Q18) and a well-calibrated stopping criteri
 Agentic RAG's core limitations are direct consequences of its own flexibility: (1) **cost and latency scale with iteration count** (Q11, Q18) in a way no fixed-pipeline architecture's cost does, making it the most expensive option in this bank's foundational tier for queries that didn't actually need multi-step reasoning; (2) **runaway loops are a structural risk** (Q19) that a single-pass architecture simply cannot have; (3) **prompt-injection surface area is larger** (Q9, Q12) since every tool-call result is a fresh opportunity for injected content to influence the next reasoning step; (4) **evaluation is harder** (Q10) since there's no single fixed pipeline stage to test in isolation — behavior varies by how many iterations a given query happens to take.
 
 **When a simpler architecture wins:** if evaluation (Q10, and the segmented approach used throughout this bank) shows your query distribution is dominated by questions answerable in one or two retrieval rounds, Advanced RAG (#02) or Adaptive RAG's (#11, Q17) upfront routing captures most of the achievable accuracy at a fraction of the cost and with none of the runaway-loop or injection-surface risks. Agentic RAG earns its cost specifically when query complexity is unpredictable from the query text alone and genuinely requires the model to discover, mid-execution, how much retrieval work is needed — reserving it for that segment of traffic (via a routing layer in front of it, the same discipline used for Deep Research RAG's #43 Q15 decision gate) rather than defaulting every query into the most expensive, most flexible architecture available.
+
+</details>
+
+---
+
+## Q21. A small nonprofit with two staff wants an agentic assistant to research and draft grant applications. How much agentic machinery does it actually need? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a tiny team, thin budget for per-query iteration cost, and a task that genuinely benefits from a few rounds of research (finding matching grants, pulling eligibility criteria, checking past successful applications) but doesn't need open-ended exploration. That points at the simplest end of this file's spectrum rather than anything elaborate.
+
+A single-agent ReAct loop (Q1, Q2) is enough here — multi-agent orchestration (Q8) exists to handle task decomposition at a scale and complexity this nonprofit doesn't have. Keep `max_iterations` low (Q18), around 3-5, since grant research is a bounded task rather than genuinely open-ended reasoning, and use a cheap model for intermediate tool-selection steps, reserving a stronger model only for the final draft synthesis (Q18's model-tiering knob). Scope the agent's tools to a small, curated set of grant databases rather than general web search, which keeps both cost and the injection-risk surface (Q9) smaller than it needs to be for a task this narrow.
+
+The trade-off to flag: a cheap, tightly-bounded loop like this won't gracefully handle a genuinely unusual funder's guidelines — it will do its best within a few iterations and stop. The mitigation isn't more agentic sophistication, it's process: have the assistant surface its uncertainty explicitly and require a human read-through before any draft is submitted, rather than trying to engineer away every edge case at this budget.
+
+</details>
+
+---
+
+## Q22. An investment bank wants an autonomous due-diligence agent whose every tool call must be reconstructible for a regulator. How do you design that? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraint is regulatory auditability: every retrieval and tool call the agent makes during a due-diligence run has to be reconstructible after the fact, not just summarized in a final report — a materially stricter bar than the runaway-loop and cost concerns (Q18, Q19) this file otherwise emphasizes.
+
+Log the full think-act-observe trace (Q2) for every query into immutable, timestamped, tamper-evident storage — an append-only log or hash chain, not a mutable database row — since regulators need the actual sequence of reasoning and evidence, not a reconstructed narrative. Restrict tool access to an allowlisted set of vetted sources (SEC filings, internal compliance databases) rather than open web search, which both bounds the audit surface and reduces the prompt-injection risk this file flags in Q9 and Q20. Require the agent to attach an explicit source citation to every claim in its output, tied to the specific tool call it came from, and gate any due-diligence conclusion behind human sign-off with the full trace attached for review before it's treated as final.
+
+What to monitor: iteration count and cost per due-diligence run (Q11, Q18), audit-log completeness (no step silently dropped from the trace), and the rate at which human reviewers override or correct the agent's conclusions — a useful proxy for whether the agent's reasoning is trustworthy enough to eventually reduce, rather than just document, the scope of human review. The trade-off: full immutable logging and mandatory human sign-off add real latency and cost on top of what Q20 already flags as Agentic RAG's most expensive-per-query architecture, but in a regulated, high-stakes domain, auditability is a harder requirement than raw efficiency.
 
 </details>
 

@@ -1590,6 +1590,40 @@ Current limitations: (1) **semantically-wrong-but-executable queries are hard to
 
 ---
 
+## Q21. A small bakery chain's manager wants to ask "how did the downtown store do last week" straight at the sales database. What does a minimal Structured RAG setup look like? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+This is a small, well-bounded text-to-SQL problem: a handful of stores, one manager as the primary user, and question types limited to simple, predictable aggregates — sales by store, by week, by product — over a modest schema. Nothing here calls for DIN-SQL-style decomposition (Q14); a single LLM call is enough.
+
+Serialize the store/sales schema clearly for the model — table names, column names, and a few sample rows (Q17) — and generate SQL directly from that, executed against a read-only replica of the sales database rather than production. Add a simple error-correction retry (Q5) capped at one or two attempts for the occasional malformed query, then format the result rows into a plain-language answer for the manager.
+
+The trade-off: at this scale, skipping heavier defenses like row-level security or a fully isolated sandbox environment (Q12) is a reasonable simplification given a single trusted internal user and a small schema. The one piece of Q12's defense-in-depth stack still worth keeping even here is a strictly read-only database role for the manager's queries — cheap insurance against any accidental or malformed write attempt, regardless of how small the deployment is.
+
+</details>
+
+---
+
+## Q22. A hospital billing department wants to query a partitioned claims database, but every query must be sandboxed and every access logged for audit. How do you build that safely? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Healthcare billing data under regulatory scrutiny, a database partitioned by department or facility, and hard requirements for both query sandboxing and audit logging together mean the full defense-in-depth stack from Q12 applies here, not a subset of it.
+
+Restrict generated SQL to `SELECT`-only against an allowlisted set of views rather than raw tables via AST validation, so sensitive columns like patient identifiers stay out of scope by default. Enforce a read-only database role with row-level security so a given billing user's queries stay within their authorized partition exactly as the partitioning scheme requires, and execute everything against a sandboxed replica with a timeout and row cap rather than production. Log every generated query and its result set immutably — query text, requesting user, timestamp, and the partition it was scoped to — to satisfy the audit requirement, and run execution-accuracy evaluation (Q18) continuously against a reference set that specifically covers cross-partition edge cases, since a semantically-wrong-but-executable query (Q19) that leaks another department's claims data is the failure mode most worth designing against here.
+
+What to monitor: audit-log completeness, so no query executes without a corresponding log entry; anomaly detection on query patterns as an early warning for row-level-security bypass attempts; and periodic manual review of a sample of (question, SQL) pairs checking specifically for correct partition scoping, not just syntactic correctness. The trade-off: this full sandboxing and logging stack adds real latency and engineering cost per query compared to a single-tenant setup like the bakery chain's, but for partitioned healthcare billing data, database-enforced controls — not prompt-level instructions — are the only acceptable security boundary, exactly as Q12's design principle states.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Structured RAG Fits |

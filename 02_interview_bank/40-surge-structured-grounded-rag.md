@@ -498,7 +498,7 @@ Mitigation follows the same defense-in-depth pattern used elsewhere in this bank
 
 ---
 
-## Q18. Design a SURGE system for a financial-data ETL pipeline extracting structured filings data into a database. `[Advanced]`
+## Q18. Design a SURGE system for a financial-data ETL pipeline extracting structured filings data into a database. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -574,6 +574,40 @@ Current limitations:
 - **No handling of genuinely conflicting sources** — if two retrieved passages disagree about a field's value, the current design validates each field against a single cited passage; it doesn't have a native mechanism for surfacing "sources disagree" as its own explicit output state, beyond whatever the extraction step happened to cite.
 
 Likely evolution: tighter integration with **structured extraction benchmarks and schema-inference tooling** that can suggest nullable-vs-required fields and expected null rates from a corpus sample before a schema is finalized, directly addressing the schema over-fit problem at design time rather than after deployment; **learned, task-specific NLI-style validators** fine-tuned on domain-specific entailment patterns (financial, legal, medical phrasing conventions) rather than general-purpose NLI models, improving calibration transfer; and explicit **multi-source conflict detection** as a first-class SURGE output state, surfacing "sources disagree" rather than silently picking whichever passage the extractor happened to cite.
+
+</details>
+
+---
+
+## Q21. A two-person nonprofit team wants to pull donor name, amount, and fund designation from a few hundred scanned donation forms each month on a shoestring budget. How would you build a lightweight SURGE pipeline here, and what would you deliberately not build? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A two-person data team at this nonprofit is dealing with scanned donation forms, not clean digital text, so the first requirement SURGE assumes — retrievable text passages — doesn't exist yet; a simple OCR pass (Tesseract or a cloud OCR API) has to run before anything from this file applies, and its quality on handwritten fields, especially amount and date, is the actual limiting factor on end accuracy, not the extraction logic downstream of it.
+
+Once OCR text exists, the SURGE pipeline itself can be minimal: a four-field schema (donor name, amount, date, fund designation), all nullable, extracted via tool_use (Q4) from each form's OCR'd text, with a lightweight NLI check (Q5) on numeric fields specifically since a misread amount is the costliest error type here. Given the volume (a few hundred forms a month) and modest budget, skip the heavier machinery this file recommends at scale: no dedicated decision-gate benchmark (Q12), no per-field precision certification — instead route every null or CONTRADICTION-flagged field to a short manual-review queue, since at this volume a person reviewing a handful of flagged forms a week is cheaper and more reliable than building automated calibration infrastructure.
+
+The main trade-off to flag: OCR errors on handwritten forms will masquerade as extraction errors unless the two are tracked separately, so log whether a flagged field traces back to garbled OCR text or a genuine extraction/grounding failure — otherwise the team will spend its limited engineering time tuning the wrong half of the pipeline.
+
+</details>
+
+---
+
+## Q22. A customs agency needs to extract structured shipment-declaration fields from millions of scanned import forms under a zero-tolerance error budget. How would you architect SURGE for this, and can "zero-tolerance" realistically be achieved? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A zero-tolerance error budget at millions-of-forms scale is a target to design toward, not a literal guarantee any automated pipeline can provide — the realistic interpretation is zero *undetected* errors reaching a customs decision, which shifts the design from "maximize accuracy" to "guarantee every uncertain field is caught before it's acted on."
+
+That reframing drives the architecture: schema fields (declared value, HS code, quantity, origin country) are all nullable, extracted per-shipment via tool_use (Q4), but the NLI grounding threshold (Q10) is set far stricter than the file's 0.7-0.8 default — closer to 0.95 — and, critically, CONTRADICTION or sub-threshold NEUTRAL never resolves to a silent null; it halts that declaration and routes it to a customs officer, mirroring the financial-ETL design in Q18 but with a lower tolerance for autonomous resolution given the fraud/duty-evasion stakes. A decision-gate benchmark (Q12) is mandatory before this ever processes a live declaration, with the acceptance bar set per field by compliance rather than engineering judgment, and re-run on every model or schema change.
+
+At this volume, cost and latency (Q15) become a real constraint — batched NLI validation and a fast extraction model are necessary to keep per-declaration cost low across millions of forms. Security (Q17) is also sharper here than in most SURGE deployments: adversarial declarants have a direct financial incentive to craft form content that manipulates extraction toward under-declared values, so source-trust scoring and anomaly monitoring on aggregate CONTRADICTION/null rates by importer and by form type are what actually catch systematic gaming, not any single declaration's grounding check. Continuously monitor per-field precision and escalation-queue volume as the true signals of whether the zero-tolerance target is being met in practice.
 
 </details>
 

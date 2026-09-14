@@ -1118,7 +1118,7 @@ Modularity's core promise — swap any retrieval module without touching the res
 
 ---
 
-## Q20. Design a Modular RAG system for a multi-domain enterprise assistant. `[Advanced]`
+## Q20. Design a Modular RAG system for a multi-domain enterprise assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1159,6 +1159,40 @@ Modularity's core promise — swap any retrieval module without touching the res
 ```
 
 The key design choice is treating domain classification as the router's job and keeping each domain's retrieval strategy as an independently swappable module — this is exactly the scenario Modular RAG's architecture is built for, in contrast to Advanced RAG's single fixed pipeline, which has no way to send fundamentally different query types to fundamentally different retrieval mechanisms.
+
+</details>
+
+---
+
+## Q21. A university IT helpdesk wants to merge three separate chatbots — password resets, WiFi setup, library hours — into one system. How would you structure it as Modular RAG? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies three existing, narrow bots, each already a small working pipeline over its own tiny document set, a small campus IT team, and a consolidation goal rather than a request for new capability. Query types are cleanly separable by topic and low in volume, which makes this a good fit for Modular RAG's simplest form rather than anything elaborate.
+
+Treat each existing bot's retrieval logic as one module behind a common interface (Q7, Q16): a password-reset module, a WiFi-setup module, and a library-hours module, each keeping its own small index rather than being merged into one undifferentiated corpus. Add a lightweight router (Q17) with coarse, keyword- or intent-based classification into these three categories plus an "other" catch-all, since a full trained classifier is more machinery than three cleanly-separated topics need. Define an explicit fallback for "other" queries — a general campus-docs index, or a polite "I'm not sure, here's the help-desk contact" — rather than letting an unclassified query fall through silently.
+
+The trade-off worth flagging: consolidating behind a shared router introduces a new failure point (misrouting) that didn't exist when the three bots were fully separate and independently simple. At this scale, logging routing decisions and reviewing misroutes weekly is enough oversight — a full routing-accuracy evaluation harness (Q18) can wait until query volume or category count grows.
+
+</details>
+
+---
+
+## Q22. Design a telecom field-technician assistant whose retrieval and reranking modules must be swapped per region without redeploying the whole system. `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraint is zero-downtime, per-region module swaps at production scale: different regions run different equipment vendors, different regulatory documentation, and sometimes different languages, and a code redeploy to update one region's retriever is operationally unacceptable if it risks disrupting technicians in every other region simultaneously.
+
+This requires treating the module interface contract (Q19) as a strict, versioned schema, and building a config-driven module registry keyed by region rather than a code-level module selection. A region's retriever or reranker becomes swappable via a configuration change — pointing that region's slot in the registry at a new, independently versioned and containerized module — with the fallback chain (Q17) automatically reverting to the last known-good module if a newly-swapped one fails health checks. Canary a new regional module in a single low-traffic region before wider rollout, rather than swapping everywhere at once. Keep each region's modules and data indexes strictly namespaced, since this is effectively a multi-tenant deployment and a region's retriever should never be able to reach another region's index even by misconfiguration.
+
+What to monitor: per-region routing and module-health metrics (Q9), canary success/failure rates before a wider regional rollout, and rollback time when a swap goes wrong — the registry's value is only real if rollback is fast and automatic, not a manual incident-response process. The trade-off: a versioned, config-driven registry with canarying is substantially more operational tooling than a single fixed pipeline needs, but it's the only way to satisfy "swap without redeploy" as a hard constraint across many independently-evolving regions.
 
 </details>
 

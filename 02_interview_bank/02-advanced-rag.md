@@ -939,6 +939,40 @@ Advanced RAG's enhancements (Q1) are all still **single-pass**: one query rewrit
 
 ---
 
+## Q21. A solo developer wants to improve a recipe-search app's answer quality without adding real budget — where do the marginal Advanced RAG dollars go first? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a single developer, near-zero budget, and a recipe corpus where queries mix exact ingredient names ("recipes with tahini") with vague intent ("something warm and vegan for a cold night") that a pure vector search often mismatches. That mix of exact-match and paraphrase-style queries is precisely the failure pattern Q16 describes, which points at hybrid search as the highest-leverage first addition rather than reranking or fine-tuning.
+
+Recommended order: add BM25 alongside the existing dense embeddings and fuse the two with RRF (Q13) — an open-source BM25 implementation is essentially free and requires no new infrastructure, unlike a hosted cross-encoder reranker. Layer in a cheap small-model query rewrite (Q1) for genuinely ambiguous queries next, since that's the second-cheapest lever. Hold off on cross-encoder reranking (Q11) entirely for now — its per-query cost and added latency aren't justified at this app's low volume, and Q19's own guidance is that reranking is easiest to skip when first-stage retrieval confidence is already reasonable.
+
+Validate each addition with a small manual ablation (Q18's harness, run on a handful of representative queries rather than a full labeled set) before adding the next one. The trade-off: skipping reranking leaves some precision on the table for genuinely ambiguous queries, but hybrid search plus rewriting captures most of the achievable quality gain for close to zero incremental cost, which is the right trade for a solo, budget-constrained project.
+
+</details>
+
+---
+
+## Q22. A global logistics company's dispatch-support tool needs sub-second answers in 12 languages — how do you keep Advanced RAG's stack that fast? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraint is a sub-second latency budget applied uniformly across 12 languages and, implicitly, a large and constantly-updated corpus of routing rules, carrier documents, and customs requirements — every enhancement this file adds (Q9's ablation table) has to earn its place against that budget, in every language, not just the best-supported one.
+
+Use a genuinely multilingual dense embedding model rather than translating queries into one pivot language first (translation adds a sequential latency hop the SLA can't afford), paired with per-language BM25 indexes fused via RRF (Q13) so exact carrier codes and customs terms still match precisely regardless of language. Skip full cross-encoder reranking as a blanket policy; instead use Q19's conditional-reranking pattern — only invoke the reranker when the first-stage top score falls below a confidence threshold — so the 150-300ms reranking cost (Q11) is paid only on the ambiguous minority of queries, not universally. Cache high-frequency dispatch queries (common routes, standard customs questions) aggressively, since dispatch traffic is repetitive by nature.
+
+What to monitor: p95 and p99 latency broken out per language specifically, since lower-resource languages are the likeliest place for embedding quality (and therefore conditional-reranking trigger rate) to degrade first; recall@k per language against a labeled set (Q4); and the fraction of queries that hit the reranking branch, watching for a rising rate in any one language as an early signal that language's retrieval quality is slipping. The trade-off: conditional reranking accepts a small accuracy risk on borderline cases in exchange for keeping the common case fast enough to hold the SLA — an acceptable bet only if the confidence threshold is actively monitored, not set once and forgotten.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Advanced RAG Fits |

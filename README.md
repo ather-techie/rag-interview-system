@@ -8,10 +8,10 @@
 [![PRs Welcome][prs-shield]][prs-url]
 
 <p align="center">
-  <img src="assets/logos/banner.webp" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 1193 Q&A covering 52 architectures and production failure modes" width="800" />
+  <img src="assets/logos/banner.webp" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 1297 Q&A covering 52 architectures and production failure modes" width="800" />
 </p>
 
-**1193 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 52 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
+**1297 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 52 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
 
 ⭐ **Star this repo** if it helps your interview prep — it keeps the project growing.
 
@@ -20,7 +20,7 @@
 | Link | Use it for |
 |---|---|
 | 🧾 [Cheatsheet](cheatsheets/CHEATSHEET.md) | All 52 RAG types compared in one table — best for a phone screen the same day |
-| 🕹️ [Interactive Quiz Site][quiz-url] | Flip through every Q&A as flashcards with a difficulty and section filter, right in the browser |
+| 🕹️ [Interactive Quiz Site][quiz-url] | Flip through every Q&A as flashcards, filterable by difficulty, section, and a "Scenario only" toggle, right in the browser |
 | 🗺️ [Learning Path](00_overview/learning_path.md) | Structured curriculum if you have more than a few days to prepare |
 | ▶️ [Run Lab 01 in Colab](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/01_naive_rag.ipynb) | Build a working RAG pipeline in your browser, no local setup |
 
@@ -155,61 +155,61 @@ Full classification (retrieval control, data modality, feedback loop, scope, lat
 <!-- questions:table -->
 | # | Topic | Questions |
 |---|-------|-----------|
-| 02.01 | [Naive / Basic RAG](./02_interview_bank/01-naive-rag.md) | 20 |
-| 02.02 | [Advanced RAG](./02_interview_bank/02-advanced-rag.md) | 20 |
-| 02.03 | [Modular RAG](./02_interview_bank/03-modular-rag.md) | 20 |
-| 02.04 | [Agentic RAG](./02_interview_bank/04-agentic-rag.md) | 20 |
-| 02.05 | [Graph RAG](./02_interview_bank/05-graph-rag.md) | 20 |
-| 02.06 | [Corrective RAG (CRAG)](./02_interview_bank/06-corrective-rag.md) | 20 |
-| 02.07 | [Self-RAG](./02_interview_bank/07-self-rag.md) | 20 |
-| 02.08 | [Speculative RAG](./02_interview_bank/08-speculative-rag.md) | 20 |
-| 02.09 | [Multi-modal RAG](./02_interview_bank/09-multimodal-rag.md) | 20 |
-| 02.10 | [Long-context RAG](./02_interview_bank/10-long-context-rag.md) | 20 |
-| 02.11 | [Adaptive RAG](./02_interview_bank/11-adaptive-rag.md) | 20 |
-| 02.12 | [Structured / SQL RAG](./02_interview_bank/12-structured-rag.md) | 20 |
-| 02.13 | [RAPTOR](./02_interview_bank/13-raptor.md) | 20 |
-| 02.14 | [Contextual RAG](./02_interview_bank/14-contextual-rag.md) | 20 |
-| 02.15 | [LightRAG](./02_interview_bank/15-lightrag.md) | 20 |
-| 02.16 | [RAFT](./02_interview_bank/16-raft.md) | 20 |
-| 02.17 | [Cache-Augmented Generation (CAG)](./02_interview_bank/17-cache-augmented-generation.md) | 20 |
-| 02.18 | [RAG-Fusion](./02_interview_bank/18-rag-fusion.md) | 20 |
-| 02.19 | [Iterative / Multi-hop RAG](./02_interview_bank/19-iterative-multihop-rag.md) | 20 |
-| 02.20 | [HippoRAG](./02_interview_bank/20-hipporag.md) | 20 |
-| 02.21 | [Memory / Conversational RAG](./02_interview_bank/21-memory-conversational-rag.md) | 20 |
-| 02.22 | [HyDE (Hypothetical Document Embeddings)](./02_interview_bank/22-hyde-rag.md) | 20 |
-| 02.23 | [FLARE (Forward-Looking Active Retrieval)](./02_interview_bank/23-flare-rag.md) | 20 |
-| 02.24 | [KAG (Knowledge Augmented Generation)](./02_interview_bank/24-kag.md) | 20 |
-| 02.25 | [GraphReader / GNN-RAG](./02_interview_bank/25-graphreader-gnn-rag.md) | 20 |
-| 02.26 | [REALM](./02_interview_bank/26-realm.md) | 20 |
-| 02.27 | [RETRO](./02_interview_bank/27-retro.md) | 20 |
-| 02.28 | [Atlas](./02_interview_bank/28-atlas.md) | 20 |
-| 02.29 | [Fusion-in-Decoder (FiD)](./02_interview_bank/29-fusion-in-decoder.md) | 20 |
-| 02.30 | [ColRAG / ColBERT](./02_interview_bank/30-colrag-colbert.md) | 20 |
-| 02.31 | [Agentic Web RAG](./02_interview_bank/31-agentic-web-rag.md) | 20 |
-| 02.32 | [Few-Shot Example RAG](./02_interview_bank/32-few-shot-example-rag.md) | 20 |
-| 02.33 | [Verifiable / Citation RAG](./02_interview_bank/33-verifiable-citation-rag.md) | 20 |
-| 02.34 | [Privacy-Preserving RAG](./02_interview_bank/34-privacy-preserving-rag.md) | 20 |
-| 02.35 | [Streaming / Real-Time RAG](./02_interview_bank/35-streaming-realtime-rag.md) | 20 |
-| 02.36 | [Table-Aware RAG](./02_interview_bank/36-table-aware-rag.md) | 20 |
-| 02.37 | [Tree of Thought RAG](./02_interview_bank/37-tot-rag.md) | 20 |
-| 02.38 | [DPR (Dense Passage Retrieval)](./02_interview_bank/38-dpr.md) | 20 |
-| 02.39 | [WebGPT / Tool-Augmented LM](./02_interview_bank/39-webgpt-tool-augmented-lm.md) | 20 |
-| 02.40 | [SURGE (Schema-Grounded RAG)](./02_interview_bank/40-surge-structured-grounded-rag.md) | 20 |
-| 02.41 | [Recursive Document Summarization RAG](./02_interview_bank/41-recursive-document-summarization-rag.md) | 20 |
-| 02.42 | [Search-R1 / Reasoning RAG](./02_interview_bank/42-search-r1-reasoning-rag.md) | 20 |
-| 02.43 | [Deep Research / Agentic Research RAG](./02_interview_bank/43-deep-research-rag.md) | 20 |
-| 02.44 | [MemoRAG](./02_interview_bank/44-memorag.md) | 20 |
-| 02.45 | [LongRAG + Self-Route](./02_interview_bank/45-longrag.md) | 20 |
-| 02.46 | [VisRAG](./02_interview_bank/46-visrag.md) | 20 |
-| 02.47 | [LazyGraphRAG](./02_interview_bank/47-lazygraphrag.md) | 20 |
-| 02.48 | [Astute RAG](./02_interview_bank/48-astute-rag.md) | 20 |
-| 02.49 | [Auto-RAG / DeepRAG](./02_interview_bank/49-auto-rag-deeprag.md) | 20 |
-| 02.50 | [CoRAG (Chain-of-Retrieval)](./02_interview_bank/50-corag.md) | 20 |
-| 02.51 | [RQ-RAG](./02_interview_bank/51-rq-rag.md) | 20 |
-| 02.52 | [REFRAG](./02_interview_bank/52-refrag.md) | 20 |
+| 02.01 | [Naive / Basic RAG](./02_interview_bank/01-naive-rag.md) | 22 |
+| 02.02 | [Advanced RAG](./02_interview_bank/02-advanced-rag.md) | 22 |
+| 02.03 | [Modular RAG](./02_interview_bank/03-modular-rag.md) | 22 |
+| 02.04 | [Agentic RAG](./02_interview_bank/04-agentic-rag.md) | 22 |
+| 02.05 | [Graph RAG](./02_interview_bank/05-graph-rag.md) | 22 |
+| 02.06 | [Corrective RAG (CRAG)](./02_interview_bank/06-corrective-rag.md) | 22 |
+| 02.07 | [Self-RAG](./02_interview_bank/07-self-rag.md) | 22 |
+| 02.08 | [Speculative RAG](./02_interview_bank/08-speculative-rag.md) | 22 |
+| 02.09 | [Multi-modal RAG](./02_interview_bank/09-multimodal-rag.md) | 22 |
+| 02.10 | [Long-context RAG](./02_interview_bank/10-long-context-rag.md) | 22 |
+| 02.11 | [Adaptive RAG](./02_interview_bank/11-adaptive-rag.md) | 22 |
+| 02.12 | [Structured / SQL RAG](./02_interview_bank/12-structured-rag.md) | 22 |
+| 02.13 | [RAPTOR](./02_interview_bank/13-raptor.md) | 22 |
+| 02.14 | [Contextual RAG](./02_interview_bank/14-contextual-rag.md) | 22 |
+| 02.15 | [LightRAG](./02_interview_bank/15-lightrag.md) | 22 |
+| 02.16 | [RAFT](./02_interview_bank/16-raft.md) | 22 |
+| 02.17 | [Cache-Augmented Generation (CAG)](./02_interview_bank/17-cache-augmented-generation.md) | 22 |
+| 02.18 | [RAG-Fusion](./02_interview_bank/18-rag-fusion.md) | 22 |
+| 02.19 | [Iterative / Multi-hop RAG](./02_interview_bank/19-iterative-multihop-rag.md) | 22 |
+| 02.20 | [HippoRAG](./02_interview_bank/20-hipporag.md) | 22 |
+| 02.21 | [Memory / Conversational RAG](./02_interview_bank/21-memory-conversational-rag.md) | 22 |
+| 02.22 | [HyDE (Hypothetical Document Embeddings)](./02_interview_bank/22-hyde-rag.md) | 22 |
+| 02.23 | [FLARE (Forward-Looking Active Retrieval)](./02_interview_bank/23-flare-rag.md) | 22 |
+| 02.24 | [KAG (Knowledge Augmented Generation)](./02_interview_bank/24-kag.md) | 22 |
+| 02.25 | [GraphReader / GNN-RAG](./02_interview_bank/25-graphreader-gnn-rag.md) | 22 |
+| 02.26 | [REALM](./02_interview_bank/26-realm.md) | 22 |
+| 02.27 | [RETRO](./02_interview_bank/27-retro.md) | 22 |
+| 02.28 | [Atlas](./02_interview_bank/28-atlas.md) | 22 |
+| 02.29 | [Fusion-in-Decoder (FiD)](./02_interview_bank/29-fusion-in-decoder.md) | 22 |
+| 02.30 | [ColRAG / ColBERT](./02_interview_bank/30-colrag-colbert.md) | 22 |
+| 02.31 | [Agentic Web RAG](./02_interview_bank/31-agentic-web-rag.md) | 22 |
+| 02.32 | [Few-Shot Example RAG](./02_interview_bank/32-few-shot-example-rag.md) | 22 |
+| 02.33 | [Verifiable / Citation RAG](./02_interview_bank/33-verifiable-citation-rag.md) | 22 |
+| 02.34 | [Privacy-Preserving RAG](./02_interview_bank/34-privacy-preserving-rag.md) | 22 |
+| 02.35 | [Streaming / Real-Time RAG](./02_interview_bank/35-streaming-realtime-rag.md) | 22 |
+| 02.36 | [Table-Aware RAG](./02_interview_bank/36-table-aware-rag.md) | 22 |
+| 02.37 | [Tree of Thought RAG](./02_interview_bank/37-tot-rag.md) | 22 |
+| 02.38 | [DPR (Dense Passage Retrieval)](./02_interview_bank/38-dpr.md) | 22 |
+| 02.39 | [WebGPT / Tool-Augmented LM](./02_interview_bank/39-webgpt-tool-augmented-lm.md) | 22 |
+| 02.40 | [SURGE (Schema-Grounded RAG)](./02_interview_bank/40-surge-structured-grounded-rag.md) | 22 |
+| 02.41 | [Recursive Document Summarization RAG](./02_interview_bank/41-recursive-document-summarization-rag.md) | 22 |
+| 02.42 | [Search-R1 / Reasoning RAG](./02_interview_bank/42-search-r1-reasoning-rag.md) | 22 |
+| 02.43 | [Deep Research / Agentic Research RAG](./02_interview_bank/43-deep-research-rag.md) | 22 |
+| 02.44 | [MemoRAG](./02_interview_bank/44-memorag.md) | 22 |
+| 02.45 | [LongRAG + Self-Route](./02_interview_bank/45-longrag.md) | 22 |
+| 02.46 | [VisRAG](./02_interview_bank/46-visrag.md) | 22 |
+| 02.47 | [LazyGraphRAG](./02_interview_bank/47-lazygraphrag.md) | 22 |
+| 02.48 | [Astute RAG](./02_interview_bank/48-astute-rag.md) | 22 |
+| 02.49 | [Auto-RAG / DeepRAG](./02_interview_bank/49-auto-rag-deeprag.md) | 22 |
+| 02.50 | [CoRAG (Chain-of-Retrieval)](./02_interview_bank/50-corag.md) | 22 |
+| 02.51 | [RQ-RAG](./02_interview_bank/51-rq-rag.md) | 22 |
+| 02.52 | [REFRAG](./02_interview_bank/52-refrag.md) | 22 |
 <!-- /questions:table -->
 
-<!-- questions:total 02_interview_bank -->**RAG Architectures Total: 1040 questions**<!-- /questions:total -->
+<!-- questions:total 02_interview_bank -->**RAG Architectures Total: 1144 questions**<!-- /questions:total -->
 
 <details>
 <summary><strong>One-line summary of every architecture</strong> (click to expand)</summary>
@@ -289,9 +289,11 @@ REFRAG                             — Compresses chunks into embeddings, RL pol
 
 <!-- questions:total 03_failure_modes -->**Failure Modes Total: 79 questions**<!-- /questions:total -->
 
-<!-- questions:grand -->**Grand Total: 1193 questions**<!-- /questions:grand -->
+<!-- questions:grand -->**Grand Total: 1297 questions**<!-- /questions:grand -->
 
-<!-- questions:mix -->**Difficulty distribution across the interview bank and failure modes: 275 Basic, 448 Intermediate, 396 Advanced**<!-- /questions:mix -->
+<!-- questions:mix -->**Difficulty distribution across the interview bank and failure modes: 327 Basic, 448 Intermediate, 448 Advanced**<!-- /questions:mix -->
+
+<!-- questions:scenarios -->**Scenario-based questions (tagged `[Scenario]`): 148**<!-- /questions:scenarios -->
 
 All cited papers with arXiv/DOI links: [REFERENCES.md](./REFERENCES.md)
 
@@ -358,9 +360,10 @@ Hands-on Jupyter notebooks and composition pattern guides:
    - Each file opens with a plain "What is X?" definition before going deep
    - Comparison tables, ASCII diagrams, code examples, and system design patterns
 
-3. **Interview Questions (02_interview_bank/)** — 12 questions per architecture
-   - Every section: original 10 questions + Q11 on cost optimization + Q12 on security
+3. **Interview Questions (02_interview_bank/)** — 22 questions per architecture
+   - Covers definitions, mechanisms, comparisons, implementation, evaluation, failure modes, production ops, and security
    - Questions are tagged with difficulty: `[Basic]` `[Intermediate]` `[Advanced]`
+   - Situational questions also carry a `[Scenario]` tag (e.g. `` `[Advanced]` `[Scenario]` ``) — use the quiz's "Scenario only" filter to drill just these
 
 4. **Failure Modes (03_failure_modes/)** — 10 questions per failure pattern
    - Nine critical production failure scenarios with diagnostic Q&A
@@ -425,7 +428,7 @@ For issues, questions, or general feedback:
 [license-shield]: https://img.shields.io/github/license/ather-techie/rag-interview-system
 [license-url]: LICENSE
 [commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-system
-[questions-shield]: https://img.shields.io/badge/questions-1193-blue
+[questions-shield]: https://img.shields.io/badge/questions-1297-blue
 [prs-shield]: https://img.shields.io/badge/PRs-welcome-brightgreen
 [prs-url]: CONTRIBUTING.md
 [pages-url]: https://ather-techie.github.io/rag-interview-system/

@@ -314,7 +314,7 @@ They can be combined: HippoRAG for the retrieval, an iterative reasoning layer o
 
 ---
 
-## Q10. Design a HippoRAG deployment for an enterprise knowledge base of technical documentation. `[Advanced]`
+## Q10. Design a HippoRAG deployment for an enterprise knowledge base of technical documentation. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -561,6 +561,42 @@ Synonymy edges (Q6) exist to merge references to the same entity that the extrac
 Current limitations, several of which Q7's own failure-mode discussion already identifies: (1) **weak on entity-poor queries** — with no query entity to seed PPR from, spreading activation has nothing to start from, exactly as Q12's memory analogy predicts (no cue, no pattern completion); (2) **synonymy-edge quality is a hard trade-off** (Q19) between fragmentation and false connection, with no threshold that eliminates both risks simultaneously; (3) **index-time extraction cost remains real** (Q13) even though it's cheaper than full GraphRAG's pipeline; (4) **PPR's single-pass design has no mechanism to notice and recover from a bad seed-node match** (Q17) the way an iterative multi-hop system could potentially self-correct across rounds.
 
 Likely evolution: hybrid entity-matching for seed selection (combining exact match, fuzzy match, and embedding similarity with explicit disambiguation signals) to reduce the seed-selection fragility in Q17; adaptive damping-factor selection per query (rather than one global constant) based on query characteristics, similar in spirit to the adaptive-parameter patterns used elsewhere in this bank's iterative architectures (CoRAG's #50 adaptive chain length, LazyGraphRAG's #47 adaptive budget); and continued cross-pollination with LazyGraphRAG (#47) and LightRAG (#15) as this family of graph-based architectures converges on a shared understanding of which specific cost/quality trade-off point fits which production workload.
+
+</details>
+
+---
+
+## Q21. A small game studio wants a lightweight associative-memory index over its wiki for lore-consistency checks — how would a HippoRAG-style build look at that scale? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a modest, entity-rich corpus (characters, locations, factions, items) and a specific, low-stakes use case: writers checking "has this character's backstory already been established to conflict with what I'm about to write" — exactly the entity-anchored, path-following question type HippoRAG is built for (Q1, Q7).
+
+The straightforward approach: run OpenIE extraction (Q2) over the wiki pages with a capable off-the-shelf LLM, build the graph in NetworkX rather than a production graph database (Q4's lightweight option), and add synonymy edges so character nicknames and aliases resolve together. A moderate damping factor (Q11) is a reasonable starting point without extensive tuning, since the corpus is small enough that sweeping a validation set is cheap if consistency checks start missing known connections.
+
+Two trade-offs to flag: the wiki's entity-poor prose (general worldbuilding notes, tone guides) won't anchor PPR well (Q7's "entity-poor bias" limitation), so a fallback to plain vector search for those non-entity queries is worth keeping alongside the graph. And at this scale, re-indexing on every wiki edit is cheap enough to just do outright rather than building HippoRAG's more elaborate incremental-update machinery — the studio doesn't need to solve a problem its corpus size doesn't actually have yet.
+
+</details>
+
+---
+
+## Q22. An intelligence-analysis team wants a HippoRAG-style associative memory that keeps ingesting years of field reports continuously — how do you keep incremental updates from undermining the graph's integrity? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are continuous ingestion (field reports arrive constantly, not in a batch the team can schedule around) and high stakes — HippoRAG's own limitations note it's expensive to update (Q7) and offers no single-pass mechanism to notice a bad connection once made (Q7's "no adaptive correction" point), both of which are more dangerous under constant, incremental growth than under HippoRAG's usual stable-corpus assumption.
+
+The approach: run OpenIE extraction only on newly-arrived reports rather than re-processing the accumulated archive, resolving new entities against the existing node set incrementally (the same targeted-resolution pattern LightRAG uses for its own updates, #15 Q8) rather than full pairwise re-resolution. Synonymy edges need periodic, not per-report, recomputation — recomputing them on every incoming report is wasteful, while recomputing too rarely lets genuinely new aliases go unlinked for too long. Because PPR runs fresh at query time against whatever the current graph looks like, query-time behavior doesn't itself go stale between updates — the risk is entirely in what gets written into the graph as it grows.
+
+The real trade-off is integrity versus ingestion speed: an intelligence corpus is an adversarial-input risk (deliberately misleading field reports, source unreliability) in a way a game studio's wiki isn't, so every new report's extracted facts should carry a source-trust/corroboration score (mirroring the graph-poisoning mitigations discussed for LightRAG, #15 Q12) before being trusted enough to influence PPR's spreading activation — accepting a short human-review lag on high-impact new connections rather than admitting every extraction automatically.
+
+Monitor: incremental update latency versus report arrival rate, entity-link rate for new reports (a drop signals growing extraction or resolution problems), and periodic audits of synonymy-edge precision to catch false connections (Q19) before they propagate into analyst-facing answers.
 
 </details>
 

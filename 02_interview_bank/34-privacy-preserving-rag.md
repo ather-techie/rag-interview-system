@@ -378,7 +378,7 @@ Treat the resulting curve as a per-deployment artifact, not a one-time calculati
 
 ---
 
-## Q12. How would you build a decision-gate evaluation to certify a Privacy-Preserving RAG deployment meets a target epsilon while holding an SLA recall? `[Advanced]`
+## Q12. How would you build a decision-gate evaluation to certify a Privacy-Preserving RAG deployment meets a target epsilon while holding an SLA recall? `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -531,7 +531,7 @@ The practical takeaway: privacy-preserving RAG techniques are about the query an
 
 ---
 
-## Q18. Design a privacy-preserving RAG system for a multi-hospital healthcare consortium. `[Advanced]`
+## Q18. Design a privacy-preserving RAG system for a multi-hospital healthcare consortium. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -597,6 +597,46 @@ Current limitations:
 - **DP guarantees are per-query, not cumulative** — repeated queries from the same user against the same corpus compose (each query "spends" privacy budget), and most production deployments do not track cumulative epsilon spend per user the way rigorous DP systems require.
 
 Likely evolution: **secure multi-party computation (MPC)** and **homomorphic encryption** for retrieval are the research frontier for removing the federated coordinator's partial-trust role entirely — enabling similarity search over encrypted vectors without any party seeing plaintext embeddings, at the cost of orders-of-magnitude higher compute per query today. Expect these to remain impractical for high-QPS production use for several more years, with DP noise plus federated retrieval remaining the pragmatic default, and generation-side leakage controls (citation-scoped answers, output filtering) becoming a more explicit second half of the privacy story as retrieval-side techniques mature.
+
+</details>
+
+---
+
+## Q21. A small therapy practice wants a notes-search tool for its own staff that anonymizes client names before retrieval. What privacy techniques actually apply here? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A single small practice with one internal, staff-only tool is the "internal team, trusted retrieval infra" case from Q7's decision table — the constraint is protecting client PHI (a compliance requirement, HIPAA), not defending against an untrusted server operator or a data-residency mandate spanning multiple organizations. That means the full five-technique stack (on-device embedding, DP noise, k-anonymity, federated retrieval) is more machinery than this situation calls for.
+
+**What the situation implies:** one organization, one corpus, presumably hosted on infrastructure the practice itself controls or trusts — there's no second party whose visibility into raw queries needs to be defeated, and no data-residency requirement forcing the corpus to stay split across silos.
+
+**Recommended approach:** focus effort on **pre-indexing anonymization** (Q14) done thoroughly — NER plus regex scrubbing of client names and other direct identifiers before notes are ever embedded, since a miss here bakes PII permanently into the vector index. Pair this with standard security hygiene (encryption at rest, access control) rather than the federated/DP machinery meant for multi-party or untrusted-operator scenarios (Q6, Q7). On-device embedding is a reasonable extra if the tool is vendor-hosted rather than fully in-house, but DP noise and k-anonymity obfuscation add complexity this single-practice, single-corpus deployment doesn't need.
+
+**Trade-offs to flag:** (1) don't skip anonymization thoroughness to save effort — a small practice still has real HIPAA exposure, and the audit/debugging discipline in Q14 (checking for format variants, rare names) matters regardless of scale; (2) if the practice later joins a referral network sharing data with other practices, that's exactly the point to revisit federated retrieval (Q7's "data legally cannot leave its originating org" row).
+
+</details>
+
+---
+
+## Q22. A multi-bank fraud-detection consortium wants to share retrieval signals across competing institutions with formal differential-privacy guarantees, without any bank exposing its raw transaction data to the others. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+This differs from the multi-hospital case (Q18) in one critical way: hospitals in a consortium are typically cooperating toward a shared care goal, while banks in a fraud consortium are **competitors** — the collusion and trust concerns (Q17) are sharper here, because a bank has a business incentive, not just a technical one, to learn about a rival's query patterns or customer base.
+
+**Design:** **federated retrieval is mandatory** (Q5, Q7) since transaction data legally and competitively cannot be centralized — each bank keeps its own local index. Layer **DP noise on query embeddings** (Q8) tuned via the epsilon decision-gate framework (Q12) so that even the coordinator only ever sees noised, uninvertible query vectors, never raw fraud-pattern queries that might reveal a bank's specific investigation. The **coordinator must be run by a genuinely neutral third party** (a consortium-governed utility, not any single member bank) — more important here than in the hospital case, since any bank acting as coordinator would have a direct competitive incentive to exploit visibility into others' query patterns.
+
+**Address collusion explicitly** (Q17): unlike hospitals, competing banks may not extend each other organizational trust by default, so the design should include mix-network-style query anonymization or per-silo dummy traffic between the coordinator and silos, not just rely on a "no collusion" policy assumption.
+
+**Formal DP guarantee:** run the epsilon-vs-recall decision gate (Q12) with thresholds signed off by the consortium's compliance body, and re-run it whenever any member bank's data or embedding model changes — a regression at one bank shouldn't silently degrade the shared signal's privacy guarantee for all.
+
+**What to monitor:** per-institution recall-vs-epsilon curves, coordinator audit logs checked for any cross-bank query-pattern correlation, and the erasure protocol (Q16) executed per-bank given no single party has global visibility into where a given signal's vectors ended up.
 
 </details>
 

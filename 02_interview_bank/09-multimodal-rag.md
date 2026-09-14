@@ -164,7 +164,7 @@ Embed the table header + column names for retrieval. At generation time, pass th
 
 ---
 
-## Q5. How would you architect a Multi-modal RAG system for a technical documentation chatbot that includes diagrams and code? `[Advanced]`
+## Q5. How would you architect a Multi-modal RAG system for a technical documentation chatbot that includes diagrams and code? `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1051,6 +1051,40 @@ If text and image embeddings aren't genuinely jointly trained (or a late-fusion 
 Current limitations: (1) **cross-modal alignment quality is uneven across modality pairs** (Q19) — text-image alignment (via CLIP-family models) is mature, while text-audio, text-video, and text-table alignment have less standardized, less battle-tested joint-embedding options; (2) **per-modality encoder proliferation adds real operational complexity** (Q17) — a system supporting five modalities maintains five encoder pipelines, each with its own versioning, cost, and failure modes; (3) **evaluation tooling is less mature** than text-only RAG evaluation (Q9, Q18), requiring bespoke per-modality labeled sets most teams have to build themselves; (4) **generation-side multimodal reasoning quality varies** — even with perfect retrieval, the generator LLM's ability to correctly reason over a retrieved image or table varies significantly by model.
 
 Likely evolution: continued growth of natively multimodal foundation models (unified vision-language-audio models trained end-to-end) reducing the need for separate per-modality encoders and hand-built fusion logic — the same trajectory that led from Multimodal RAG's per-modality architecture toward VisRAG's (#46) single-modality-via-images simplification for the document-specific case, plausibly extending to other modality combinations as jointly-trained models mature; and standardized multimodal retrieval benchmarks maturing to match the tooling depth already available for text-only RAG evaluation (Q9).
+
+</details>
+
+---
+
+## Q21. A 3-person architecture firm wants to search across blueprints and PDFs from one search box. What's the minimal Multimodal RAG setup for a team this size? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The corpus here is a mix of scanned or vector blueprint images and text PDFs (specs, contracts), the team is tiny with no one to maintain a complex pipeline, and the actual need is basic — "find the right drawing or document" — rather than deep cross-modal reasoning about what's inside an image.
+
+Given the small scale, pair a jointly-trained CLIP-style embedding (Q2, Q14) for blueprint images with a standard text embedder for PDFs, merged via late fusion (Q17) rather than building an early-fusion shared embedding space — late fusion is simpler to stand up and debug, and simplicity is the right priority with no dedicated engineer on staff. Keep per-modality `k` modest and skip building bespoke cross-modal evaluation tooling (Q18) at this scale; a handful of manually-checked test queries, like "find the drawing showing the HVAC layout for building B," is enough to sanity-check the setup before rollout.
+
+The trade-off: an off-the-shelf CLIP model won't align with highly technical blueprint symbols as precisely as a domain-fine-tuned encoder would (Q19's alignment-quality concern), but that investment isn't justified for a 3-person firm's query volume — worth revisiting only if search misses become a frequent daily friction point for the team.
+
+</details>
+
+---
+
+## Q22. A hospital radiology department wants an assistant that retrieves and reasons over both scanned imaging studies and clinical notes without violating patient privacy. How do you architect that? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are patient-privacy regulation (PHI handling) layered on top of genuinely cross-modal retrieval and reasoning — imaging studies plus clinical notes — in a clinical setting where a bad answer has real consequences, not just an inconvenience.
+
+Keep imaging studies and clinical notes in separate, access-controlled stores, with retrieval scoped strictly to the requesting clinician's authorized patient context — never a flat cross-patient index. Embed images with a medical-domain-tuned CLIP-family model (Q14) and notes with a standard text embedder, combining them via late fusion (Q17): text-image alignment quality for radiology-specific findings isn't as mature as general-domain CLIP alignment (Q19), and a rank-based merge tolerates that mismatch better than a score-based one. Strip or tokenize PHI in logs and cached embeddings, and route the multimodal generator's output through clinician review against both source modalities before it's used as a diagnostic aid rather than treated as a standalone answer.
+
+What to monitor: cross-modal retrieval quality specifically on cases where the correct finding depends on the image (Q18's segmented evaluation, applied to radiology-specific findings), any cross-patient data exposure via audit logging on every retrieval call, and clinician override/correction rate as an ongoing signal of whether the image-text alignment is trustworthy enough for the workflow it's embedded in. The trade-off: per-patient scoping and PHI-safe logging add real engineering overhead beyond a general-purpose Multimodal RAG build, but in a clinical setting, even a rare cross-patient leak is not an acceptable trade for simplicity.
 
 </details>
 

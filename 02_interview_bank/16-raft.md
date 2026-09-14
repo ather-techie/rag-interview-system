@@ -707,6 +707,42 @@ The trade-off mirrors the fine-tune-vs-prompt decision pattern used throughout t
 
 ---
 
+## Q21. A small nonprofit wants to fine-tune an open-source model on its own policy handbook using RAFT — is this worth doing at that scale, and how would you build the training set? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a single, modest-sized handbook (a few hundred pages), a small open-source model as the target (per Q4's decision tree, RAFT is only applicable to fine-tunable models), and limited budget for both the synthetic-data pipeline and ongoing maintenance.
+
+The straightforward approach follows Q2's recipe at reduced scale: generate a few thousand (question, oracle chunk, distractors) examples from the handbook's chunks using an LLM, generate chain-of-thought answers with K=3 distractors, and include a meaningful minority of oracle-absent examples so the model learns to say "this isn't in the handbook" (Q5, Q17) rather than confabulate. A LoRA fine-tune on a small open model (7-8B) is affordable at this data volume.
+
+The trade-off worth flagging before committing: Q4's decision tree exists precisely because RAFT isn't always the right first move, and a single small, stable handbook is exactly the case where cheaper alternatives (better chunking, hybrid search, or simply a glossary in the system prompt) should be tried and measured first. If those already get acceptable accuracy, the nonprofit is better off not building and maintaining a fine-tuning pipeline at all — RAFT earns its cost when the retriever is imperfect and distractor confusion is a measured, recurring problem, not merely a theoretical one.
+
+</details>
+
+---
+
+## Q22. A telecom's RAFT-fine-tuned support model needs quarterly retraining as network-equipment docs evolve — how do you build that retraining pipeline without breaking regression guarantees? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraint is a fixed quarterly retraining cadence at production scale, with two competing risks: falling behind as equipment documentation changes (Q11's corpus-update problem) and regressing on already-working behavior with each new training run.
+
+The approach treats each quarter's retrain as a scoped, measured event rather than a full from-scratch redo by default: classify the quarter's documentation changes using Q11's own scenario framing — small incremental updates get a LoRA-adapter refresh over just the changed content, while a genuinely major overhaul (new equipment lines, restructured docs) triggers the full retrain-from-scratch path with an A/B rollout against the current production model before full cutover. Every retrain runs against a held-out regression suite covering both the RAFT-specific metrics (distractor rejection, citation accuracy, IDK accuracy, per Q8) and a general-capability benchmark, to catch catastrophic forgetting before it ships.
+
+The real trade-off is retriever-generator coupling (Q19): if the retriever also changes between quarters (new embedding model, reranker tuning), the fine-tuned model's learned distractor-rejection skill was calibrated against the old retriever's specific noise patterns and may not transfer — so retriever changes and generator retraining need to be versioned and evaluated together, not treated as independent workstreams, even though that adds coordination overhead the telecom's ML and platform teams have to explicitly own.
+
+Monitor: citation accuracy specifically on newly-added equipment content each quarter, distractor-rejection rate against the current production retriever, and general-QA regression score gating the rollout decision.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RAFT Fits |

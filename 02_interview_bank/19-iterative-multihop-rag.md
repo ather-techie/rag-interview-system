@@ -334,7 +334,7 @@ Hybrid systems classify the question type first, then pick the strategy.
 
 ---
 
-## Q10. Design an iterative RAG system for a financial-research analyst assistant. `[Advanced]`
+## Q10. Design an iterative RAG system for a financial-research analyst assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -576,6 +576,42 @@ Because each hop's query is conditioned on the previous hop's result (Q16), a wr
 Current limitations: (1) **error accumulation compounds silently** (Q4, Q19) — a wrong intermediate fact corrupts every subsequent hop with no built-in mechanism to notice; (2) **cost scales multiplicatively with hop count** (Q6, Q17) — the most expensive per-query architecture among this bank's foundational tier when hop counts run high; (3) **stopping-criterion quality directly gates both cost and completeness** (Q5, Q18) — a poorly-tuned criterion either wastes cost on unnecessary hops or terminates before genuinely gathering enough evidence; (4) **growing context across hops requires active management** (Q11) — unbounded accumulation risks the same lost-in-the-middle degradation flagged for long-context architectures generally (#10 Q14).
 
 Likely evolution: this exact set of limitations is precisely what motivated the newer architectures elsewhere in this bank built specifically to address one or more of them — HippoRAG's (#20) single-pass PPR retrieval eliminates sequential hop cost entirely for corpora that can support a pre-built graph; CoRAG (#50) and Search-R1 (#42) replace hand-prompted iteration with a trained policy specifically optimized to avoid wasted or drifting hops; and Auto-RAG/DeepRAG (#49) add per-step retrieve-or-reason decisions on top of the same iterative shape to skip hops the model can answer parametrically. A mature production system increasingly treats "iterative multi-hop RAG" as this file's foundational, prompting-based baseline — the reference point every subsequent, more specialized multi-hop architecture in this bank is built to improve on in one specific dimension (cost, robustness, or efficiency) rather than the final answer to genuinely multi-hop retrieval.
+
+</details>
+
+---
+
+## Q21. A high-school debate team wants a research assistant that chains two lookups to answer "who influenced whom" questions — how simple can the iterative RAG loop be here? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a narrow, shallow use case — genuinely two-hop questions like "who influenced [philosopher]'s views on X" — with student users who can sanity-check an answer themselves, and no production latency or cost pressure.
+
+The straightforward approach is the simplest of Q2's three patterns: a fixed two-iteration ITER-RETGEN-style loop (retrieve on the original question, generate a draft answer naming the first-hop entity, retrieve again using that draft as the query, generate the final answer) rather than IRCoT's more elaborate per-sentence interleaving. A fixed, small max-hops cap (2, per Q5) is sufficient since the use case doesn't need deep chains, and a single retriever over a general encyclopedia-style corpus is fine — no need for metadata filtering or structured-source verification the way a financial or legal deployment would require.
+
+The trade-off worth flagging: even at two hops, Q4's error-accumulation risk exists — if hop one retrieves the wrong influence, hop two confidently answers the wrong question. Given the audience, the mitigation doesn't need to be sophisticated verification machinery; simply surfacing the intermediate fact ("hop 1 found: X influenced by Y") alongside the final answer lets a student notice and correct an obviously wrong first hop themselves, which is a perfectly adequate safeguard for a low-stakes research aid.
+
+</details>
+
+---
+
+## Q22. An investigative newsroom needs to trace multi-hop ownership chains in leaked corporate-registry documents before a publication deadline — how do you balance thoroughness against the clock? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are a publication deadline (a hard time box) and genuinely high stakes in the other direction — publishing a wrong ownership claim risks libel exposure and reputational damage — over messy, leaked, inconsistently-formatted registry documents that won't retrieve as cleanly as curated corporate filings.
+
+The approach: use decompose-then-retrieve (Q9) wherever ownership branches are independent (tracing several subsidiaries in parallel), reserving sequential interleaved retrieval only for genuinely dependent chains (this entity's parent, then that parent's parent). Every hop gets a lightweight verification step against the specific source document it came from (Q4's mitigation), with full per-hop provenance retained for the newsroom's fact-checking and legal-review process — an unsourced or weakly-sourced hop should block publication of that specific claim, not just get flagged quietly. A firm, aggressive max-hops cap plus a hard per-query time budget (Q6) protects the deadline directly.
+
+The real trade-off is thoroughness versus the clock: given the choice between publishing an unverified ownership claim on deadline and publishing "ownership beyond this point could not be verified in time," the newsroom should structurally prefer the latter — the system should be designed to produce a clearly-labeled partial, honest chain rather than pushing to complete a chain it can't fully verify before the deadline.
+
+Monitor: per-hop confidence and source-strength scores, time-to-answer against the deadline budget, and the rate at which chains are escalated to human fact-checkers rather than auto-completed.
 
 </details>
 

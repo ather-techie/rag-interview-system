@@ -614,6 +614,43 @@ This has a direct practical implication for anyone considering a RETRO-style arc
 
 ---
 
+## Q21. A five-person research group wants to retrofit their existing 3B-parameter internal LM with chunked cross-attention retrieval over their company wiki (roughly 50,000 pages). How would you approach this? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A 50,000-page wiki is many orders of magnitude short of RETRO's trillion-token datastore, and the group's real constraint is engineering budget, not raw scale — so the right move is **RETRO-fitting (Q5)** rather than training a RETRO-style model from scratch. Take the existing pre-trained LM, freeze most of its weights, add the chunked cross-attention layers and a bidirectional neighbor encoder, and train only the new retrieval-related parameters on a modest amount of data — a fraction of the cost of full pre-training.
+
+**Datastore build:** chunk the wiki into ~64-token pieces, embed once with an off-the-shelf frozen BERT-style encoder, and build a small FAISS/SCaNN index — at this scale the whole datastore build is a same-day job on a single machine, not the distributed infrastructure project a trillion-token store requires (Q9).
+
+**Trade-offs to flag:** (1) don't expect anything like the "25x smaller model matches a giant one" headline result (Q1, Q20) — that claim is tied specifically to trillion-token scale, and a 50,000-page wiki offloads correspondingly little knowledge, so the base model still needs to carry most of its own capability; (2) deduplicate the wiki against any held-out evaluation set anyway (Q8) — even a small datastore can leak eval answers if wiki pages overlap with test questions; (3) given the modest scale, the group should also seriously compare this against simply doing inference-time RAG on the same wiki with an off-the-shelf strong LLM (Q9's "when it's worth it") — RETRO-fitting is worth the extra architectural complexity mainly if the group specifically wants the per-chunk, mid-generation retrieval behavior, not just better-grounded answers.
+
+</details>
+
+---
+
+## Q22. An enterprise wants to scale a RETRO-style frozen-retrieval architecture across a trillion-token internal document store, but leadership has capped inference infrastructure spend. How do you design for this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+At trillion-token scale, the datastore and its ANN index are the dominant cost driver (Q9, Q11), and the frozen retriever is what makes this tractable at all — the index is built once and never re-embedded, unlike REALM's async-refresh cost (Q3). Given a hard inference-cost cap, the design should treat **per-chunk retrieval latency and datastore serving cost** as the primary levers, not model size:
+
+1. **Datastore:** shard the trillion-token store across machines, apply vector quantization to control memory footprint, and deduplicate aggressively against any eval/holdout data (Q8) — leakage control matters even more once cost pressure tempts shortcuts in datastore curation.
+2. **Retrieval-time cost control:** cache retrieved neighbors for repeated prefixes/prompts (a major real-world win, since enterprise queries cluster around common topics); tune chunk size and K neighbors down from RETRO's defaults if CCA compute is the bottleneck (Q11, Q17); use fast approximate ANN rather than exact MIPS.
+3. **RETRO-fitting over from-scratch training (Q5)** to avoid paying full pre-training cost on top of the datastore build.
+4. **Serve a smaller base model** — RETRO's whole premise is that datastore scale substitutes for parameter count (Q1), so the cost cap is best absorbed by keeping the served model small rather than by shrinking the datastore, which is what delivers the quality.
+
+**What to monitor:** perplexity (or task accuracy) plotted against datastore size and against per-query dollar cost, not either alone; p95 retrieval latency per chunk; dedup/leakage audit results; and neighbor-utilization (is CCA actually using retrieved content, or would a cheaper K neighbors work just as well). The central trade-off to make explicit to leadership: cutting datastore scale to save cost directly undercuts the parameter-efficiency benefit that justified this architecture (Q20) — better to cut K or invest in caching first.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RETRO (architectural, scaled retrieval) Fits |

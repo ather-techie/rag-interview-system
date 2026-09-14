@@ -1005,6 +1005,40 @@ The key decision-gate discipline, consistent with every other fine-tuning-invest
 
 ---
 
+## Q21. A solo indie-game studio wants a lore-wiki assistant that admits when it's unsure about a plot detail rather than inventing one. Is full Self-RAG fine-tuning worth it here? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation is a tiny studio, a small and often internally inconsistent lore wiki, and low query volume — the actual requirement is honest uncertainty, not maximum answer polish. Fine-tuning a full Self-RAG model (Q3) is not justified here: the upfront training investment only pays off at the query volumes Q20's decision gate describes, which this studio isn't close to.
+
+Use prompted Self-RAG instead (Q6): ask the frozen generation model to self-report a rough relevance/support judgment via prompting, retrieving lore-wiki passages and having the model explicitly say "not confirmed in the wiki" when it can't find direct textual support, rather than filling a narrative gap with a plausible-sounding invention. This gets most of Self-RAG's core value — a generator that can flag its own uncertainty — without any training pipeline.
+
+The trade-off: prompted self-assessment is less reliably calibrated than trained reflection tokens (Q18), so it will occasionally be overconfident on edge cases involving obscure lore. That's an acceptable risk for a hobby-scale assistant where an occasional wrong guess about background lore is low-stakes — worth revisiting with real fine-tuning only if the wiki and player base grow enough that miscalibration starts causing real player confusion.
+
+</details>
+
+---
+
+## Q22. A legal-tech vendor's contract-analysis tool must justify every claim with a grounding check before a paralegal ever sees it. How would you build that on Self-RAG? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard requirement is that every claim reaching a human reviewer has already been checked against the source contract text — a wrong contract claim in legal work carries real liability, and the vendor's commercial query volume is high enough to justify Self-RAG's fine-tuning investment over a prompted approximation (Q15's fine-tune-vs-separate-evaluator trade-off).
+
+Fine-tune on contract-domain critic-annotated data (Q3) so `[IsRel]`/`[IsSup]`/`[IsUse]` (Q16) are calibrated to legal language specifically, since most public Self-RAG checkpoints are tuned on general-domain data that doesn't reflect contract phrasing or structure. Set the pipeline so any generated claim scoring low on `[IsSup]` is either regenerated (Q19) or explicitly flagged as "not directly supported by the retrieved clause" — only claims clearing the `[IsSup]` threshold reach the paralegal's queue unflagged, while unsupported ones still surface, just visibly marked rather than silently blended in.
+
+What to monitor: the `[IsRel]`/`[IsSup]` disagreement rate (Q19) as an ongoing generation-fidelity signal, the paralegal override/correction rate on flagged versus unflagged claims as ground truth for whether the threshold is well-calibrated, and periodic audits of a sample of unflagged "clean" claims against source contracts to catch calibration drift before it erodes trust in the queue. The trade-off: the fine-tuning and ongoing calibration-monitoring investment is substantial, but for a legal product, an unflagged hallucinated claim reaching a paralegal is exactly the liability risk Self-RAG's self-critique mechanism exists to reduce.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Self-RAG Fits |

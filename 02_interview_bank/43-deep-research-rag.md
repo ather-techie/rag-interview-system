@@ -526,7 +526,7 @@ Mitigation: apply source-quality filtering at the sub-agent level before finding
 
 ---
 
-## Q18. Design a Deep Research system for an enterprise competitive-intelligence use case with strict source-reliability requirements. `[Advanced]`
+## Q18. Design a Deep Research system for an enterprise competitive-intelligence use case with strict source-reliability requirements. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -602,6 +602,40 @@ Q4's early-termination heuristic (stop dispatching new sub-agents once the margi
 Current limitations: (1) **citation verification doesn't scale linearly with report length** (Q17) — exhaustive per-claim verification at 30-80 sources is expensive enough that most systems sample, accepting some risk of an unverified bad citation slipping through; (2) **sub-agent context isolation trades lost-in-the-middle for missed cross-cutting connections** (Q12, Q14) — there's no free lunch between the two failure modes, only a choice of which one your architecture is more exposed to; (3) **cost and latency remain high enough that most systems require explicit user opt-in** (Q15) rather than automatic routing, unlike cheaper architecture choices elsewhere in this bank; (4) **evaluation is inherently harder than single-answer RAG** (Q11) since there's no simple exact-match target, pushing most teams toward rubric-based LLM-as-judge evaluation with its own calibration challenges.
 
 Likely evolution: tighter mid-run coordination between sub-agents (Q12's mitigation, extended into a first-class architectural feature rather than an add-on) to close the cross-cutting-connection gap without fully reverting to a single shared context; more sophisticated, facet-coverage-aware stopping criteria (Q19) replacing today's simpler marginal-new-finding heuristics; and, as RL-trained search policies (Search-R1, #42) mature, likely replacement of today's prompted sub-agent search loops (Q2) with learned search policies per sub-agent, reducing the redundant/wasted search problem (Q5's failure mode 2) at its root rather than mitigating it with coordination overhead after the fact — exactly the direction Q5's own "combining with other architectures" section anticipates.
+
+</details>
+
+---
+
+## Q21. An independent journalist wants an overnight background brief compiled from dozens of sources before a morning interview, on a very small budget. How would you configure a Deep Research run for this, and what corners are fine to cut? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A single journalist with an interview tomorrow morning has exactly the profile this file's product-tier system is built for (Q4's lightweight-vs-full-depth query distinction): a modest, capped budget (a few dollars, a roughly 30-minute overnight run) is plenty, since there's no need to compete with a due-diligence team's thoroughness. Decompose the brief into the obvious facets a background piece needs — biography, prior reporting, financial/organizational ties, known controversies — and let it run unattended overnight, since latency genuinely doesn't matter here.
+
+Given the modest stakes relative to Q18's enterprise design, skip the heavier citation-verification machinery: sampled, not exhaustive, attribution checking (Q17's mitigation, scaled down) is proportionate, since the journalist is going to personally review every citation before it appears in a published piece anyway — the report's job is to save research time, not to be publication-ready on its own. Budget-monitor settings (Q4) can stay generous rather than aggressively cost-optimized, since the total spend for one report is trivial either way.
+
+The trade-off worth naming explicitly: treat the output as a well-organized starting point, not a citable draft — Deep Research's aggregation step (Q3) can still surface contradicting sources without fully resolving them, and a journalist's professional obligation to verify sources independently doesn't go away just because the report already has citations attached. The value here is compressing an evening of manual searching into an unattended overnight run, not replacing editorial verification.
+
+</details>
+
+---
+
+## Q22. A sovereign wealth fund's due-diligence team runs multi-hour Deep Research agents across thousands of sources before a board vote on a major investment. How would you harden the pipeline for that level of stakes? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A board vote riding on this report means Q17's citation-dilution risk — plausible-looking claims among dozens of sources that were never individually verified — moves from an acceptable trade-off to an unacceptable one, so the design has to depart from this file's default sampled-verification approach specifically for numeric and material claims, mirroring Q18's enterprise design but with an even lower tolerance for error given fiduciary duty.
+
+Decompose the brief along standard due-diligence facets (financials, management, competitive position, litigation/regulatory exposure) rather than an open-ended plan, and require 100% attribution verification (Q17's mitigation, fully applied rather than sampled) on every numeric and market claim specifically, falling back to sampled verification only for lower-stakes narrative claims. Cross-sub-agent consistency checking (Q12's mitigation) is mandatory given how costly an internally-inconsistent set of findings would be if it reached the board unnoticed — do individual facts sum to a coherent picture, or does one sub-agent's finding quietly contradict another's.
+
+The board deadline forces careful budget-monitor tuning (Q4, Q10): the early-termination heuristic (Q19) should be biased conservative, since stopping early and missing a material fact before a board vote is far costlier than the extra spend of continuing to search — the opposite trade-off a cost-sensitive consumer deployment would make. Route every flagged claim (low source-trust, cross-agent inconsistency) to a human analyst before the report reaches the board, and track, as the key operational metric, what fraction of the report's material claims carry full verification versus sampled — that ratio, not aggregate citation count, is what fiduciary due diligence actually needs to see.
 
 </details>
 

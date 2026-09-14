@@ -460,7 +460,7 @@ For a corpus where the first retrieval result is almost always the exact right d
 
 ---
 
-## Q10. Design a RAG-Fusion pipeline for a customer support knowledge base with 500K articles. `[Advanced]`
+## Q10. Design a RAG-Fusion pipeline for a customer support knowledge base with 500K articles. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -734,6 +734,42 @@ An LLM generating "diverse" reformulations (Q17's diversity-encouraging prompt) 
 Current limitations: (1) **cost scales linearly with `N`** (Q5, Q17) with no adaptive mechanism to spend more reformulations on genuinely ambiguous queries and fewer on already-clear ones, unlike the adaptive-budget patterns used elsewhere in this bank (LazyGraphRAG's #47 adaptive relevance budget, CoRAG's #50 adaptive chain length); (2) **reformulation diversity and quality are entirely prompt-dependent** (Q17, Q18) with no principled way to guarantee genuinely diverse, non-drifted reformulations beyond careful prompt engineering and ongoing monitoring; (3) **only addresses single-hop phrasing ambiguity** (Q15) — it provides no benefit for genuinely multi-hop questions, which need a fundamentally different (sequential, chain-based) architecture; (4) **larger attack surface** (this file's own security section) from multiple parallel retrieval paths, each an independent opportunity for a poisoned document to surface.
 
 Likely evolution: adaptive reformulation count (generating more variants for queries a cheap upfront classifier flags as ambiguous, fewer for clear ones) as a natural cost-control extension, following the same adaptive-compute pattern maturing across this bank's other architectures; tighter integration of diversity measurement (Q18) directly into the reformulation-generation step itself (rejecting and regenerating a reformulation that scores too similar to ones already generated) rather than treating diversity as a post-hoc evaluation concern; and continued clarification of RAG-Fusion's relationship to Multi-Query retrieval (Q16) as the field's terminology matures, likely converging on one name for what is substantially the same technique.
+
+</details>
+
+---
+
+## Q21. A small marketing agency wants to merge results from multiple query rephrasings for a client-FAQ tool — is RAG-Fusion overkill here, and how would you configure it if not? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a small, single-client FAQ corpus (a few hundred pages at most), staff phrasing questions informally, and no dedicated infrastructure budget — the kind of scale where Q9's "always A/B test before deploying" caution matters more than the underlying technique's sophistication.
+
+The straightforward approach, if reformulation genuinely helps: cap N at 3 reformulations, use a fast/cheap model for reformulation (Q5), and default RRF's k to 60 without tuning (Q11) — there's no need for the per-query-variant reranking or adaptive activation a larger system would add. Given the corpus is small, retrieval latency overhead from parallel retrievals is negligible; the main added cost is the one reformulation LLM call per query.
+
+The trade-off worth flagging before building this: for a small, narrow FAQ corpus, standard RAG's single retrieval may already perform well, since a small agency's FAQ vocabulary is likely fairly consistent across how staff phrase things. Before committing to RAG-Fusion's extra LLM call and complexity, a quick before/after comparison on a handful of real staff queries (Q7's evaluation framework, scaled down) should confirm whether reformulation actually recovers documents standard retrieval was missing — if it doesn't, the simpler single-query pipeline is the better choice at this scale.
+
+</details>
+
+---
+
+## Q22. A patent-search firm must fuse five retrieval strategies over 10 million patents while holding sub-second latency — what does that RAG-Fusion pipeline actually look like? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are corpus scale (10 million patents), a sub-second end-to-end latency budget, and five distinct retrieval strategies (likely spanning dense, BM25, and patent-specific structured signals like classification codes and citation graphs) that all need to contribute before fusion.
+
+The approach: run all five retrievers fully in parallel — RRF's fusion step (Q2) is agnostic to how many ranked lists it merges, and since retrievals aren't sequential, the latency cost is bounded by the slowest single retriever, not the sum of five. At 10M-patent scale, each retriever needs its own latency budget engineered independently (approximate ANN indexes tuned for speed over exact search, a well-provisioned BM25 cluster), and the RRF merge itself is computationally trivial (Q2) regardless of corpus size. Query reformulation, if used at all on top of the five base strategies, should be capped tightly (N=1-2) since every added reformulation multiplies retrieval calls across all five strategies simultaneously.
+
+The real trade-off is between recall and the latency ceiling: fusing five strategies is expensive by construction, and hitting sub-second latency at 10M scale likely means sacrificing some per-strategy accuracy (approximate rather than exact search, smaller per-strategy top-k before fusion) to stay within budget — a firm that needs maximum recall over speed should relax the latency target rather than silently degrading each retriever's own quality to compensate.
+
+Monitor: end-to-end P95 latency against the sub-second target, each strategy's individual contribution to the final fused top-k (a strategy contributing almost nothing to the final ranking may not be worth its latency cost), and recall@k on a patent-search gold set stratified by query type.
 
 </details>
 

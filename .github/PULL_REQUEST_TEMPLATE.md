@@ -12,7 +12,7 @@
 
 ## Checklist
 
-- [ ] Follows the Q&A format in [CONTRIBUTING.md](../CONTRIBUTING.md) (difficulty tag, `<details>` answer block)
+- [ ] Follows the Q&A format in [CONTRIBUTING.md](../CONTRIBUTING.md) (difficulty tag, optional `[Scenario]` tag, `<details>` answer block)
 - [ ] Real interview question (preferred) or clearly researched/synthetic
 - [ ] Links and internal anchors checked
 - [ ] For lab changes: notebook runs top-to-bottom without errors

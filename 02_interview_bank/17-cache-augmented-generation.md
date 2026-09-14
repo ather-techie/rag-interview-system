@@ -464,7 +464,7 @@ Before deploying CAG, run a NIAH evaluation on your specific corpus:
 
 ---
 
-## Q10. Design a production CAG system for a product support chatbot backed by a 40K-token product manual. `[Advanced]`
+## Q10. Design a production CAG system for a product support chatbot backed by a 40K-token product manual. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -742,6 +742,42 @@ CAG's entire design assumes the corpus fits within the cache budget (Q17) — as
 When the corpus exceeds the cache budget (Q19), the subset-selection decision should be driven by actual query patterns, not document metadata like recency or arbitrary ordering: analyze historical query logs (or, absent that, a domain expert's judgment of which content is most frequently needed) to identify the subset of the corpus that covers the large majority of real query volume, and preload that subset — accepting that a long tail of rarely-needed content won't benefit from CAG's latency advantage.
 
 For the excluded long tail, the practical options are: (1) simply don't serve those queries as well (acceptable if the excluded content is genuinely rarely needed and the product can tolerate lower quality on rare queries); (2) layer a fallback RAG path specifically for queries the cached subset doesn't cover well (detected via low-confidence generation against the cached context, or via a lightweight upfront classifier), following this file's own hybrid CAG+RAG pattern (Q11); (3) periodically re-evaluate which subset is preloaded as query patterns shift, treating subset selection as a living decision informed by ongoing query-log analysis rather than a one-time choice made at initial deployment.
+
+</details>
+
+---
+
+## Q21. A small SaaS company wants to cache its entire onboarding guide for a low-traffic support bot — does CAG make sense here, and what would you watch for? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a small, bounded corpus (an onboarding guide easily fits in a modern context window), low query volume, and no dedicated infrastructure team — exactly the profile Q4's decision framework points toward CAG rather than RAG.
+
+The straightforward approach: preload the full guide via provider-side prompt caching (Q2) rather than standing up an embedding pipeline, vector store, and retriever for a document that's small and stable. At low traffic, there's no need for GPU-level KV-cache engineering (Q8) — this is a case where the simplicity win (no retrieval infrastructure to build or maintain) matters more than raw cost efficiency, since query volume is too low for infrastructure cost to dominate the decision either way.
+
+Two things worth flagging: first, per-query cost is genuinely higher than a minimal RAG setup would be (Q3's cost comparison), but at low volume that difference is a rounding error, not a budget problem — the trade-off only starts to matter if traffic grows substantially. Second, the guide needs a defined update cadence (even "we manually rebuild the cache whenever we edit the guide" is fine at this scale, per Q6) so nobody is unknowingly serving answers from a stale onboarding doc after a product change — small teams without an automated rebuild trigger are the ones most likely to forget this step.
+
+</details>
+
+---
+
+## Q22. An airline's flight-ops assistant must invalidate a 100K-token cached regulatory manual within minutes of a bulletin update — how do you engineer that without ever serving a stale safety answer? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are safety-criticality (a stale regulatory answer is not a UX defect, it's a compliance and safety incident) and a minutes-level invalidation SLA against a cache that's already near the practical size ceiling most models handle well (Q9's ~100K-token NIAH guidance).
+
+The approach: treat the regulatory bulletin feed as a trigger, not a schedule — a webhook or polling job on the authoritative source fires an immediate cache rebuild the moment a bulletin lands, rather than waiting for CAG's usual nightly/weekly cadence (Q6). Pre-warm the new cache in parallel with the old one still serving live traffic, then atomically swap once the rebuild completes and passes a quick sanity check, so there's no window where requests fail during the rebuild. Every response is tagged with the corpus-hash/version it was generated against (Q12's model-version-sensitivity mitigation, applied here to content versioning instead), so any request that somehow races the swap is detectable after the fact, not silently wrong.
+
+The real trade-off is cost versus safety: rebuilding a 100K-token cache within minutes, potentially several times a day if bulletins are frequent, is expensive relative to CAG's usual amortized-cache economics (Q3) — but given the safety stakes, that cost is simply the price of the SLA, not something to optimize away by batching or delaying rebuilds.
+
+Monitor: actual observed staleness window (bulletin timestamp to live-cache timestamp) against the minutes-level target, rebuild success/failure rate, and any request served against a cache version older than the latest bulletin as a hard-fail alert.
 
 </details>
 

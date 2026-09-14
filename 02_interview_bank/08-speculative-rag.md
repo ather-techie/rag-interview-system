@@ -1113,6 +1113,40 @@ Likely evolution: adaptive `m` (scaling the number of drafts to document-set div
 
 ---
 
+## Q21. A small e-commerce shop wants to speed up its product-question chatbot without a big cloud bill. Does Speculative RAG's drafter/verifier split help at this scale? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation is a small shop, modest query volume, and a cost constraint that matters more than shaving off the last bit of latency. Speculative RAG's core value (Q14) — a cheap small model doing the expensive per-document reading, with a large model only verifying — is actually a reasonable fit here specifically because it shifts most of the compute onto a cheap drafter instead of requiring an expensive model to read every retrieved product-doc subset directly.
+
+Use a small open-source or low-cost hosted model as the drafter, partition the shop's (modest) retrieved product-info set into a handful of subsets, and reserve calls to a stronger model only for the lightweight verification step (Q13) rather than full generation. This mirrors the standard architecture (Q16) at a scale a shoestring budget can actually run.
+
+The trade-off: running two separate models (Q10) is genuinely more infrastructure than a single standard RAG call, and at very low query volume that added complexity may not pay for itself — this only makes sense once catalog size and query volume are large enough that reducing the expensive model's per-query token consumption meaningfully lowers the bill. For a genuinely tiny catalog, a plain standard RAG pipeline (Q1's own comparison point) is likely the more cost-effective starting point until volume grows.
+
+</details>
+
+---
+
+## Q22. A stock-trading research desk needs sub-200ms answers pulled from a large market-research corpus under a strict latency SLA. Can Speculative RAG hit that? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+This is close to Speculative RAG's ideal fit: a hard sub-200ms SLA, a large corpus, and a domain where accuracy still matters because bad trading research has real financial cost — exactly the simultaneous accuracy-and-latency claim Q14 makes as the paper's headline result.
+
+Partition the large retrieved candidate set into `m` subsets and run the small drafter across them in parallel (Q13), keeping the large verifier's work bounded to `m` short verifications rather than reading the full retrieved set directly — this parallel structure is what makes a sub-200ms target plausible where a single large-model full-context pass would not be. Tune `m` and subset size (Q8, Q18) specifically against the 200ms budget rather than for maximum accuracy: smaller `m` and subsets trade some accuracy for latency headroom, and that trade-off should be measured empirically per Q18's methodology, not assumed to transfer unchanged from the paper's own reported numbers. Guard against Q19's redundant-subset failure mode by partitioning along genuinely distinct sources (different analyst desks, different data providers), so the parallel drafts capture different perspectives instead of converging on one view and wasting the parallelism the SLA depends on.
+
+What to monitor: p99, not just p95, latency given the firmness of the SLA; inter-draft diversity (Q19) as a leading indicator of wasted parallelism; and accuracy specifically on multi-perspective synthesis queries versus narrow single-fact lookups (Q18), since the SLA has to hold across both. The trade-off: hitting a firm 200ms ceiling may require capping `m` below what would be accuracy-optimal without the SLA — an explicit, monitored bet that a latency guarantee is worth more to the desk's workflow than the last few points of accuracy.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Speculative RAG Fits |

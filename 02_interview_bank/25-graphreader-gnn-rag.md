@@ -306,7 +306,7 @@ This is GraphReader's core value: **multi-hop reasoning over content larger than
 
 ---
 
-## Q9. Design a system using GNN-RAG for enterprise knowledge-graph question answering. `[Advanced]`
+## Q9. Design a system using GNN-RAG for enterprise knowledge-graph question answering. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -603,6 +603,42 @@ A GNN trained on one graph's structure (a specific entity-type distribution, a s
 Current limitations: (1) **GraphReader's exploration cost scales with document complexity** (Q11) — multiple LLM calls per query make it the most expensive of the three approaches compared in Q15; (2) **GNN-RAG requires a training investment and labeled data** (Q18) that HippoRAG's (#20) algorithmic approach doesn't need, and that investment can underperform if training data doesn't match production structure (Q19); (3) **both approaches inherit general graph-based RAG's robustness-to-incompleteness risk** (this file's own security section) — missing graph structure produces silent wrong answers rather than an explicit "I don't know"; (4) **neither has GraphRAG's (#05) pre-computed, human-readable community summaries** available for auditing what the system "believes" about a corpus's themes, since GNN-RAG's learned representations and GraphReader's exploration notes are both harder to inspect at a glance than a written summary.
 
 Likely evolution: continued cross-pollination within this bank's graph-based RAG family — GNN-RAG's learned-retrieval efficiency combined with GraphReader's inspectable note-taking trail, or a GNN-scored candidate-generation step feeding into a lighter final LLM verification pass (mirroring the drafter-verifier pattern from Speculative RAG, #08); and, as graph neural network research continues to mature, likely improvements in GNN transferability across evolving graph structures (directly addressing Q19's training-production mismatch), narrowing the retraining burden that currently favors HippoRAG's training-free approach for graphs expected to change structurally over time.
+
+</details>
+
+---
+
+## Q21. A small biotech startup wants to explore protein-interaction questions over a modest graph — GraphReader, GNN-RAG, or neither yet? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a modest protein-interaction dataset, a small team, and — critically — no labeled (question, relevant-subgraph) training data yet, since that kind of supervision usually comes later in a research program, not at the exploratory stage.
+
+Q10's own decision heuristic applies directly: GNN-RAG needs training data and a relatively stable schema to be worth its investment (Q5, Q10), neither of which a small startup exploring a modest graph typically has yet. GraphReader, by contrast, works zero-shot — an LLM agent exploring a graph of extracted facts step-by-step (Q2) needs no training pipeline, which matches a startup's actual constraint (no labeled data, small team, need results now). If the interaction data is modest enough that questions are mostly simple lookups rather than genuinely deep multi-hop chains, an even lighter option (standard vector RAG, or HippoRAG's single-pass PPR, #20) may be sufficient and cheaper still.
+
+The trade-off worth flagging: GraphReader's per-query cost (an LLM call per exploration step, Q11) is higher than a trained GNN's would eventually be, but that cost is the right one to pay now, since it avoids committing to a training investment before the startup has enough labeled examples or a stable-enough schema to make that investment pay off. Revisit GNN-RAG once the interaction graph and question patterns stabilize and labeled training pairs exist.
+
+</details>
+
+---
+
+## Q22. A national security agency needs multi-hop reasoning over a billion-edge relationship graph without ever leaking across access-control compartments — how do you architect that? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are scale (a billion edges, where GraphReader's sequential LLM-call-per-step exploration would be intractably slow, per Q5's "dense graphs" comparison) and strict compartmentalized access control, where a wrong disclosure isn't just a data-quality problem but a security incident.
+
+The approach favors GNN-RAG's mechanism (Q3, Q5): message-passing scales to dense, billion-edge structure in a way sequential agentic traversal doesn't, since it aggregates signal across many paths in parallel rather than exploring them one LLM call at a time. But standard GNN-RAG assumes one shared graph and one trained model — here, subgraph extraction and message-passing both need entity/edge-level authorization enforced at every step (Q12's access-control mitigation), not just at ingestion, and the verbalization step (Q3) needs particular care: a query into a compartment the analyst lacks clearance for should return "not authorized," never a silently-empty "no path found," since the two must not be distinguishable from each other in a way that leaks the existence of restricted relationships.
+
+The real trade-off is operational complexity versus leakage risk: maintaining separate GNN training/serving per compartment (rather than one shared model with post-hoc filtering) multiplies the model-maintenance burden substantially, but a single shared model risks the retrieval or attention patterns themselves leaking compartment structure even with output filtering — given the stakes, the agency should accept the multiplied operational cost of compartment-separated models over a shared model with bolted-on filtering.
+
+Monitor: per-compartment path-retrieval recall, authorization-filter audit logs (every subgraph extraction and every response checked against clearance), and explicit cross-compartment leakage canaries tested continuously, not just at deployment.
 
 </details>
 

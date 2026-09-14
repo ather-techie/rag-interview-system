@@ -519,7 +519,7 @@ Mitigation follows the general defense-in-depth pattern used elsewhere in this b
 
 ---
 
-## Q19. Design a REFRAG-based production RAG system for a high-volume, cost-sensitive customer support assistant. `[Advanced]`
+## Q19. Design a REFRAG-based production RAG system for a high-volume, cost-sensitive customer support assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -578,6 +578,40 @@ The key design choice is query-type-aware budget allocation rather than a single
 Current limitations: (1) **training investment is non-trivial and decoder-specific** (Q3, Q7, Q15) — swapping base decoders likely requires retraining the chunk encoder and policy, unlike a prompt-level compression technique that's decoder-agnostic; (2) **the RL policy's reward signal (negative log-perplexity) is an imperfect proxy for "importance"** (Q16) — it optimizes for what makes the target answer more predictable, which can under-value content that matters for factual precision without strongly affecting perplexity; (3) **compressed chunks are harder to audit** (Q18) than raw text, creating tension with use cases requiring full-fidelity traceability; (4) **the technique is new (2025) and hasn't yet accumulated the breadth of production deployment experience** that older efficiency techniques (LLMLingua, hybrid retrieval) have, meaning some failure modes may not yet be well characterized outside the original paper's evaluation setting.
 
 Likely evolution: **query-type-aware and confidence-calibrated expansion policies** (as sketched in Q19) that move beyond a single global reward signal toward multi-objective training that explicitly weights factual-precision-sensitive content more heavily than perplexity alone would; **tighter integration with verification/citation architectures** (as the file's own combination ideas with Verifiable RAG and Agentic RAG suggest) to close the auditability gap for compliance-sensitive deployments; and, as with any inference-efficiency technique building on a specific base-decoder coupling, likely follow-on work reducing the retraining cost of adapting a trained encoder/policy pair to a new base decoder, which would substantially lower the adoption barrier the Q15 decision gate is built around.
+
+</details>
+
+---
+
+## Q21. A small startup wants to cut its LLM API bill by compressing what it feeds the model at generation time. Is REFRAG's training investment worth it at their scale, or should they look elsewhere first? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A startup watching its LLM API bill is the textbook case Q15's decision gate is built to catch early: REFRAG's training cost (a chunk encoder plus an RL policy, Q3) is fixed regardless of query volume, while its benefit scales with volume, and a small or early-stage startup's query volume is unlikely to amortize that investment within a reasonable payback period — the gate would most likely fail at step 1 for exactly this reason.
+
+The cheaper and more appropriate first move is LLMLingua-style prompt compression (file 10) or simply reducing retrieved chunk count/size — both require no training, work immediately with whatever base model the startup is using, and, unlike REFRAG, aren't tied to one specific decoder checkpoint (Q5, Q7's coupling concern), which matters a lot for a startup that may still be evaluating which model provider to standardize on.
+
+If the startup's volume is genuinely large and growing fast, and the team can spare the GPU time, Q15's own prescribed path is to prototype on a representative subset first — train a small chunk encoder and policy on a slice of the corpus and query distribution, and measure whether the projected savings at current and near-future volume would actually clear the training investment — rather than committing to the full pipeline speculatively. Until that prototype shows a clear payback, the honest trade-off to communicate is that REFRAG solves a real problem the startup probably doesn't have yet at its current scale.
+
+</details>
+
+---
+
+## Q22. A high-frequency-trading firm needs to compress retrieved context into a fixed token budget while holding a strict sub-100ms inference SLO. Where does REFRAG's default design break under that constraint, and how would you adapt it? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A sub-100ms inference SLO in a high-frequency-trading context is close to the ideal case for REFRAG's core mechanism — the reported ~30x time-to-first-token improvement (Q9) directly targets exactly the bottleneck this SLO is fighting — but it also exposes the default design's weakest points more sharply than most deployments would, because both a missed SLO and a compressed-away numeric detail carry immediate financial consequences.
+
+Ingestion-time caching (Q14) isn't just an optimization here, it's a hard requirement: any cold-cache chunk-encoding latency at query time would likely blow the 100ms budget outright, so every chunk a query could plausibly retrieve needs its compressed embedding precomputed and cached well before it's needed. `expand_budget` should default low for routine retrieval to preserve the latency win, but query-type-aware budgeting (Q13, Q19's support-desk pattern) becomes safety-critical rather than a nice-to-have: any query touching a specific price level, threshold, or regulatory figure needs either a guaranteed-expanded top chunk or a bypass of compression entirely, since Q13's precision-loss failure mode — a compressed detail silently paraphrased instead of stated exactly — is unacceptable when it can trigger a bad trade.
+
+Given how fast market conditions and relevant document types shift, the RL policy (Q16) needs continuous retraining or recalibration rather than the largely static deployment REFRAG's own benchmark setting assumes; a policy that was well-calibrated last quarter can silently misjudge importance on today's market conditions. Because a synchronous re-expansion fallback would risk the SLO itself, targeted re-expansion (Q5's combination idea) has to happen via redundant precomputed expansion of top-ranked chunks, not an on-demand call. Monitor p99 (not just average) latency against the SLO specifically, expansion-rate drift, and treat any precision failure on a numeric or threshold-sensitive output as a financial incident requiring immediate review, not merely a quality metric to track over time.
 
 </details>
 

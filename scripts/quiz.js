@@ -1,21 +1,32 @@
+// Runs inline in every generated page (see scripts/build_site.mjs's wrapPage),
+// so this is a plain classic script, not an ES module — it can't `import`
+// scripts/lib/questions.mjs. These two vocab lists intentionally mirror
+// DIFFICULTIES / TAGS there; keep them in sync if the tag vocabulary changes.
+const DIFFICULTIES = ['Basic', 'Intermediate', 'Advanced'];
+const TAGS = ['Scenario'];
+
 function scrapeFromDom() {
   const items = [];
   document.querySelectorAll('h2').forEach(h2 => {
     if (!/^Q\d+\./.test(h2.textContent.trim())) return;
-    const codeEl = h2.querySelector('code');
-    let difficulty = 'Basic';
-    if (codeEl) {
-      const match = codeEl.textContent.match(/\[(Basic|Intermediate|Advanced)\]/);
-      if (match) difficulty = match[1];
-    }
+    // Collect every `[Tag]` code span in the heading (not just the first —
+    // a question can carry a difficulty tag *and* a Scenario tag, and some
+    // headings also contain unrelated backticked tokens mid-sentence, e.g.
+    // Self-RAG's `[IsSup]` reflection token).
+    const codeTokens = Array.from(h2.querySelectorAll('code'))
+      .map(el => el.textContent.match(/^\[([A-Za-z]+)\]$/))
+      .filter(Boolean)
+      .map(m => m[1]);
+    const difficulty = codeTokens.find(t => DIFFICULTIES.includes(t)) || 'Basic';
+    const tags = codeTokens.filter(t => TAGS.includes(t));
     const questionText = h2.textContent
       .replace(/^Q\d+\.\s*/, '')
-      .replace(/\s*\[(Basic|Intermediate|Advanced)\]\s*$/, '')
+      .replace(/(\s*\[[A-Za-z]+\])+\s*$/, '')
       .trim();
     let el = h2.nextElementSibling;
     while (el && el.tagName !== 'DETAILS') el = el.nextElementSibling;
     const answerHTML = el ? el.innerHTML : '<summary>No answer found</summary>';
-    items.push({ questionText, difficulty, answerHTML, section: null, sectionGroup: null, href: null });
+    items.push({ questionText, difficulty, tags, answerHTML, section: null, sectionGroup: null, href: null });
   });
   return items;
 }
@@ -27,6 +38,7 @@ function loadQuestions() {
   return raw.map(item => ({
     questionText: item.question,
     difficulty: item.difficulty,
+    tags: item.tags || [],
     answerHTML: item.answer,
     section: item.section || null,
     sectionGroup: item.sectionGroup || null,
@@ -38,6 +50,7 @@ const allQuestions = loadQuestions();
 
 let filtered = [], currentIndex = 0, correctCount = 0, reviewCount = 0;
 let difficultyFilter = 'All';
+let scenarioOnly = false;
 
 function shuffleArray(arr) {
   const a = arr.slice();
@@ -52,6 +65,9 @@ function applyFilters() {
   let result = allQuestions;
   if (difficultyFilter !== 'All') {
     result = result.filter(q => q.difficulty === difficultyFilter);
+  }
+  if (scenarioOnly) {
+    result = result.filter(q => q.tags.includes('Scenario'));
   }
   const sectionSelect = document.getElementById('section-select');
   if (sectionSelect && sectionSelect.value !== 'All') {
@@ -73,6 +89,16 @@ function setFilter(level, btn) {
   if (currentIndex >= filtered.length) currentIndex = 0;
   if (document.getElementById('quiz-panel').classList.contains('visible')) {
     currentIndex = 0;
+    renderQuestion();
+  }
+}
+
+function onScenarioChange() {
+  const toggle = document.getElementById('scenario-toggle');
+  scenarioOnly = !!(toggle && toggle.checked);
+  filtered = applyFilters();
+  currentIndex = 0;
+  if (document.getElementById('quiz-panel').classList.contains('visible')) {
     renderQuestion();
   }
 }
@@ -117,6 +143,7 @@ function renderQuestion() {
   const q = filtered[currentIndex];
   const progress = ((currentIndex + 1) / filtered.length * 100);
   const diffClass = q.difficulty.toLowerCase();
+  const tagBadges = q.tags.map(t => `<span class="tag-badge ${t.toLowerCase()}">${t}</span>`).join('');
   const sectionLine = q.section
     ? `<div class="quiz-section">${q.section}</div>`
     : '';
@@ -127,7 +154,7 @@ function renderQuestion() {
     <div class="quiz-header">
       <div>
         <strong>Question ${currentIndex + 1} / ${filtered.length}</strong>
-        <span class="difficulty-badge ${diffClass}">${q.difficulty}</span>
+        <span class="difficulty-badge ${diffClass}">${q.difficulty}</span>${tagBadges}
       </div>
       <button onclick="exitQuiz()" style="border: none; background: none; cursor: pointer; font-size: 1.2em;">✕</button>
     </div>

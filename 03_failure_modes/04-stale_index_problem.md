@@ -907,7 +907,7 @@ deletion_policy = {
 
 ---
 
-## Q7. How do you design a production update pipeline that minimizes staleness? `[Advanced]`
+## Q7. How do you design a production update pipeline that minimizes staleness? `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>

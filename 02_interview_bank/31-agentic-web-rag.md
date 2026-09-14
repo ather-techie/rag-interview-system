@@ -705,7 +705,7 @@ Defense-in-depth here mirrors general web-facing infrastructure security practic
 
 ---
 
-## Q19. Design a production Agentic Web RAG system for a financial research assistant needing real-time market data with source reliability guarantees. `[Advanced]`
+## Q19. Design a production Agentic Web RAG system for a financial research assistant needing real-time market data with source reliability guarantees. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -768,6 +768,42 @@ The key design choice is domain restriction combined with sub-goal decomposition
 Current limitations: (1) **latency remains structurally higher than corpus RAG** (Q4, Q17) — no amount of caching or parallelization eliminates the fundamental cost of at least one round-trip to external, uncontrolled infrastructure; (2) **source reliability is only ever partially mitigated, never eliminated** (Q3, Q18) — domain trust scoring and cross-checking reduce but don't remove the risk of an authoritative-looking but wrong source; (3) **evaluation is inherently harder than for a static corpus** (Q11) since the "correct" answer for a freshness-sensitive query genuinely changes over time, making reproducible benchmarking require deliberate snapshotting; (4) **cost scales with query volume in a way corpus retrieval doesn't** (Q17), making blanket deployment for all queries economically questionable without the routing discipline in Q16.
 
 Likely evolution: **tighter, more specialized integration with source-specific structured data APIs** (financial data feeds, regulatory filing APIs) rather than generic HTML scraping for domains where a real-time structured API exists — reducing both the extraction-failure risk (Q12) and the security exposure (Q18) that come with fetching arbitrary web pages; **learned or continuously-tuned relevance filters** replacing today's simpler heuristic scoring (Q15) as production feedback accumulates; and continued growth of the hybrid-routing pattern (Q16) as the default architecture, rather than a system committing wholesale to either corpus-based or web-based retrieval — treating "should this query use live search" as a first-class, continuously-improved routing decision rather than a static per-deployment choice.
+
+</details>
+
+---
+
+## Q21. A freelance analyst wants a personal assistant that fetches live web results to quickly fact-check numbers before client calls. What's a reasonable setup? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A single freelancer doing occasional fact-checks is a low-volume, low-stakes scenario, so the implication is to keep the pipeline simple rather than building the routing/multi-round infrastructure meant for higher-stakes or higher-volume systems (Q16, Q19).
+
+**Recommended approach:** a single-round search-and-synthesize pipeline (Q2's basic pattern) — call a search API, fetch the top 3-5 pages, and generate a cited answer — is enough; the multi-step research loop (Q5) is overkill unless the analyst frequently asks genuinely multi-hop questions. Favor **snippet-first generation** (Q4) for quick factual lookups, since most quick fact-checks don't need full-page fetches. Basic domain-trust scoring (Q3) is still worth including even at low volume, since a personal tool has no other line of defense against a low-quality or SEO-spam source, and citation tracking (Q9) matters here specifically so the analyst can click through and verify a number before repeating it on a client call.
+
+**Trade-offs to flag:** (1) at this scale there's no need for the cost/latency optimization machinery (caching, parallel fetching at scale, Q13, Q17) built for high-query-volume systems — a few seconds of latency per query is entirely acceptable for a personal tool; (2) the analyst should still apply basic prompt-injection sanitization (Q3) to fetched content, since the open web is adversarial-by-default regardless of how small the deployment is; (3) don't skip citation tracking just because stakes seem low — a wrong number repeated to a client is exactly the failure this component exists to make checkable.
+
+</details>
+
+---
+
+## Q22. A crisis-response NGO needs an assistant that pulls and verifies live web/news sources during a fast-moving natural disaster, where source quality is unreliable and decisions may affect where responders are sent. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints here are compounding: information changes by the minute, source reliability is unusually poor (social media, unverified local reports, conflicting casualty/needs figures), and the cost of acting on a wrong figure is high — this pushes the design toward maximum caution over speed, the opposite emphasis from Q21's low-stakes case.
+
+**Design:** use the **multi-round research loop** (Q5, Q7) with sub-goal decomposition rather than a single search pass — decompose "what's the current situation in district X" into separate sub-queries for official casualty figures, infrastructure status, and access routes, each searched and sourced independently. Apply **freshness-first fetching** (Q3's `extract_publish_date`) aggressively, since a disaster situation invalidates hour-old information quickly. Calibrate **domain trust scoring** (Q3) explicitly for this domain: official disaster-response agencies, government emergency services, and established wire services as high-trust; social media and unverified local reports flagged as low-trust and never used alone for a load-bearing claim. Make the **cross-source consistency check** (Q3's `CROSS_CHECK_PROMPT`) mandatory for any numeric claim (casualty counts, needs estimates) — if sources disagree, the answer must surface the conflict explicitly rather than picking one, given that responders may act on the number stated.
+
+**Security hardening** (Q18) matters more here than usual: disaster events are prime targets for misinformation, so SSRF/typosquatting defenses and redirect validation aren't optional hardening, they're load-bearing.
+
+**What to monitor:** citation accuracy and source-quality-weighted accuracy (Q11) tracked continuously (not as a one-time benchmark, since the underlying web content is changing by the hour); conflict-flag rate on numeric claims; and freshness lag per query, since a stale answer here is a distinct and dangerous failure mode from a merely low-quality one.
 
 </details>
 

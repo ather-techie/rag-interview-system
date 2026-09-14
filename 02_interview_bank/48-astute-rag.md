@@ -544,7 +544,7 @@ Mitigation: apply the same source-trust discipline to what's eligible for extern
 
 ---
 
-## Q18. Design an Astute RAG-based system for enterprise Q&A over frequently-changing knowledge bases. `[Advanced]`
+## Q18. Design an Astute RAG-based system for enterprise Q&A over frequently-changing knowledge bases. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -619,6 +619,40 @@ If the consolidation model has a systematic bias — say, over-trusting internal
 Current limitations: (1) **internal-knowledge elicitation risks fabrication on out-of-distribution queries** (Q5, Q18) — the mitigation (confidence-gating, query-scoping) requires deliberate engineering, it isn't automatic; (2) **cost is substantially higher than standard RAG** (Q16) due to the multiple LLM calls consolidation requires, making the Q15 decision gate genuinely load-bearing rather than a formality; (3) **consolidation bias is possible and not self-evident** (Q19) — the architecture's apparent even-handedness between sources doesn't guarantee actual even-handedness in practice; (4) **the internal source's calibration decays over time** (Q17) as training cutoff recedes, requiring ongoing recalibration that a static deployment easily neglects.
 
 Likely evolution: **calibrated confidence scores** on internal-knowledge elicitation (rather than the current binary "provide your best recollection" framing, Q2) to give consolidation a more principled signal than a fluent-sounding passage's surface confidence, directly addressing the fabrication risk at its source; **learned consolidation policies** (following the general trajectory of RL-trained decision-making elsewhere in this bank, e.g. Search-R1 #42) that could be trained specifically to avoid the systematic bias patterns Q19 describes, rather than relying on careful prompt engineering to keep a general-purpose LLM even-handed; and tighter integration with the query-scoping idea in Q18 as a standard architectural component — automatically detecting when a query is plausibly within the model's training distribution (worth eliciting internal knowledge for) versus clearly outside it (skip elicitation, avoid the fabrication risk entirely) rather than treating this as a deployment-specific customization.
+
+</details>
+
+---
+
+## Q21. A small retailer's inventory system and point-of-sale system sometimes disagree about a product's current price. How would you design a lightweight Astute RAG-style reconciliation tool for their staff, and is the full architecture even worth it at this scale? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Two internal spreadsheets (or systems) disagreeing on a price is a much narrower conflict than Astute RAG's usual worst-case framing (adversarial or badly stale retrieval, Q1), and at a small retailer's scale the full architecture is arguably more machinery than the problem needs — Q16's roughly five LLM calls per query is a real cost multiplier that only pays for itself if conflicts are frequent enough to matter (Q15's decision gate).
+
+If built anyway, the useful piece to borrow is Q3's consolidation logic applied to two tagged external sources (inventory system, POS system) rather than the internal-versus-external framing this file centers on — the model's parametric knowledge of retail prices is irrelevant here, so skip internal-knowledge elicitation (Q2) entirely and consolidate only the two systems, weighting by whichever was more recently modified, the same recency-cue logic Q3 and Q18 use for policy conflicts.
+
+The honest trade-off to raise with the retailer: a simple deterministic rule — "the POS system is always the source of truth for price, full stop" — plus occasional manual reconciliation of flagged mismatches probably resolves this more cheaply and just as reliably as a consolidation LLM call on every price lookup. Recommend the lightweight rule first, and only reach for Astute RAG-style consolidation if genuine three-or-more-way conflicts across systems become common enough that a fixed priority rule stops being good enough.
+
+</details>
+
+---
+
+## Q22. A multinational conglomerate is reconciling conflicting regulatory guidance from its regional subsidiaries in the middle of a live compliance audit. Where does Astute RAG's consolidation logic need to change when the "conflict" might just be legitimate jurisdictional divergence? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Conflicting regulatory guidance across regional subsidiaries during a live audit isn't necessarily the retrieval-quality problem Astute RAG's consolidation logic (Q3) was built to resolve — two regional policies can both be correct simultaneously for their own jurisdiction, which is a case this file's default framing (pick the more-supported side, or abstain) doesn't natively distinguish from genuine staleness or error, and forcing a single "winning" answer where the real answer is "it depends on jurisdiction" would itself be a wrong answer during an audit.
+
+The design needs a jurisdiction-check step ahead of Q3's generic conflict resolution: tag every external source by subsidiary/jurisdiction explicitly (extending Q18's multi-repository tagging), and have consolidation first ask whether a detected conflict reflects legitimate regional divergence before ever invoking the agreement-count or recency heuristics meant for staleness-driven conflicts. Internal-knowledge elicitation (Q2) should be scoped off for jurisdiction-specific regulatory questions entirely, given the model's parametric knowledge of fine-grained regional compliance detail is exactly the kind of out-of-distribution territory Q5's fabrication risk warns about.
+
+Given the live-audit pressure, mandatory abstention and escalation to a human compliance officer (Q4's hedging behavior, made non-negotiable rather than a fallback) applies to any conflict the jurisdiction-check can't cleanly classify as legitimate divergence versus genuine staleness — auditors need an honest "sources differ by region, as of these dates" far more than a confidently resolved single answer. Track resolution accuracy (Q11) segmented specifically by whether ground truth was a single correct answer or a legitimately jurisdiction-dependent one, since collapsing those two categories into one accuracy number would hide exactly the failure mode this scenario is built around, and log every consolidation decision as part of the audit's own paper trail.
 
 </details>
 

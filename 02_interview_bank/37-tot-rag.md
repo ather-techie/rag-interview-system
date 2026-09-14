@@ -520,7 +520,7 @@ Mitigation for all four centers on treating retrieved evidence feeding into eval
 
 ---
 
-## Q18. Design a ToT-RAG system for a production root-cause-analysis assistant. `[Advanced]`
+## Q18. Design a ToT-RAG system for a production root-cause-analysis assistant. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -598,6 +598,46 @@ Current limitations:
 - **No standard production benchmark** — unlike some other architectures in this bank, ToT-RAG lacks a widely-cited production-scale evaluation; most of the evidence for its value comes from the original ToT paper's non-retrieval puzzle tasks, not from retrieval-grounded production query distributions.
 
 Likely evolution: **learned, adaptive search policies** that predict branching factor and depth per-query from cheap features (rather than fixed hyperparameters applied uniformly) are the natural next step, effectively merging the routing gate (Q12) into the search algorithm itself rather than treating it as a separate upstream classifier. Expect tighter integration with verifier/critic models trained specifically for branch evaluation (rather than a general-purpose LLM prompted to score), which would address the evaluator-calibration weakness directly, and continued downward pressure on cost via smaller, faster models for generation and evaluation that make deeper or wider search economically viable for a broader range of query volumes.
+
+</details>
+
+---
+
+## Q21. A hobbyist wants a personal puzzle-solving assistant that explores multiple reasoning branches (e.g., logic puzzles, riddles with several plausible answers) before committing to an answer. Is ToT-RAG a reasonable fit, and how would you set it up? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+This is close to ToT-RAG's ideal low-stakes use case: puzzles routinely have several superficially plausible answers that need to be checked against clues or facts before committing, which is exactly the "competing hypotheses" pattern ToT-RAG targets (Q1, Q6) — and unlike a production system, a hobbyist tool has no latency SLA or cost ceiling forcing restraint.
+
+**What the situation implies:** low query volume (a single hobbyist, occasional use), no strict latency requirement (waiting 15-60 seconds for a well-reasoned puzzle answer is perfectly acceptable, per Q15's latency table), and low stakes if a branch is wrongly pruned.
+
+**Recommended approach:** the straightforward BFS-with-beam implementation from Q5 works as-is, with modest defaults — `branching_factor=2-3`, `beam_width=2`, `max_depth=3` (Q10's starting points) — and a lightweight retriever (a small personal knowledge base, or even a web search call per branch) supplying evidence for each hypothesis. There's no need for the routing gate (Q12) or hard cost controller (Q16) that production deployments require, since a single hobbyist's query volume can't create the cost or denial-of-service exposure those exist to prevent.
+
+**Trade-offs to flag:** (1) this is exactly the scenario where ToT-RAG's 10-50x cost multiple over simpler RAG (Q15) doesn't matter, because absolute query volume is tiny — a cost trade-off that would be irresponsible at production scale is a non-issue for personal use; (2) if the hobbyist later wants this to answer simple, non-competing-hypothesis questions too, route those to a cheaper method (Q6) rather than running everything through the full tree search by default.
+
+</details>
+
+---
+
+## Q22. A semiconductor fab's yield-analysis assistant must explore competing failure-tree hypotheses (equipment drift, contamination, process shift, material defect) for a yield drop, and the team needs a decision before the shift ends. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The "same-shift decision deadline" is effectively a hard latency SLO layered on top of ToT-RAG's already-high cost profile (Q15), and the stakes — a wrong-but-fast diagnosis can mean scrapping more wafers than a right-but-slower one — mean the pruning threshold and evaluator calibration matter more here than in most ToT-RAG deployments.
+
+**Design:** apply the **routing gate** (Q12) first — only yield incidents an initial cheap classifier flags as "cause unclear" enter the ToT path; incidents matching a known, well-understood failure signature go straight to a templated runbook, preserving the shift-deadline budget for genuinely ambiguous cases. **Constrain thought generation to a fixed taxonomy** of the four known failure categories (equipment, contamination, process, material) rather than open-ended hypothesis generation — the same constrained-taxonomy pattern as Q18's root-cause assistant, which improves evaluator calibration and produces categorized, auditable output an engineer can trust quickly under time pressure. **Conditional retrieval per branch** pulls category-specific telemetry: equipment-drift branch retrieves tool logs and maintenance records; contamination branch retrieves particle-count and cleanroom sensor data; process-shift branch retrieves recipe/parameter change logs; material-defect branch retrieves incoming-material inspection data.
+
+**Fit the search to the deadline explicitly**: size the hard call-budget controller (Q16) so the tree's total LLM/retrieval calls complete well within the shift window, and use **shallow BFS** (`max_depth=2`, similar to Q18) since these four failure categories are largely parallel, not a deep chain of sub-hypotheses.
+
+**Pruning calibration is the highest-leverage risk to manage** (Q13): under time pressure, an over-aggressive threshold that prunes the correct hypothesis early is far more costly here than in a low-stakes domain, so track the score distribution of pruned branches specifically for this system, not just accuracy in aggregate.
+
+**What to monitor:** time-to-decision against the shift deadline, evaluator calibration against a labeled set of past confirmed root causes, and the false-prune rate on retrospectively-confirmed correct hypotheses.
 
 </details>
 

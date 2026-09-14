@@ -566,7 +566,7 @@ Mitigation: enforce hard caps on sub-query count and total branch-driven retriev
 
 ---
 
-## Q18. Design an RQ-RAG-based enterprise search system for a jargon-heavy corpus. `[Advanced]`
+## Q18. Design an RQ-RAG-based enterprise search system for a jargon-heavy corpus. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -641,6 +641,40 @@ Q5's failure mode 3 identifies the core issue: perplexity measures how predictab
 Current limitations: (1) **tree decoding's cost scales with branch count regardless of query difficulty** (Q16) — unlike CoRAG's adaptive chain length (#50), RQ-RAG's default exploration doesn't shrink for queries where the right operation is already obvious upfront, without additional branch-pruning engineering; (2) **perplexity-based path selection conflates fluency with correctness** (Q5, Q19) — a structural blind spot in the selection mechanism, not just a calibration issue that better tuning fully resolves; (3) **training data quality is bottlenecked by teacher-model judgment plus outcome filtering** (Q3, Q9, Q17) — both stages can introduce systematic bias that's hard to fully audit; (4) **the fixed three-operation vocabulary may not cover every useful refinement pattern** — a query need that doesn't cleanly map to rewrite/decompose/disambiguate has no expressive slot in the current design, unlike CoRAG's unconstrained reformulation (Q8).
 
 Likely evolution: **adaptive branch pruning** (as sketched in Q16, Q18) becoming a standard component rather than an ad hoc optimization, narrowing the cost gap with more compute-adaptive architectures; **richer or learned correctness signals for path selection** replacing perplexity alone (Q19), potentially incorporating retrieval-quality or entailment-style checks cheaply alongside the free perplexity signal rather than relying on it exclusively; and continued convergence with the broader family of learned-retrieval-decision architectures in this bank (CoRAG, Search-R1, Auto-RAG/DeepRAG) — a plausible unification is a single fine-tuned policy that jointly decides whether to retrieve at all (#49's action space), how to formulate the query if so (this file's operations), and how many hops to chain (CoRAG's #50 chain-length knob), rather than treating these as three separately-trained architectural choices as they exist today.
+
+</details>
+
+---
+
+## Q21. A small consultancy wants a lightweight search tool that rewrites vague client questions into concrete sub-queries. Should they fine-tune an RQ-RAG-style model, or is prompted rewriting good enough here? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A handful of consultants asking vague, compound questions against a small internal knowledge base is a reasonable match for RQ-RAG's conceptual value — deciding per-query whether to rewrite, decompose, or disambiguate — but Q15's decision gate points fairly clearly toward prompted rewriting instead at this scale: low query volume doesn't amortize the fine-tuning investment, and a small consultancy evaluating or swapping between vendor LLMs periodically (a common pattern for a firm this size) runs directly into the base-model-coupling cost Q5 and Q7 flag, where a fine-tuned refinement policy is tied to one specific checkpoint and has to be retrained if the underlying model changes.
+
+The practical approach is to approximate RQ-RAG's three operations via prompting on a frozen model: ask it to first classify whether a client question needs rewriting, decomposing into sub-questions, or clarifying against prior conversation context, then execute accordingly — capturing most of the adaptive benefit without a training pipeline, special tokens, or tree-decoding infrastructure.
+
+Revisit the fine-tuning question later, not now: if the consultancy's query volume grows substantially and settles on one stable base model long enough to amortize training, Q15's gate may then pass, particularly if a genuine mix of well-formed, compound, and ambiguous questions is common enough that one fixed prompted strategy starts feeling inadequate — but that's a future decision point, not today's.
+
+</details>
+
+---
+
+## Q22. A multinational's internal search platform has to rewrite and decompose ambiguous employee queries across 15 business units that each use their own jargon. How does RQ-RAG's design need to change to avoid learning just one unit's vocabulary? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Fifteen business units with inconsistent terminology is a harder version of Q18's single-corpus jargon-translation scenario, and the key risk this scale adds is a policy that quietly overfits to whichever business units contributed the most training queries, silently underperforming on the others — training data synthesis (Q3, Q9) has to deliberately sample across all fifteen units' real search logs, not just whichever units were easiest to get data from first, or the fine-tuned model will systematically favor the terminology of its best-represented units.
+
+Action-distribution monitoring (Q12) needs to be segmented per business unit rather than aggregated, since different units will genuinely have different natural action mixes — a unit with heavy internal-acronym use will lean on `<rewrite>` far more than a unit whose questions are mostly already well-formed — and a single global expectation would mask a unit-specific miscalibration that looks fine in the aggregate. Given the scale implies real query volume, branch-pruning (Q16) is worth the engineering effort to keep tree-decoding cost bounded, and the perplexity-based path-selection risk in Q19 is sharper here than usual: a fluent-sounding disambiguation that happens to use the wrong business unit's terminology for an ambiguous term is exactly the kind of confidently-wrong answer perplexity alone won't catch, arguing for a lightweight business-unit classifier as a supplementary signal ahead of path selection.
+
+Retraining cadence (Q12, Q18) needs to track organizational reality, not just calendar time — reorganizations, renamed teams, and merged business units can shift terminology faster than a single stable corporation would, so resynthesizing training traces from recent search logs needs to happen on a schedule tied to organizational change, and per-unit action-selection accuracy should be tracked explicitly so any underrepresented unit's drift is caught rather than averaged away.
 
 </details>
 

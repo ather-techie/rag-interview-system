@@ -518,7 +518,7 @@ Mitigation: apply Q5's mitigation table (post-hoc consistency checks, confidence
 
 ---
 
-## Q18. Design an Auto-RAG or DeepRAG-based system for an enterprise knowledge assistant with mixed fresh/stable knowledge. `[Advanced]`
+## Q18. Design an Auto-RAG or DeepRAG-based system for an enterprise knowledge assistant with mixed fresh/stable knowledge. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -592,6 +592,40 @@ A policy trained to trust its own parametric knowledge for certain subquery type
 Current limitations: (1) **PARAMETRIC decisions decay over time as the world changes and the model doesn't** (Q19) — a policy calibrated at training time has no built-in mechanism to notice its own parametric knowledge has gone stale, requiring external monitoring to catch; (2) **chain-level cascading risk has no natural circuit breaker** (Q5, Q17) — a single bad early decision propagates through an entire multi-hop answer with nothing structurally stopping it; (3) **training data construction is expensive and architecture-specific** (Q12, Q16) — DeepRAG's tree search and Auto-RAG's teacher-trace distillation are each substantial one-time investments that don't transfer between the two approaches; (4) **DeepRAG's structured decomposition assumes questions cleanly atomize** (Q14), which doesn't hold for genuinely open-ended or exploratory questions where "what atomic fact do I need next" isn't well-defined.
 
 Likely evolution: **continuous recalibration mechanisms** that periodically refresh the retrieve/parametric confidence boundary as time passes (directly addressing limitation 1) rather than treating the policy as calibrated once at training time and stable indefinitely; **hybrid architectures combining DeepRAG's auditable per-subquery structure with Auto-RAG's more flexible free-form reasoning** for questions that don't fully atomize; and, following the same trajectory as Search-R1's family (#42, Q20), a plausible shift toward RL-based training (optimizing the retrieve/parametric decision against outcome reward directly, rather than DeepRAG's tree-search-then-imitate two-stage process) as RL-for-reasoning infrastructure matures and becomes cheaper to run at the scale these architectures' training data construction currently requires.
+
+</details>
+
+---
+
+## Q21. A small dev team wants an internal assistant that decides, question by question, whether to check the wiki or just answer from general programming knowledge. Would you reach for DeepRAG's full training pipeline here, or something simpler? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A handful of engineers asking questions that mix general programming knowledge with team-specific conventions is a reasonable conceptual fit for DeepRAG's per-subquery decision (Q3, Q4), but the full training pipeline — binary tree search over decision sequences (Q12) plus fine-tuning — is a heavier investment than a small team's query volume is likely to justify under Q15's decision gate, which explicitly checks whether genuine within-question difficulty variance exists at meaningful scale before recommending training at all.
+
+The pragmatic starting point is to implement the same retrieve-or-reason idea via prompting rather than training: a frozen capable model, given the team's wiki as a tool, decides per sub-question whether to check the wiki (team-specific facts: deployment steps, code-review policy) or answer from general knowledge (a standard library question), which captures most of the practical benefit without needing labeled training data or a tree-search pipeline the team almost certainly doesn't have the volume to build well.
+
+Flag the asymmetric risk from Q5 even at this small scale: a false-PARAMETRIC answer on a team-specific question (confidently describing a convention that isn't actually this team's) is worse than an unnecessary wiki lookup, so bias the prompted version toward checking the wiki whenever a question plausibly touches team-specific process, and revisit real DeepRAG training only if usage grows enough that the efficiency gains would actually offset the training investment.
+
+</details>
+
+---
+
+## Q22. A global consulting firm wants its assistant to decide, step by step, whether to retrieve client-specific data or reason from stable general knowledge — across hundreds of concurrent client engagements that must never leak into each other. What does DeepRAG need beyond its base design here? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Hundreds of concurrent client engagements add a requirement this file's base design doesn't address at all: retrieval isolation. Q3's state and action model assumes retrieval draws from one shared corpus, but here every RETRIEVE action must be hard-scoped to that specific engagement's client documents, with no path for one client's subquery to ever retrieve another client's data — a confidentiality requirement, not just an accuracy one, and it needs to be enforced structurally (partitioned indices per engagement, not a soft trust boundary) rather than left to the policy's own judgment.
+
+Given the asymmetric cost of a false-PARAMETRIC decision (Q5) — a consultant confidently stating stale or wrong client-specific information as current fact — time-sensitivity overrides need to be tied to each client's own volatility profile rather than one global rule: a newly onboarded, fast-moving client's org chart and figures should force RETRIEVE far more readily than a long-stable engagement's settled facts. Calibration drift (Q19) also needs per-client tracking, since a policy well-calibrated on one client's data cadence can misjudge a different client's faster-changing one, and a single global drift metric would average away exactly the client-specific miscalibration that matters.
+
+Given the query volume across hundreds of engagements plausibly clears Q15's decision gate (real training-data volume, genuine sub-step difficulty variance), DeepRAG's structured, auditable decomposition (Q13, Q14) is the right choice over Auto-RAG's free-form dialogue specifically because compliance and client-confidentiality reviews need an inspectable per-subquery log. Monitor cross-tenant retrieval attempts as security incidents, not accuracy metrics, and track calibration drift and false-PARAMETRIC rate per client cohort rather than in aggregate.
 
 </details>
 

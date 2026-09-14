@@ -510,6 +510,44 @@ WebGPT's core insight nonetheless persists in every modern agentic system: treat
 
 ---
 
+## Q21. A personal research assistant needs to browse the web and cite sources while helping a student with a homework question. Should you build anything WebGPT-style here, or just prompt? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Low stakes, a single casual user, and a tool space (web search, page fetch) that's likely to keep evolving all point toward prompting an existing capable model rather than any WebGPT-style fine-tuning (Q18's criteria run against fine-tuning here on every count).
+
+**What the situation implies:** homework fact-checking doesn't carry the liability that would justify the cost and calendar time of behavior-cloning-plus-RLHF (Q15); the tool space (which search API, what to fetch) is exactly the kind of thing that changes over time, which Q13 flags as a poor fit for a fixed, learned action space; and the base model's own instruction-following is now good enough (Q6, Q20) to reliably decide when to search.
+
+**Recommended approach:** use a **prompted agentic system** (Agentic Web RAG, #31) — give a current-generation model tool definitions for search and page-fetch and let it decide when to invoke them. Borrow WebGPT's core *design insight* rather than its training method: explicitly instruct the model to **quote exact supporting text** for each claim (mirroring WebGPT's `quote` action, Q3) even though this is implemented as a prompt instruction rather than a learned action — this captures much of WebGPT's citation-quality benefit (Q11) without any fine-tuning cost.
+
+**Trade-offs to flag:** (1) a prompted system's citation reliability is "variable, post-hoc" rather than WebGPT's "excellent by construction" (Q6's comparison table) — acceptable here given the low stakes, but worth naming explicitly rather than assuming citation quality is solved; (2) if this assistant later needs to operate in a genuinely high-stakes, narrow, and stable domain, that's the point to revisit Q18's fine-tuning criteria — not before.
+
+</details>
+
+---
+
+## Q22. A financial-compliance desk needs a tool-augmented assistant that must browse, cite, and log every external source it touches, for a regulator audit trail. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The regulator-audit-trail requirement is a hard compliance constraint that shifts the calculus away from Q21's low-stakes case: here, citation completeness and logging discipline matter more than avoiding fine-tuning cost, and Q18's criteria for *when to fine-tune* — narrow and stable tool space, cheap verification signal — plausibly apply to at least part of this system.
+
+**Design:** regardless of whether the underlying policy is prompted or fine-tuned, make **WebGPT's explicit `quote` discipline (Q3) a hard architectural requirement, not an optional instruction** — every claim in a generated compliance memo must have a corresponding quoted, source-linked passage, and the Citation Collector pattern (this file's own architecture) should be implemented as a mandatory, logged pipeline stage rather than left to the model's discretion. Every source URL touched, along with the exact quoted text and timestamp, must be retained for later regulator review (paralleling the audit-log discipline in Verifiable RAG's Q19 and Q18).
+
+**On fine-tuning vs. prompting specifically:** if the desk's browsing needs are actually narrow and stable (a fixed set of regulatory-filing sources and financial-data APIs, not open-ended web search) and outputs are objectively verifiable (does the cited figure match the source document), that combination — per Q9's Gorilla precedent and Q18's criteria — makes a fine-tuned, verifiable tool-call approach worth evaluating alongside a prompted one, in contrast to Q21 where none of those conditions held. Run the **decision-gate comparison from Q12** explicitly rather than assuming either approach by default, given how much more is riding on getting this right than in the homework-helper case.
+
+**What to monitor:** citation coverage and citation accuracy (Q11) at effectively 100% sampling rather than a spot-check, given the audit-trail purpose; completeness of the retained log (every source URL plus quoted text, not a sample); and, if any fine-tuned component is used, periodic reward/behavior-drift audits (Q17) since a compliance desk cannot tolerate quietly degrading citation behavior between audits.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why This Pattern Fits |

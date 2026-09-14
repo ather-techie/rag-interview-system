@@ -531,7 +531,7 @@ Cost per query: $0.035 (vs. $0.10 for always-multi-hop)
 
 ---
 
-## Q10. Design a production Adaptive RAG deployment that handles query routing at 500 QPS. `[Advanced]`
+## Q10. Design a production Adaptive RAG deployment that handles query routing at 500 QPS. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -976,6 +976,40 @@ A classifier trained on one query distribution can systematically misjudge a que
 A classifier trained once on an initial labeled dataset will drift out of calibration as real query patterns evolve — new product features generate new question types the original training data never saw, users adopt new phrasing conventions, or the corpus itself grows into new topic areas the classifier was never trained to route correctly. Unlike a retrieval index, which can be incrementally updated as documents change, a classifier's "knowledge" of what complexity levels look like is frozen at its last training run until it's explicitly retrained.
 
 **Practical approach:** (1) continuously sample production queries (not just at launch) and periodically have them labeled — either by human review or by a more expensive "ground truth" method (e.g., running the query through all three tiers and checking which was actually necessary) — building an ever-growing, ever-more-representative labeled set rather than treating the original training data as permanent; (2) monitor the tier-distribution of production traffic over time, since a sudden shift (a spike in queries the classifier routes to no-retrieval, for instance) can signal either a genuine change in user behavior or a classifier that's starting to misjudge a growing query segment (Q19); (3) retrain on a cadence informed by observed drift rate rather than a fixed calendar schedule — a fast-evolving product surface needs more frequent classifier refreshes than a stable, slowly-changing knowledge domain.
+
+</details>
+
+---
+
+## Q21. A campus library assistant gets a lot of "what time do you close" and "where's the reference desk" questions. Should those even trigger retrieval? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+This is a small, low-stakes deployment with a clearly identifiable slice of traffic — hours, location, basic policy — that's simple, stable, and arguably better served by a fixed lookup than by running a full retrieval pass every time. That's precisely the no-retrieval tier this file describes (Q14): a lightweight classifier, or even a simple keyword/intent rule at this small scale, routes fixed-fact questions to a direct parametric or hardcoded answer, while genuinely open-ended questions ("which books do you have on medieval history") route to single-hop retrieval over the catalog.
+
+Given the narrow, predictable set of simple-intent phrasings a library sees, a short list of rule-based triggers gets most of the benefit — faster, cheaper answers for the bulk of routine traffic — without the training-data investment a full classifier (Q15, Q18) would need.
+
+The trade-off: a rule-based router won't generalize to new phrasings of the same simple question the way a trained classifier would, which is Q19's miscalibration concern in miniature, just handled manually instead of statistically. At this scale that's fine — watching for new simple-question patterns the fixed rules miss and adding them as they're noticed is enough oversight; it only becomes worth building a real classifier if traffic and question variety grow substantially.
+
+</details>
+
+---
+
+## Q22. A multinational retailer's support bot must route between no-retrieval, single-hop, and multi-hop paths across 20 country-specific catalogs. How do you keep the classifier accurate everywhere? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Twenty countries means twenty distinct query distributions, languages, and catalog structures layered on top of the classifier's usual job — a single global classifier trained mostly on one or two dominant markets will systematically miscalibrate on the rest, which is Q19's tier-specific-miscalibration failure mode recurring at country granularity instead of topic granularity.
+
+Train and monitor the complexity classifier per country-cluster rather than as one global model, grouping countries with genuinely similar query patterns and catalog complexity rather than assuming uniform behavior across all twenty. Bias the confidence threshold toward the more expensive tier (Q18) more aggressively in newer or smaller markets with less training data, since under-routing risk is highest exactly where the classifier has seen the least. Restrict the no-retrieval tier to genuinely locale-independent facts, since even simple-seeming questions like "what's your return window" vary by country and shouldn't be answered from one shared parametric assumption.
+
+What to monitor: routing accuracy and answer quality segmented by country (Q18's methodology, sliced by locale instead of tier alone), tier-distribution drift per country over time (Q20), since one market's query patterns can shift independently of the others, and specifically a rising rate of near-miss routing in newer markets as the signal that market needs its own fine-tuning rather than inheriting the global model's calibration. The trade-off: per-country classifier tuning is significantly more operational overhead than one shared classifier, but a single global model at this scale risks silently underperforming in every market except whichever one dominated its training data.
 
 </details>
 

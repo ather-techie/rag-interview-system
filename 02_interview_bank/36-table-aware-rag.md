@@ -521,7 +521,7 @@ The core principle: table updates need row-level, not document-level, change tra
 
 ---
 
-## Q18. Design a Table-Aware RAG system for a financial analyst assistant handling a 500-row quarterly report table. `[Advanced]`
+## Q18. Design a Table-Aware RAG system for a financial analyst assistant handling a 500-row quarterly report table. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -596,6 +596,46 @@ Current limitations:
 - **No standard, widely-adopted production benchmark** — TAT-QA and FinQA are useful research benchmarks, but most production deployments end up building a bespoke golden set (Q12) because real corpus table formats vary too much from any single public benchmark's assumptions.
 
 Likely evolution: tighter integration between retrieval and **code-execution tool use** — rather than retrieving table text into a prompt and hoping the LLM computes correctly, the emerging pattern is retrieving the relevant table as structured data (a DataFrame, not linearized text) and having the model write and execute code against it directly, turning "arithmetic accuracy" from a language-modeling problem into a code-correctness problem, which is far easier to verify and far more reliable at scale.
+
+</details>
+
+---
+
+## Q21. A small retail chain's store manager wants to ask natural-language questions over a weekly inventory spreadsheet (a few hundred SKUs). What's an appropriate design? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A few hundred SKUs in a single weekly spreadsheet is well below the row-count threshold (~20 rows, Q10) where row-level chunking becomes necessary — this is squarely a case for the simpler end of the Table-Aware RAG spectrum, not the full hybrid pipeline built for large, multi-table corpora.
+
+**What the situation implies:** one source spreadsheet, already structured (not a PDF requiring table extraction), refreshed weekly, and queried by one manager rather than serving high query volume.
+
+**Recommended approach:** since the source is already a spreadsheet, skip PDF/HTML table extraction (Q4) entirely and load it directly with pandas. Given the row count, **full Markdown linearization** (Q5) — treating the whole sheet as one chunk — is simpler and preserves more cross-row context than row-level chunking would, and it avoids the row-only-chunking failure mode (Q14) where aggregate questions like "which category is understocked" can't be answered from any single row. In fact, at this scale it's worth questioning whether a dedicated retrieval pipeline is needed at all — since there's only one table, simply including the full sheet in the prompt alongside the arithmetic-reasoning system prompt (Q11) may be simpler than building `chunk_type` metadata and hybrid retrieval (Q6, Q8, Q9) meant for corpora with many tables mixed with prose.
+
+**Trade-offs to flag:** (1) avoid over-engineering — the hybrid retriever, hyperparameter tuning around `table_boost`, and row-count thresholds (Q9, Q10) are solving problems (many tables, high query volume, numerical-query competition against prose) this single-sheet, single-user scenario doesn't have; (2) still apply the "show your work" arithmetic prompting (Q11) so the manager can sanity-check a computed reorder quantity or shortfall percentage.
+
+</details>
+
+---
+
+## Q22. A national statistics agency needs to answer cross-referenced questions over thousands of linked census tables, with strict numerical-accuracy requirements for any published figure. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+At this scale — thousands of tables, many logically linked (age-by-region cross-referenced with income-by-region, for instance) — the constraints compound: row-level chunking is mandatory for scale (Q5), but "strict numerical accuracy" is a hard requirement that rules out trusting LLM arithmetic over retrieved fragments (Q14, Q17).
+
+**Design:** use **row-level chunking with a hybrid summary chunk per table** (Q5) so both precise lookups and table-scope queries are retrievable. Every table gets a stable `table_id` and row-identity keys (Q16), since census tables are revised and restated on a predictable schedule and the system must distinguish "same logical table, updated" from "a new table." **Route every aggregation or cross-table query to code execution against the actual DataFrame**, never to LLM summation over retrieved row fragments (Q14, Q17, Q18's core insight) — this is non-negotiable given the accuracy requirement, and it also removes the aggregation-manipulation risk (Q17) that comes from trusting LLM-computed totals.
+
+**Header robustness matters disproportionately here** (Q13): government census tables routinely have merged headers, multi-row category/unit headers, and footnote markers, and a silently mis-parsed header produces a confidently wrong answer rather than an obvious miss — treat any table the extractor can't cleanly parse as a flagged extraction failure requiring manual review, not a table to silently mis-linearize.
+
+**Cross-referencing tables** requires the retrieval layer to resolve which tables are linked (e.g., via shared geographic or time-period keys) before an aggregation query spanning multiple tables is dispatched to code — this is an extension of the single-table aggregation routing in Q18, applied across table boundaries.
+
+**What to monitor:** arithmetic-step faithfulness and cross-table join correctness on a golden set segmented by lookup-vs-cross-table-aggregation query type (Q12, Q14), and restated-figure tagging completeness (Q16) — an unflagged restatement silently answering with a since-superseded number is a distinct and serious failure mode for a statistics agency's credibility.
 
 </details>
 

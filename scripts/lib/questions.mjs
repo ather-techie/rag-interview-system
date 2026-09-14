@@ -11,14 +11,31 @@
 // here, as a cheap cross-check that nothing silently dropped out of the HTML
 // extraction (see build_site.mjs's post-extraction count check).
 
+// Exactly one of these must appear per heading (see parseHeading's
+// difficultyCount check). Describes how much expertise the *answer* needs.
 export const DIFFICULTIES = ['Basic', 'Intermediate', 'Advanced'];
 
-// A valid question heading: "## Q7. Question text? `[Basic]`"
-// The difficulty tag is optional in the *match* (so callers can detect and
-// report a missing tag) but required for a heading to be considered fully
-// valid — see parseQuestionFile's problem collection.
+// Zero or more of these may appear per heading, independent of difficulty.
+// `Scenario` marks a question that drops the candidate into a concrete
+// situation (a named domain, corpus, SLO, incident, or constraint) and asks
+// them to design, diagnose, decide, or trade off — see CONTRIBUTING.md.
+export const TAGS = ['Scenario'];
+
+// A single backticked-bracket tag token, e.g. `[Advanced]` or `[Scenario]`.
+const TAG_TOKEN_RE = /`\[([A-Za-z]+)\]`/g;
+
+// A valid question heading: "## Q7. Question text? `[Basic]` `[Scenario]`"
+// Tags may appear in any order (difficulty first is the documented
+// convention) and the whole trailing run is optional in the *match* (so
+// callers can detect and report a missing/malformed tag) but a single
+// difficulty tag is required for a heading to be considered fully valid —
+// see parseQuestionFile's problem collection. The lazy `(.*?)` means only a
+// *trailing* run of backticked bracket tokens is ever treated as tags, so a
+// mid-sentence backticked token (e.g. Self-RAG's `` `[IsSup]` `` reflection
+// token, followed by more prose before the real difficulty tag) is correctly
+// left as part of the question title.
 export const HEADING_RE =
-  /^## Q(\d+)\.\s+(.*?)\s*(?:`\[(Basic|Intermediate|Advanced)\]`)?\s*$/;
+  /^## Q(\d+)\.\s+(.*?)\s*((?:`\[[A-Za-z]+\]`\s*)*)$/;
 
 // Any other H2/bold pattern that looks like someone's attempt at a question
 // but doesn't match HEADING_RE — the legacy `**Q: ...?**` style used in the
@@ -34,6 +51,37 @@ const STOPWORDS = new Set([
   'with', 'it', 'its', 'this', 'that', 'these', 'those', 'can', 'would',
   'should', 'could', 'does', 'as', 'at', 'by', 'from',
 ]);
+
+/**
+ * Parses one "## Qn. ... `[Tag]` `[Tag]`" heading line into its structural
+ * pieces, or returns null if the line isn't a heading at all. Splits the
+ * trailing tag run into the recognized difficulty (at most one is expected;
+ * `difficultyCount` lets callers flag zero or more-than-one), recognized
+ * non-difficulty tags (currently just `Scenario`), and anything else
+ * (`unknownTags`, e.g. a typo'd or made-up tag).
+ */
+export function parseHeading(line) {
+  const m = line.match(HEADING_RE);
+  if (!m) return null;
+
+  const n = Number(m[1]);
+  const title = m[2].trim();
+  const tagRun = m[3] || '';
+  const tokens = [...tagRun.matchAll(TAG_TOKEN_RE)].map((t) => t[1]);
+
+  const difficulties = tokens.filter((t) => DIFFICULTIES.includes(t));
+  const tags = tokens.filter((t) => TAGS.includes(t));
+  const unknownTags = tokens.filter((t) => !DIFFICULTIES.includes(t) && !TAGS.includes(t));
+
+  return {
+    n,
+    title,
+    difficulty: difficulties[0] || null,
+    difficultyCount: difficulties.length,
+    tags,
+    unknownTags,
+  };
+}
 
 /** Normalizes a question title for exact-duplicate comparison. */
 export function normalizeTitle(title) {
@@ -127,7 +175,7 @@ export function parseQuestionFile(mdRaw, fileRel) {
   let expectedN = 1;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const headingMatch = line.match(HEADING_RE);
+    const headingMatch = parseHeading(line);
 
     if (!headingMatch) {
       if (LOOSE_Q_RE.test(line) && !/^## Q\d+\./.test(line)) {
@@ -142,9 +190,7 @@ export function parseQuestionFile(mdRaw, fileRel) {
       continue;
     }
 
-    const n = Number(headingMatch[1]);
-    const qTitle = headingMatch[2].trim();
-    const difficulty = headingMatch[3] || null;
+    const { n, title: qTitle, difficulty, difficultyCount, tags, unknownTags } = headingMatch;
 
     if (n !== expectedN) {
       problems.push({
@@ -156,12 +202,28 @@ export function parseQuestionFile(mdRaw, fileRel) {
     }
     expectedN = n + 1;
 
-    if (!difficulty) {
+    if (difficultyCount === 0) {
       problems.push({
         level: 'error',
         code: 'E-TAG',
         line: i + 1,
         msg: `Q${n}: missing or malformed difficulty tag (expected trailing backticked [Basic|Intermediate|Advanced])`,
+      });
+    } else if (difficultyCount > 1) {
+      problems.push({
+        level: 'error',
+        code: 'E-TAG',
+        line: i + 1,
+        msg: `Q${n}: more than one difficulty tag found (exactly one of [Basic|Intermediate|Advanced] is expected)`,
+      });
+    }
+
+    if (unknownTags.length > 0) {
+      problems.push({
+        level: 'error',
+        code: 'E-TAG',
+        line: i + 1,
+        msg: `Q${n}: unrecognized tag(s) ${unknownTags.map((t) => `[${t}]`).join(', ')} (accepted: ${[...DIFFICULTIES, ...TAGS].join(', ')})`,
       });
     }
 
@@ -258,6 +320,7 @@ export function parseQuestionFile(mdRaw, fileRel) {
         line: i + 1,
         title: qTitle,
         difficulty,
+        tags,
         detailsLine: detailsLine + 1,
         answerText,
         answerWords,
@@ -284,11 +347,14 @@ export function parseQuestionFile(mdRaw, fileRel) {
   return { fileRel, title, h1Line, questions, legacyHits, problems };
 }
 
-/** Counts HEADING_RE matches outside fences — used as a cheap cross-check in build_site.mjs. */
+/** Counts well-formed (single-difficulty-tag) HEADING_RE matches outside fences — used as a cheap cross-check in build_site.mjs. */
 export function countQuestions(md) {
   const lines = maskFences(md.replace(/\r\n/g, '\n').split('\n'));
   let n = 0;
-  for (const line of lines) if (HEADING_RE.test(line) && /`\[(Basic|Intermediate|Advanced)\]`\s*$/.test(line)) n++;
+  for (const line of lines) {
+    const h = parseHeading(line);
+    if (h && h.difficultyCount === 1) n++;
+  }
   return n;
 }
 
@@ -299,6 +365,17 @@ export function difficultyMix(questions) {
     if (q.difficulty && mix[q.difficulty] !== undefined) mix[q.difficulty]++;
   }
   return mix;
+}
+
+/** Tally of non-difficulty tag counts (e.g. { Scenario: 12 }) for a parsed file's questions. */
+export function tagCounts(questions) {
+  const counts = Object.fromEntries(TAGS.map((t) => [t, 0]));
+  for (const q of questions) {
+    for (const t of q.tags || []) {
+      if (counts[t] !== undefined) counts[t]++;
+    }
+  }
+  return counts;
 }
 
 /** Finds near-duplicate title pairs among a list of {title} across one or more files. */

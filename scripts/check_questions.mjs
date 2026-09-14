@@ -6,11 +6,13 @@
 // Subcommands:
 //   check  [--strict] [--dir <dir>]     validate format; --strict also fails
 //                                        on 02_interview_bank files that are
-//                                        not yet at the 20-question target
+//                                        not yet at the 22-question target or
+//                                        below the 2-question [Scenario] target
 //   gaps   [--file NN] [--dir <dir>] [--all] [--json]
 //                                        report per-file progress toward the
-//                                        20-question / 5-8-7 target, with a
-//                                        heuristic rubric-slot breakdown
+//                                        22-question / 6-8-8 / 2-scenario
+//                                        target, with a heuristic rubric-slot
+//                                        breakdown
 //   readme --write | --check            regenerate README.md counts/badge
 //   renumber <file>                      rewrite Qn sequentially outside fences
 //
@@ -23,6 +25,7 @@ import {
   parseQuestionFile,
   countQuestions,
   difficultyMix,
+  tagCounts,
   findNearDuplicates,
   normalizeTitle,
   HEADING_RE,
@@ -32,14 +35,16 @@ const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const BANK_DIR = '02_interview_bank';
 const FAILURE_DIR = '03_failure_modes';
 const QUIZ_DIRS = [BANK_DIR, FAILURE_DIR];
-const TARGET_COUNT = 20; // per-file target for 02_interview_bank only
-const TARGET_MIX = { Basic: 5, Intermediate: 8, Advanced: 7 };
+const TARGET_COUNT = 22; // per-file target for 02_interview_bank only
+const TARGET_MIX = { Basic: 6, Intermediate: 8, Advanced: 8 };
+const TARGET_SCENARIOS = 2; // per-file target count of [Scenario]-tagged questions, 02_interview_bank only
 const MIX_TOLERANCE = 1;
 
 // Heuristic rubric used by `gaps` to suggest what to write next. Keyword
 // matching against question titles is approximate by design — it's a
 // starting point for an author, not a gate. See plan doc for the full
-// per-slot description.
+// per-slot description. `tagMatch`, where present, also counts a question
+// toward the rule if it carries that tag (independent of title wording).
 const RUBRIC = [
   { id: 'R1', label: 'Definition & motivation', slots: ['Basic', 'Basic'], re: /what is|what problem|distinctive mechanism|differ.* from naive/i },
   { id: 'R2', label: 'Mechanism walkthrough', slots: ['Basic', 'Intermediate', 'Intermediate'], re: /how does .* work|pipeline|stage|algorithm|index[- ]time|query[- ]time|step by step/i },
@@ -50,7 +55,7 @@ const RUBRIC = [
   { id: 'R7', label: 'Failure modes & debugging', slots: ['Intermediate', 'Advanced'], re: /\bfail|debug|symptom|mitigat|troubleshoot/i },
   { id: 'R8', label: 'Production ops (cost/latency/scale)', slots: ['Advanced', 'Advanced'], re: /\bcost|latency|\bscale|scaling|throughput|freshness|production/i },
   { id: 'R9', label: 'Security / trust / privacy', slots: ['Advanced'], re: /secur|attack|privacy|poison|adversarial|\btrust/i },
-  { id: 'R10', label: 'System-design scenario', slots: ['Advanced'], re: /design a|design an|system design|architecture for/i },
+  { id: 'R10', label: 'System-design scenario', slots: ['Basic', 'Advanced'], re: /design a|design an|system design|architecture for/i, tagMatch: 'Scenario' },
   { id: 'R11', label: 'Research origin & limitations', slots: ['Basic', 'Advanced'], re: /paper|arxiv|origin|introduced|limitation|superseded|successor/i },
 ];
 
@@ -144,6 +149,24 @@ function runCheck({ strict, dir }) {
     }
   }
 
+  // Per-file bank Scenario-tag target (warning, or error under --strict).
+  for (const f of files) {
+    if (!f.relPath.startsWith(BANK_DIR)) continue;
+    const scenarioCount = tagCounts(f.questions).Scenario;
+    if (scenarioCount < TARGET_SCENARIOS) {
+      const level = strict ? 'error' : 'warn';
+      report.push({
+        file: f.relPath,
+        level,
+        code: 'W-SCENARIO',
+        line: null,
+        msg: `${scenarioCount}/${TARGET_SCENARIOS} questions tagged [Scenario]`,
+      });
+      if (level === 'error') errorCount++;
+      else warnCount++;
+    }
+  }
+
   report.sort((a, b) => a.file.localeCompare(b.file) || (a.line || 0) - (b.line || 0));
   for (const r of report) {
     const tag = r.level === 'error' ? 'error' : 'warn';
@@ -163,7 +186,8 @@ function rubricSlotsFor(questions) {
   for (const rule of RUBRIC) covered.set(rule.id, []);
   for (const q of questions) {
     for (const rule of RUBRIC) {
-      if (rule.re.test(q.title)) covered.get(rule.id).push(q);
+      const tagHit = rule.tagMatch && q.tags?.includes(rule.tagMatch);
+      if (rule.re.test(q.title) || tagHit) covered.get(rule.id).push(q);
     }
   }
   return covered;
@@ -171,11 +195,13 @@ function rubricSlotsFor(questions) {
 
 function gapsForFile(f) {
   const mix = difficultyMix(f.questions);
+  const scenarios = tagCounts(f.questions).Scenario;
   const count = f.questions.length;
   const deltas = {
     Basic: TARGET_MIX.Basic - mix.Basic,
     Intermediate: TARGET_MIX.Intermediate - mix.Intermediate,
     Advanced: TARGET_MIX.Advanced - mix.Advanced,
+    Scenario: TARGET_SCENARIOS - scenarios,
   };
   const rubricCoverage = rubricSlotsFor(f.questions);
   const missingSlots = [];
@@ -186,7 +212,7 @@ function gapsForFile(f) {
       missingSlots.push(`${rule.label} x${need - have} (${rule.slots.slice(have).join(',')})`);
     }
   }
-  return { file: f.relPath, count, mix, deltas, missingSlots, questions: f.questions, title: f.title };
+  return { file: f.relPath, count, mix, scenarios, deltas, missingSlots, questions: f.questions, title: f.title };
 }
 
 function runGaps({ file, dir, all, json }) {
@@ -205,19 +231,21 @@ function runGaps({ file, dir, all, json }) {
   }
 
   for (const r of filtered) {
-    console.log(`\n${r.file}  ${r.count}/${targetDir === BANK_DIR ? TARGET_COUNT : '-'}  B${r.mix.Basic} I${r.mix.Intermediate} A${r.mix.Advanced}`);
+    console.log(`\n${r.file}  ${r.count}/${targetDir === BANK_DIR ? TARGET_COUNT : '-'}  B${r.mix.Basic} I${r.mix.Intermediate} A${r.mix.Advanced} S${r.scenarios}`);
     if (r.title) console.log(`  title: ${r.title}`);
     if (targetDir === BANK_DIR) {
       const needParts = [];
       if (r.deltas.Basic > 0) needParts.push(`+${r.deltas.Basic} B`);
       if (r.deltas.Intermediate > 0) needParts.push(`+${r.deltas.Intermediate} I`);
       if (r.deltas.Advanced > 0) needParts.push(`+${r.deltas.Advanced} A`);
+      if (r.deltas.Scenario > 0) needParts.push(`+${r.deltas.Scenario} Scenario`);
       if (needParts.length) console.log(`  need: ${needParts.join('  ')}`);
     }
     if (file || all) {
       console.log('  have:');
       for (const q of r.questions) {
-        console.log(`    Q${q.n} [${(q.difficulty || '?')[0]}] ${q.title}`);
+        const tagMarks = (q.tags || []).map((t) => `[${t[0]}]`).join('');
+        console.log(`    Q${q.n} [${(q.difficulty || '?')[0]}]${tagMarks} ${q.title}`);
       }
       if (r.missingSlots.length) {
         console.log('  rubric slots likely missing (heuristic, verify manually):');
@@ -247,13 +275,23 @@ function computeCounts() {
   const bankTotal = bankFiles.reduce((s, f) => s + f.questions.length, 0);
   const failureTotal = failureFiles.reduce((s, f) => s + f.questions.length, 0);
   const mix = { Basic: 0, Intermediate: 0, Advanced: 0 };
+  let scenarioTotal = 0;
   for (const f of [...bankFiles, ...failureFiles]) {
     const m = difficultyMix(f.questions);
     mix.Basic += m.Basic;
     mix.Intermediate += m.Intermediate;
     mix.Advanced += m.Advanced;
+    scenarioTotal += tagCounts(f.questions).Scenario;
   }
-  return { byPath, bankTotal, failureTotal, mix, bankFileCount: bankFiles.length, failureFileCount: failureFiles.length };
+  return {
+    byPath,
+    bankTotal,
+    failureTotal,
+    mix,
+    scenarioTotal,
+    bankFileCount: bankFiles.length,
+    failureFileCount: failureFiles.length,
+  };
 }
 
 function regenerateReadme(text, counts) {
@@ -308,6 +346,18 @@ function regenerateReadme(text, counts) {
     /<!-- questions:mix -->\*\*Difficulty distribution[^*]*\*\*<!-- \/questions:mix -->/,
     `<!-- questions:mix -->**Difficulty distribution across the interview bank and failure modes: ${counts.mix.Basic} Basic, ${counts.mix.Intermediate} Intermediate, ${counts.mix.Advanced} Advanced**<!-- /questions:mix -->`
   );
+
+  // --- Scenario-tagged total (architectures + failure modes only) ---
+  if (/<!-- questions:scenarios -->[\s\S]*?<!-- \/questions:scenarios -->/.test(out)) {
+    out = out.replace(
+      /<!-- questions:scenarios -->\*\*Scenario-based questions[^*]*\*\*<!-- \/questions:scenarios -->/,
+      `<!-- questions:scenarios -->**Scenario-based questions (tagged \`[Scenario]\`): ${counts.scenarioTotal}**<!-- /questions:scenarios -->`
+    );
+  } else {
+    errors.push(
+      'Could not find "<!-- questions:scenarios -->" marker in README.md — add it (see CONTRIBUTING.md) so scenario counts can be regenerated'
+    );
+  }
 
   // --- Badge ---
   out = out.replace(/questions-\d+-blue/, `questions-${grandTotal}-blue`);

@@ -533,6 +533,46 @@ Limitations relative to modern descendants: DPR's original BERT-base backbone an
 
 ---
 
+## Q21. A small startup wants to swap BM25 for a dense passage retriever on their support documentation (a few thousand articles). What's a sensible way to approach this? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A few thousand support articles and a startup-sized budget means the right move is almost certainly **not** to reproduce DPR's original training recipe from scratch — training two BERT encoders end-to-end (Q4, Q5) is exactly the kind of investment Q12's decision gate exists to guard against defaulting into.
+
+**What the situation implies:** a modest, static-ish corpus, limited engineering time, and support docs that likely mix conversational questions with exact terms (product names, error codes) — meaning both semantic matching and exact-match matter.
+
+**Recommended approach:** start with an **off-the-shelf modern embedding model** (BGE or E5) rather than training DPR-style encoders — these are direct architectural descendants of DPR (Q7, Q20) that already generalize well out of the box. Build a simple `IndexFlatIP` or small ANN index (Q9) — exact search is entirely fine at a few-thousand-document scale. Critically, **keep BM25 running alongside the dense retriever in a hybrid setup** (Q14) rather than replacing it outright: support docs commonly contain exact product names and error codes that a semantic-only retriever can under-rank (DPR's own well-known exact-match weakness, Q14), so hybrid retrieval with RRF is the safer default from day one, not an afterthought.
+
+**Trade-offs to flag:** (1) before fully committing to the switch, build a small golden set (query, relevant doc) pairs and measure recall@10 for BM25-only, dense-only, and hybrid (Q11, Q12) — don't assume dense retrieval is strictly better without checking on your own query distribution; (2) fine-tuning the embedding model is very unlikely to be worth it at this scale unless the golden-set evaluation reveals a specific, measurable gap (Q12's gate).
+
+</details>
+
+---
+
+## Q22. An enterprise search vendor is fine-tuning a DPR-style dual encoder across 200 million multilingual documents, and re-indexing must happen on a strict cadence. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+At 200 million documents with a strict re-indexing cadence, DPR's original design choices — two fully separate BERT-base encoders, English-only training, exact `IndexFlatIP` search (Q3, Q9) — are all constraints that need upgrading, not a starting point to build on directly.
+
+**Design:** use a **shared-weight asymmetric encoder** (Q15) — a single modern backbone (E5/BGE-class) with different instruction prefixes for queries vs. passages — rather than DPR's fully separate encoder pair, halving the parameter count that must be trained and served at this scale with comparable or better quality. Use a **multilingual base checkpoint** (mE5-class) given the corpus is multilingual, since DPR's original English-only training doesn't transfer (Q7). For training data, combine **in-batch negatives with hard negatives mined from both BM25 and the prior model checkpoint's own top-k misses** (Q13, Q18) — this catches failure modes that BM25-only mining alone would miss, which matters more at this scale since retraining is expensive and each cycle should improve meaningfully.
+
+**Index and re-indexing cadence:** replace `IndexFlatIP` with a **sharded, quantized HNSW/IVF index** (Q16) — 200M documents makes exact search infeasible regardless of cadence requirements. To actually meet a strict re-indexing cadence, layer an **incremental upsert path** (Q16, cross-referencing Streaming RAG's approach, #35) on top of DPR's originally fully-offline, batch-indexing assumption, so a re-embed doesn't mean reprocessing the entire 200M-document corpus every cycle.
+
+**Keep hybrid BM25+dense retrieval as the production default** (Q14, Q18) — the exact-match weakness doesn't go away with scale or multilingual training, and a vendor serving diverse customer query patterns needs that safety net more, not less.
+
+**What to monitor:** recall@10/NDCG segmented by language (multilingual quality often varies unevenly across languages), actual re-indexing cycle time against the cadence SLA, and hybrid fallback trigger rate for exact-match and out-of-domain queries.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why DPR's Architecture Fits |

@@ -169,7 +169,7 @@ llm_answer = llm.invoke(compressed["compressed_prompt"])
 
 ---
 
-## Q5. Design a hybrid system that combines retrieval with long-context to handle a 10,000-document legal corpus. `[Advanced]`
+## Q5. Design a hybrid system that combines retrieval with long-context to handle a 10,000-document legal corpus. `[Advanced]` `[Scenario]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -969,6 +969,40 @@ Long-context RAG's whole design assumes the coarse pre-filter (Q13) narrows the 
 Current limitations: (1) **cost scales directly with how much is stuffed into context** (Q4) — the most expensive per-query cost profile among this bank's foundational architectures when used without compression or caching; (2) **lost-in-the-middle is a persistent risk, not a solved problem** (Q2, Q14) — mitigations (reordering, compression) reduce but don't eliminate it; (3) **hits a hard capacity ceiling as corpus size grows** (Q19), unlike chunked retrieval which degrades more gracefully; (4) **provides weaker citation precision than chunk-level retrieval** — with a huge blended context, tracing a specific claim back to its exact source passage is harder than with a small, individually-addressable chunk (the same precision trade-off flagged for large-unit retrieval generally, #45 Q1).
 
 Likely evolution: continued growth of native context-window sizes and prompt-caching economics (Q6) will keep shifting the cost calculus in Long-context RAG's favor for corpora at any given size, but the corpus-growth ceiling (Q19) means retrieval precision remains necessary at sufficient scale regardless of how large context windows get — the field's likely trajectory is hybrid systems (Q5, Q10) that route between long-context and precise retrieval based on measured corpus size and query type, rather than either extreme (always stuff everything, or always chunk finely) becoming the universal default, mirroring LongRAG's (#45) own middle-ground design philosophy.
+
+</details>
+
+---
+
+## Q21. A graduate student wants to summarize a whole semester's lecture transcripts for exam review. Is stuffing them all into one long-context call the right call? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+This is a single-user, one-off task with a moderate total volume — large relative to a single lecture, small relative to an enterprise corpus — where the actual need is synthesis across most of the material, not a precise single-fact lookup buried in one transcript. That's exactly the query shape Long-context RAG's basic bet (Q16) is suited for: lean on the model's context capacity rather than building real retrieval infrastructure for a one-semester, one-person use case.
+
+Apply a coarse pre-filter first — drop obviously irrelevant content like administrative announcements — then stuff the remaining transcripts into a large-context model, placing the highest-priority material (recent lectures, likely exam-relevant sections) at the start and end of the context to counter the lost-in-the-middle effect (Q14, Q17). Building a retrieval index for this scope would be more infrastructure than the task warrants.
+
+The trade-off: this approach gets noticeably more expensive per query as more transcripts accumulate (Q4), and if the student actually wants precise "what did lecture 7 say about X" lookups rather than broad synthesis, a lightweight chunked retrieval step would serve that specific need better and more cheaply than re-stuffing the whole semester every time.
+
+</details>
+
+---
+
+## Q22. An M&A due-diligence team has two weeks to work through a 50,000-page virtual data room. Where does Long-context RAG fit, and where does it break? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Fifty thousand pages is well past the corpus-growth ceiling this file itself warns about (Q19) — no context window fits that whole data room, so pure long-context stuffing cannot be the sole strategy, and the two-week deadline means there's no time to discover that the hard way partway through the engagement.
+
+The right design is the hybrid routing pattern this file describes (Q5, Q10): a coarse retrieval/classification pass first buckets documents by deal-relevant category — contracts, financials, litigation history, IP — and within each relevant bucket, long-context stuffing handles "synthesize everything in this category" queries (e.g., summarizing every change-of-control clause across every contract) that benefit from seeing many documents together, while precise chunked retrieval (Q18's comparison) handles narrow factual lookups within a single document. Given the deadline, build the coarse categorization/pre-filter first, since every downstream query depends on it, and validate it against a sample of known-important documents planted by the deal team to confirm it isn't silently excluding a category that matters.
+
+What to monitor: the pre-filter's exclusion rate against that planted-document validation set (Q19's detection method) as more of the data room is processed, cost and latency per category-level long-context query, and any category where volume still exceeds context capacity even after filtering — the specific signal that category needs a LongRAG-style (#45) large-unit retrieval step rather than raw stuffing. The trade-off: building this hybrid routing layer under a two-week deadline is more upfront engineering than "just stuff it all in," but at true 50,000-page scale there is no long-context-only option available at all.
 
 </details>
 
