@@ -442,6 +442,147 @@ Because the retriever is *trained*, poisoned pre-training data can bias *what it
 
 ---
 
+## Q13. Walk through the REALM architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+PRE-TRAINING (joint, end-to-end):
+Masked-LM objective: for a masked span in a sentence, the model must
+  (1) retrieve a passage likely to help predict the masked span
+      (retriever is a learnable latent variable, Q2)
+  (2) predict the masked span conditioned on the retrieved passage
+  Gradient flows back through BOTH steps -- the retriever's parameters
+  are updated based on whether its retrieval helped prediction
+
+FINE-TUNING (downstream task, e.g. open-domain QA):
+The pre-trained retriever + reader are fine-tuned together on the
+  downstream task, starting from the jointly-pretrained weights
+
+INFERENCE:
+Query -> retriever (using pre-trained/fine-tuned parameters) -> top-k
+  passages -> reader conditions on them -> answer
+```
+
+The architectural novelty is entirely in the pre-training step: unlike DPR (#38), which trains its bi-encoder on labeled (question, passage) pairs, REALM's retriever never sees an explicit "this passage is relevant" label at all — it learns purely from whether retrieving a given passage happened to help the masked-language-modeling objective, treating retrieval as a latent variable marginalized over during training (Q2) rather than a directly-supervised target.
+
+</details>
+
+---
+
+## Q14. What is the research origin of REALM, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+REALM (Guu et al., *REALM: Retrieval-Augmented Language Model Pre-Training*, Google Research, arXiv:2002.08909, 2020) was among the first architectures to demonstrate that a retriever could be learned end-to-end jointly with a language model, using masked language modeling as the training signal, rather than requiring the retriever to be trained separately with labeled relevance data (the approach DPR, published the same year, took instead).
+
+The paper's headline result was strong performance on open-domain question answering benchmarks, notably outperforming much larger models that relied purely on parametric knowledge (no retrieval at all) — demonstrating that a smaller model augmented with a learned retriever could match or exceed models with many more parameters, establishing retrieval augmentation as a genuine alternative to simply scaling up parametric memory, a finding that underlies the entire retrieval-augmented-generation category this bank documents.
+
+</details>
+
+---
+
+## Q15. How does REALM compare to DPR (#38)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both are foundational 2020 architectures for learned dense retrieval, but trained with fundamentally different signals. REALM trains its retriever as a **latent variable** during masked-language-model pre-training — there's no explicit "this passage is relevant" label anywhere in training; the retriever learns purely from whether retrieving a passage happened to help predict a masked span. DPR (#38) trains its retriever with **direct supervision** — explicit (question, positive passage, hard negatives) triples with a contrastive loss (#38 Q4), a much more directly interpretable and controllable training signal.
+
+This difference in training signal is what makes DPR's approach the one that became the dominant pattern for modern RAG (#38 Q1's "every modern embedding model" claim): direct supervision is easier to curate, debug, and scale with labeled data pipelines, while REALM's latent-variable joint training is more elegant in principle but substantially harder to implement, tune, and reason about — a key reason (elaborated in Q10) that REALM's specific joint-training approach didn't become the standard, even though its core insight (retrieval can be learned, not just engineered) was foundational.
+
+</details>
+
+---
+
+## Q16. What made training REALM's retriever end-to-end harder than the two-stage approach later architectures adopted? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+REALM's retriever has no direct label to train against — it only receives gradient signal indirectly, through whether the passage it chose to retrieve happened to help the downstream masked-span prediction (Q2's latent-variable framing). This means every training step requires: (1) retrieving from the *entire* corpus using the retriever's current parameters, (2) computing how much that retrieval helped the prediction task, and (3) backpropagating that signal through the retrieval step itself — but the retrieval step involves a discrete, top-k selection over the whole corpus, which isn't naturally differentiable, requiring REALM's specific machinery (a marginalization over retrieved candidates, weighted by their retrieval probability) to make gradient flow possible at all.
+
+Compounding this, since the retriever's parameters change during training, the index of passage embeddings used for retrieval becomes stale after every update — REALM's asynchronous index refresh (Q3) exists specifically to manage this moving-target problem. Later architectures (DPR, and the frozen-retriever-plus-prompted-generator pattern that dominates modern RAG, Q10) sidestepped this entire class of difficulty by training the retriever with direct supervision (no latent-variable marginalization needed) and then freezing it before ever combining it with a generator, decoupling the two training problems entirely rather than solving them jointly.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for a REALM-style system, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Top-k during pre-training retrieval | More candidates give the marginalization step more options to learn from, at higher compute cost per training step | A modest k (REALM's original work used a small number) balancing training signal richness against the cost of scoring many candidates every step |
+| Index refresh frequency (Q3) | More frequent refresh keeps the index consistent with the retriever's current parameters but is expensive, since it requires re-embedding the whole corpus | Asynchronous, periodic refresh (REALM's actual solution) rather than refreshing on every parameter update, accepting a bounded staleness window in exchange for training throughput |
+| Masking strategy (which spans get masked during pre-training) | Determines what kind of retrieval-dependent reasoning the model practices — masking salient entities specifically encourages retrieval-dependent (rather than purely syntactic) prediction | Bias masking toward named entities and salient spans over function words, so the objective actually requires retrieved knowledge to solve, rather than being solvable from local context alone |
+| Fine-tuning learning rate relative to pre-training | Determines how much the downstream task fine-tuning is allowed to shift the pre-trained retriever's learned behavior | A smaller fine-tuning learning rate for the retriever than the reader, preserving more of the pre-trained retrieval behavior that took the expensive joint pre-training to learn |
+
+Index refresh frequency is the knob most specific to REALM's architecture among this list — no frozen-retriever architecture (DPR, #38, and everything built on it) has an equivalent concern, since a frozen retriever's index never goes stale relative to the retriever's own parameters in the first place.
+
+</details>
+
+---
+
+## Q18. How do you detect when the asynchronously-refreshed index has drifted too far from the live retriever parameters? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Q3 covers the asynchronous refresh problem and REALM's periodic-rebuild solution; the practical question during training is how to know the staleness window has actually become a problem rather than an acceptable, bounded trade-off. Since the index is built from a slightly-older snapshot of the retriever's parameters while training continues to update those parameters, drift manifests as a growing gap between what the *current* retriever would score as most relevant and what the *stale index* actually contains embedded — a gap that widens the longer the interval between refreshes.
+
+**Detection:** periodically (more frequently than the actual refresh cadence) sample a small validation set and compare retrieval rankings computed with the live, current retriever parameters against rankings served from the currently-deployed stale index — a growing rank correlation gap over the refresh interval is the direct, measurable signal of drift, and its rate of growth tells you whether your refresh cadence (Q17) is keeping pace with how fast the retriever's parameters are actually moving during training. **Mitigation:** if drift consistently grows large before the next scheduled refresh, either shorten the refresh interval (accepting the added re-embedding cost) or reduce the retriever's learning rate during the phase of training where drift matters most, slowing how fast the retriever's parameters move so the existing refresh cadence stays adequate.
+
+</details>
+
+---
+
+## Q19. How do you decide whether REALM-style joint training is worth it over a frozen retriever plus frozen generator? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Given the training complexity REALM's joint approach requires (Q16) — non-differentiable retrieval requiring marginalization machinery, asynchronous index management (Q3, Q18), and the general difficulty of debugging a system where two components are learned simultaneously and interdependently — the decision should be gated on whether a much simpler alternative genuinely falls short: train a retriever with direct supervision (DPR-style, #38), freeze it, and pair it with an off-the-shelf or separately-fine-tuned generator, exactly the pattern that became the modern default (Q10).
+
+The honest comparison requires actually measuring whether joint training provides an accuracy benefit that decoupled training can't match on your specific task — and empirically, the field's overwhelming convergence toward frozen-retriever architectures (Q10's own framing) suggests that for most practical purposes, the answer has been "no, not enough to justify the complexity," which is precisely why REALM's specific joint-training approach remains historically important but isn't the pattern modern systems actually reproduce, even when they're directly inspired by REALM's founding insight that retrieval can be learned.
+
+</details>
+
+---
+
+## Q20. What role did REALM play in influencing modern RAG's shift toward frozen-retriever, prompted-generator designs? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+REALM's core contribution — proving that a retriever's parameters could be learned rather than hand-engineered, and that doing so improved downstream task performance — was foundational and directly influenced the field's belief that learned retrieval was worth pursuing at all. But REALM's *specific* joint end-to-end training mechanism (the latent-variable marginalization, the asynchronous index refresh, Q16-Q18) proved difficult enough to implement and scale that the field's practical response was to decouple the two problems: DPR (#38), published the same year, demonstrated that a retriever trained with **direct supervision** — no joint training with a generator required — captured much of the same benefit with a far simpler, more debuggable training recipe.
+
+This decoupling is what enabled the frozen-retriever-plus-prompted-generator pattern that now dominates production RAG (as documented throughout this bank, from Naive RAG's #01 basic pipeline onward): train the retriever once with direct supervision, freeze it, and pair it with whatever generator (increasingly, an off-the-shelf frontier LLM requiring no fine-tuning at all) best suits the task — a pattern only possible because DPR's simpler training approach showed joint pre-training wasn't strictly necessary to get most of REALM's benefit. REALM's lasting influence, then, is conceptual (retrieval can and should be learned) rather than architectural (few if any production systems today actually replicate REALM's specific joint-training mechanism).
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why REALM (training-time learned retrieval) Fits |
