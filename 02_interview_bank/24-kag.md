@@ -460,6 +460,142 @@ KAG's deterministic reasoning *amplifies* bad facts. Without a way to ensure KG 
 
 ---
 
+## Q13. Walk through the KAG architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+OFFLINE (index-time):
+Docs → LLM extraction → Knowledge Graph
+     → Mutual Indexing: link KG nodes back to their source text spans
+       AND index text with awareness of the KG schema (Q2)
+
+ONLINE (query-time):
+Query → Parse into a logical form (structured query plan, Q3)
+      → Execute the logical form against the KG (deduction/traversal)
+        AND/OR retrieve linked text spans where the KG is incomplete (Q7)
+      → Synthesize answer with traceable provenance back to KG facts/text
+```
+
+The mutual indexing step (Q2) is what distinguishes KAG from a graph RAG system that merely uses a KG as one more retrieval source: text and graph aren't just co-located, they're cross-referenced in both directions, so a query can start from either the graph (a structured entity lookup) or the text (a passage-level match) and traverse to the other representation as needed — which is also what makes KAG's logical-form execution (Q3) able to fall back to text retrieval mid-reasoning when the graph alone is insufficient (Q7).
+
+</details>
+
+---
+
+## Q14. What is the research origin of KAG, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+KAG (Knowledge Augmented Generation) was introduced by researchers at Ant Group, *KAG: Boosting LLMs in Professional Domains via Knowledge Augmented Generation* (arXiv:2409.13731, 2024), targeting professional domains (the paper's own examples include e-government and medical use cases) where standard RAG's free-form retrieval-and-generate pattern doesn't provide the auditability and logical rigor these domains require — a wrong but confident-sounding free-form answer is a materially different (and worse) failure than a system that can show its exact reasoning chain against a knowledge graph.
+
+The paper's reported results emphasize accuracy gains specifically on multi-hop, professional-domain QA benchmarks where logical-form-guided reasoning (Q3) over a well-constructed KG outperforms both flat vector RAG and less structured graph-RAG approaches — the gains concentrate where reasoning precision and traceability matter most, consistent with KAG's positioning as a domain-specific tool rather than a general-purpose RAG upgrade (Q12).
+
+</details>
+
+---
+
+## Q15. How does KAG compare to LightRAG (#15)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+LightRAG (#15) optimizes for cheap, fast graph construction and flexible dual-level retrieval across general-purpose corpora — its graph is a lightweight, loosely-typed entity-relationship structure meant to be built quickly and updated incrementally. KAG optimizes for the opposite end of the spectrum: a carefully schematized, mutually-indexed knowledge graph specifically built to support deterministic, auditable logical-form reasoning (Q3) in professional domains where that rigor is worth the substantially higher construction and maintenance cost (Q11).
+
+The practical decision mirrors KAG's own "when should you NOT use KAG" guidance (Q12): choose LightRAG when you need a general-purpose, low-maintenance graph layer over a corpus that doesn't require formal logical deduction; choose KAG specifically when your domain's stakes justify building and maintaining a much higher-quality, schema-constrained knowledge graph in exchange for traceable, rule-following reasoning that a looser graph structure like LightRAG's cannot provide.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates KAG from Graph RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **logical-form-guided, deductive query execution over a mutually-indexed graph and text corpus**, replacing Graph RAG's (#05) pattern of retrieving graph context (entity neighborhoods or community summaries) and handing it to an LLM to reason over freely. KAG parses a query into an explicit logical form — a structured representation of what needs to be deduced or looked up — and executes that logical form step by step against the KG, falling back to indexed text only where the graph is incomplete (Q7), rather than trusting an LLM's free-form reasoning over retrieved graph context to get the deduction right.
+
+This is what gives KAG its traceability property (Q9's evaluation, Q14's professional-domain framing): a Graph RAG answer's reasoning lives inside an LLM's free-form generation, which is not independently auditable step-by-step; a KAG answer's reasoning is the explicit execution trace of its logical form, which can be inspected, verified, and audited as a discrete sequence of deductive steps — the difference between "the LLM reasoned about the graph and produced an answer" and "the system executed a verifiable logical query against the graph."
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for KAG's logical-form reasoning and mutual indexing? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Schema strictness (how rigidly entities/relationships must conform to a predefined ontology) | Stricter schemas improve deduction reliability but increase extraction rejection rate and maintenance burden | Start with a schema covering your domain's core, stable entity types; extend incrementally rather than trying to anticipate every entity type upfront |
+| Logical-form parser confidence threshold | Determines when the system trusts its own query-to-logical-form translation vs. falls back to a safer strategy | Bias toward a conservative fallback (Q19) when parser confidence is low, given the cost of executing a wrong logical form against the KG |
+| Mutual-indexing linkage granularity (sentence-level vs. paragraph-level text-to-KG links) | Finer granularity gives more precise fallback-to-text retrieval but costs more to build and maintain | Sentence-level for domains needing exact citation precision (matching Verifiable RAG's #33 standard); paragraph-level where broader context is acceptable |
+| Graph-completeness threshold for triggering text fallback (Q7) | Determines how readily the system falls back to text retrieval vs. trusting the KG alone | Calibrate against known gaps in your KG's coverage rather than a fixed default, since this is highly domain- and KG-maturity-dependent |
+
+Schema strictness is the knob with the widest-reaching downstream effects — it shapes what the extraction pipeline can represent at all, which in turn bounds what the logical-form parser can ever query for, making it worth getting right early rather than as an afterthought tuned after the KG is already built.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether KAG's logical-form reasoning is actually more reliable than free-form LLM reasoning over the same graph? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a golden set of professional-domain multi-hop questions with known-correct answers *and* known-correct reasoning chains (not just final answers), since KAG's value proposition is specifically about the reasoning being traceable and verifiable, not just about final-answer accuracy matching or exceeding a free-form baseline. Compare KAG's logical-form execution against a baseline that retrieves the same graph context but hands it to an LLM for free-form reasoning (essentially, Graph RAG's #05 approach over the identical KG) on both dimensions: final-answer accuracy, and **reasoning-chain correctness** — does the executed logical form (or, for the baseline, the LLM's stated reasoning) actually follow a valid deductive path to the answer, checkable by a domain expert or a rule-based verifier.
+
+The comparison that matters most for KAG's actual value proposition is the reasoning-chain dimension, not just final-answer accuracy: a free-form LLM reasoning over the same graph might match KAG's final-answer accuracy while occasionally reaching the right answer via an unsound or unverifiable reasoning path — exactly the risk KAG's deterministic execution is designed to eliminate — so an evaluation that only checks final answers would miss the specific advantage KAG claims to provide.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode when the logical-form parser misinterprets a query's structure? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+If the parser translates a query into a logical form that doesn't actually match the query's intended meaning (misreading which entities are the deduction's subject vs. object, missing an implicit constraint the natural-language query implied), KAG will execute a *valid* deduction against the KG — the execution itself is deterministic and correct — but against the *wrong question*, producing a confidently traceable, fully auditable answer to a question the user didn't actually ask. This is a distinctively dangerous failure mode for exactly the reason KAG is chosen in the first place: the answer's apparent rigor and traceability (Q16) can make a subtly-wrong parse harder to catch than a free-form system's more obviously uncertain-sounding wrong answer would be.
+
+**Detection:** for a sample of production queries, compare the parsed logical form against the query's actual intent (human review, or an automated check against a labeled set of query-to-logical-form pairs) independent of whether the final answer looks reasonable — since a wrong parse can still produce a plausible-looking answer if the misinterpreted question happens to have a similarly-structured deduction available in the KG. **Mitigation:** for queries where parser confidence is low (Q17), surface the parsed logical form back to the user or a reviewer for confirmation before execution in high-stakes domains, rather than executing silently and presenting the result as if the parse were certainly correct — trading a small amount of interaction friction for closing exactly the failure mode that undermines KAG's core auditability promise.
+
+</details>
+
+---
+
+## Q20. What are the limitations of KAG, and when would you choose a simpler graph RAG variant instead? `[Advanced]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Current limitations, several already flagged in this file's own guidance (Q6, Q12): (1) **construction and maintenance cost is the highest among this bank's graph-based architectures** — a schema-constrained, mutually-indexed KG with logical-form support requires substantially more upfront engineering than LightRAG's (#15) or even full GraphRAG's (#05) extraction pipelines; (2) **logical-form parsing is a single point of failure with a dangerous failure mode** (Q19) — a misparsed query produces a confidently wrong, fully-traceable answer, which is arguably worse than an obviously uncertain one; (3) **deterministic reasoning amplifies KG errors** (Q6's own point) — a wrong fact in the graph doesn't get "averaged out" by free-form reasoning the way it might in a less rigid system, it gets deduced from with full confidence; (4) **the approach only pays off for schematizable, relatively stable domains** (Q12) — a rapidly-evolving or hard-to-schematize knowledge base undermines the whole premise.
+
+**When to choose a simpler variant instead:** per Q12's own right-sizing guidance, default to Graph RAG (#05) or LightRAG (#15) unless you specifically have a professional domain demanding rule-following deduction and auditability, a schematizable and relatively stable knowledge base, and the sustained resources to build and maintain KG quality — absent all three conditions simultaneously, KAG's additional rigor costs more than it returns, and a system that's "usually right and clearly hedges when uncertain" (a well-tuned Graph RAG or LightRAG deployment) is often more practically useful than one that's "rigorously reasoned but occasionally confidently wrong about the wrong question" (a KAG deployment with an unaddressed parser failure mode, Q19).
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why KAG Fits |
