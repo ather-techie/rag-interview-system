@@ -9,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
 import { gfmHeadingId } from 'marked-gfm-heading-id';
+import { countQuestions } from './lib/questions.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const OUT = path.join(ROOT, '_site');
@@ -32,6 +33,7 @@ const QUIZ_GROUP_LABELS = { '02_interview_bank': 'Architectures', '03_failure_mo
 
 let warnings = 0;
 let brokenLinks = 0;
+let extractionErrors = 0;
 
 /** Recursively walks the repo, skipping dotfiles/dirs and build tooling. */
 function walk(absDir, relDir = '') {
@@ -184,8 +186,8 @@ function extractQuizItems(html, { srcDirRel, pageHref, srcRel }) {
     items.push({ id, question, difficulty, answer, href: `${pageHref}#${id}` });
   }
   if (items.length === 0) {
-    warnings++;
-    console.warn(`[warn] ${srcRel}: no quiz questions found (expected Q&A headings)`);
+    extractionErrors++;
+    console.error(`[error] ${srcRel}: no quiz questions found (expected Q&A headings)`);
   }
   return items;
 }
@@ -361,6 +363,14 @@ function main() {
     if (quiz) {
       const pageHref = path.posix.join(srcDirRel, path.posix.basename(outRel));
       const items = extractQuizItems(html, { srcDirRel, pageHref, srcRel: rel });
+      const expectedFromSource = countQuestions(md);
+      if (items.length !== expectedFromSource) {
+        extractionErrors++;
+        console.error(
+          `[error] ${rel}: markdown has ${expectedFromSource} well-formed questions but ${items.length} ` +
+            `were extracted from the rendered HTML (a question likely has a paragraph/blank issue between its heading and <details>)`
+        );
+      }
       const sectionTitle = title;
       for (const item of items) {
         quizItems.push({ ...item, section: sectionTitle, sectionGroup: QUIZ_GROUP_LABELS[srcDirRel] });
@@ -397,10 +407,10 @@ function main() {
   console.log(
     `Built ${pageCount} pages, ${indexCount} generated indexes, ${staticCount} static files, ` +
       `quiz page with ${quizItems.length} questions ` +
-      `(${warnings} warnings, ${brokenLinks} broken .md links)`
+      `(${warnings} warnings, ${brokenLinks} broken .md links, ${extractionErrors} extraction errors)`
   );
 
-  if (brokenLinks > 0) {
+  if (brokenLinks > 0 || extractionErrors > 0) {
     process.exitCode = 1;
   }
 }

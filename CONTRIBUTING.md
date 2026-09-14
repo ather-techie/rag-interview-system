@@ -45,9 +45,21 @@ Your answer here. Use tables, code blocks, and bullet points where they aid clar
 - Cite papers or tools where relevant (no need for formal citation format)
 - Avoid vendor lock-in in answers — mention open-source alternatives alongside commercial tools
 
-## Updating the Question Count
+## Validating Your Changes
 
-If your PR adds or removes questions, update the `questions-###` badge value in `README.md` (badge reference section near the bottom) and the relevant section/grand totals in the same file.
+Before opening a PR, run:
+
+```bash
+npm run check          # validates format, numbering, tags, duplicates
+npm run gaps -- --file 13   # (optional) shows per-file progress toward the 20-question target
+npm run readme          # regenerates the README's per-file counts, totals, and badge
+npm run build           # builds the site into _site/ and confirms your questions render
+```
+
+`npm run check` will fail the build if a question is missing its difficulty tag, is numbered
+out of sequence, is missing the `<details>`/`**Answer:**` structure, or duplicates another
+question's title elsewhere in the bank. `npm run readme` rewrites the `questions-###` badge
+and the per-file/section/grand totals in `README.md` for you — never hand-edit those counts.
 
 ## Opening Issues
 

@@ -6,7 +6,13 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "node scripts/build_site.mjs"
+    "build": "node scripts/build_site.mjs",
+    "check": "node scripts/check_questions.mjs check",
+    "check:strict": "node scripts/check_questions.mjs check --strict",
+    "gaps": "node scripts/check_questions.mjs gaps",
+    "readme": "node scripts/check_questions.mjs readme --write",
+    "readme:check": "node scripts/check_questions.mjs readme --check",
+    "ci": "npm run check && npm run readme:check && npm run build"
   },
   "devDependencies": {
     "marked": "^18.0.13",
