@@ -725,6 +725,40 @@ The key discipline is treating tree depth and clustering granularity as empirica
 
 ---
 
+## Q21. A small consulting firm wants to turn a year of client-meeting notes into a browsable hierarchy instead of a flat pile of transcripts. Is RAPTOR proportionate here? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A year of meeting notes is a meaningful but modest corpus, and the actual need — both "what's the big picture across all our engagements with Client X" and "what exactly did we agree to in the March 14 meeting" — is precisely the mixed broad/precise query pattern RAPTOR's tree is built for (Q1, Q19), independent of the firm's small size.
+
+Build a shallow tree, likely two levels, per Q20's guidance on picking the shallowest depth that meets the need. GMM soft clustering (Q16, Q17) naturally groups notes by client or theme even when a single meeting touches several topics at once, so cluster the year's notes, summarize each cluster, and keep the leaf-level transcripts intact for verbatim lookups when someone needs the exact wording from a specific meeting.
+
+The trade-off: at this scale, the extra LLM summarization passes are cheap enough that build cost (Q5) isn't a real concern. It's still worth spot-checking a handful of generated cluster summaries against the source notes (Q18) before relying on them day to day, since a small firm won't generate enough query volume to surface a boundary-misalignment problem through usage patterns alone the way a larger deployment eventually would.
+
+</details>
+
+---
+
+## Q22. A national archive is digitizing decades of government reports into a navigable tree, and every summary node must be traceable back to its exact source pages. How do you keep RAPTOR provenance-safe at that scale? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Decades of documents means a very large corpus, and the archival requirement that every summary node be traceable to its exact source pages is a stricter bar than typical RAG citation needs — it turns RAPTOR's known provenance weakness (Q15), cross-document cluster nodes losing clean traceability, from an accepted trade-off into a hard constraint that has to be designed around.
+
+Attach a full provenance manifest to every cluster node at build time — the exact set of source documents, pages, and lower-level nodes that contributed to it — and propagate and merge that manifest at every level up the tree, not just at the leaves, so a user drilling into a high-level summary can always expand down to the specific report and page it derives from. Use BIC-based cluster selection (Q17) as normal, but make cluster-coherence auditing (Q18) a required build-pipeline gate rather than a spot-check, given both the scale and the cost of a silently incoherent summary sitting in a public archival record. Given the volume of scanned and OCR'd material, budget for a slower, more careful build (Q5); reprocessing decades of reports is expensive enough that getting provenance and clustering right the first time matters more than build speed.
+
+What to monitor: provenance-manifest completeness as an automated build-time check (no summary node missing a traceable source chain), cluster-coherence audit results per tree level before that level is published for public access, and hallucination-compounding checks (Q6, Q19) at each level, since a decades-deep corpus accumulates many more summarization passes than a typical deployment. The trade-off: mandatory provenance manifests and coherence auditing meaningfully slow the build pipeline relative to Q20's own tree-depth-tuning framework, but for a public archival record, an untraceable or silently incoherent summary is a far worse outcome than a slower build.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RAPTOR Fits |

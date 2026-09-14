@@ -581,6 +581,40 @@ Likely evolution: **learned, structurally-aware unit grouping** (replacing Q2's 
 
 ---
 
+## Q21. A small fiction publisher's archive tool retrieves whole chapters instead of small snippets so readers can ask "which chapter talks about X?" How would you build this with LongRAG, and would you bother with Self-Route? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A publisher's fiction archive is close to an ideal fit for this architecture without needing Self-Route's extra complexity at all: a chapter is naturally a coherent, self-contained retrieval unit (Q2's rebalancing argument applies cleanly here, unlike a corpus of short independent facts, Q5's "wrong choice" case), and grouping by actual chapter boundaries rather than a mechanical token cutoff avoids the semantic-dilution risk in Q12 almost by construction, since a chapter is already a single continuous narrative thread.
+
+At a small publisher's scale and query volume, skip Self-Route (Q3, Q4) entirely — its value is capping the cost of an expensive full-context fallback for the minority of hard queries, but at low query volume that fallback cost is trivial either way, and the added complexity of calibrating a verdict prompt (Q19) isn't worth it until volume grows. A straightforward LongRAG pipeline — retrieve the top few chapters, feed them whole to a long-context reader — covers a reader's or editor's typical question ("which chapter does the reveal about the sister happen in?") well on its own.
+
+Trade-off worth naming: feeding whole chapters (several thousand tokens each) to the reader costs more per query than small-chunk retrieval would, but at a small publisher's query volume that absolute cost stays modest (Q16's cost concerns bite mainly at scale); if the archive later grows into a high-traffic consumer product, that's the point to revisit whether Self-Route's cost-control layer becomes worth adding.
+
+</details>
+
+---
+
+## Q22. An aerospace manufacturer needs to retrieve whole sections from thousand-page engineering specifications during a certification audit, where every cited requirement must be traceable to exact wording. How would you configure LongRAG + Self-Route for that bar? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A certification audit turns two of this file's usual trade-offs into hard requirements rather than tuning choices. Unit grouping (Q2, Q12) must follow the specification's genuine structural boundaries — numbered sections and individual requirements — exactly as Q18's legal-contract design recommends, both to avoid semantic dilution and because an auditor needs retrieval units that map onto citable spec structure, not an arbitrary token-count grouping.
+
+Hierarchical sub-span retrieval (Q13) is not optional here: an auditor asking whether a specific requirement is satisfied needs the exact requirement wording quoted back, not "this is discussed somewhere in this section" — the drill-down step that recovers small-chunk precision within a retrieved unit is what makes a LongRAG answer usable as audit evidence at all. Self-Route's verdict threshold (Q3, Q10) should be tuned conservative — biased toward the expensive full-context fallback — because under-triggering (Q19) here means confidently answering a certification question from insufficient context, which is a compliance failure, not just a quality regression; the extra compute cost of over-triggering is cheap by comparison.
+
+Given specs run to thousands of pages and requirements cross-reference each other constantly, monitor the Self-Route fallback rate segmented by requirement category (Q16, Q19) and treat a rising rate on core certification-relevant sections as requiring investigation before the audit, not after. Every retrieved unit's spec version and revision needs to be tracked explicitly, since a certification audit can span a period where the underlying specification itself is revised — an answer traceable to a superseded requirement version is as much a failure here as one traceable to the wrong page.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Open-domain QA over Wikipedia-scale corpora**: LongRAG's own benchmark — grouping Wikipedia into document-level units instead of DPR's 100-word passages, evaluated on NQ and full-wiki HotpotQA

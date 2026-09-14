@@ -617,6 +617,46 @@ FiD's specific architecture — a dedicated encoder-decoder model with passage f
 
 ---
 
+## Q21. A small edtech company wants to answer textbook questions by fusing several retrieved passages in the decoder. Their corpus is a few hundred textbook chapters and query volume is low. How would you set this up? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+At this scale, the goal is to get FiD's core benefit — synthesizing evidence across a handful of passages without quadratic concatenation cost (Q1, Q3) — without over-engineering the pipeline. Pair an off-the-shelf retriever (BM25 or a general-purpose dense embedding model) with a T5-based FiD reader, and retrieve a modest k (5–10 passages) per question; a few hundred chapters means even k=10 will usually surface the right passage without needing an aggressive reranking stage.
+
+**What the situation implies:** low query volume and a small, static corpus mean the decoder cross-attention bottleneck that motivates FiD-light/FiDO (Q7, Q11) is very unlikely to bite — that optimization work is for high-k, high-throughput deployments, not a small edtech tool. Parallel encoding of the (small number of) retrieved passages is already fast enough on modest hardware.
+
+**Recommended approach:** standard FiD pipeline as described in Q5 — retrieve, encode each passage independently, let the decoder fuse them — with no need for a reranker or FiD-light given the passage counts involved.
+
+**Trade-offs to flag:** (1) a small company should also consider whether a modern long-context LLM simply reading the concatenated top-k passages in the prompt (Q10's "modern long-context LLMs" alternative) is simpler to build and maintain than standing up a dedicated FiD reader, since at k=10 the quadratic-cost problem FiD solves barely matters; (2) if the company later wants to scale to much larger textbook catalogs or higher k, this is exactly when to revisit FiD's efficiency advantage rather than defaulting to it prematurely.
+
+</details>
+
+---
+
+## Q22. A government open-records office is building a Fusion-in-Decoder assistant that must fuse hundreds of retrieved passages per query to answer records requests, but the decoder has a strict context/compute budget that can't be exceeded. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Fusing hundreds of passages runs directly into FiD's real bottleneck: while encoding stays linear in k, the **decoder's cross-attention over k·L tokens is what actually dominates cost** (Q3, Q11), and a strict compute budget makes that the binding constraint rather than a soft preference.
+
+**Design:** don't feed the raw hundreds of retrieved passages straight to FiD. Insert a **reranking stage** between retrieval and FiD (Q9's central production lever) that prunes hundreds of candidates down to the 10–20 most useful before encoding — this captures most of the recall benefit of a large retrieved set while keeping k small enough to fit the decoder's compute budget. If the budget is still tight after reranking, adopt **FiD-light or FiDO-style optimizations** (Q7) to compress encoder outputs and reduce the tokens the decoder must attend over, rather than cutting k further and losing recall.
+
+**Why this matters for open records specifically:** records requests often need corroboration across many similar-looking documents (multiple related filings, redaction logs, correspondence), which is exactly the scenario where FiD's evidence-aggregation benefit (Q5, Q6) is valuable — so the office shouldn't solve the budget problem by simply retrieving fewer documents upfront; it should solve it by pruning intelligently after a high-recall retrieval pass.
+
+**Trade-offs:** reranking adds a pipeline stage and its own latency/cost, but is cheaper than paying full decoder cross-attention cost over hundreds of passages; FiD-light/FiDO adds engineering complexity but directly targets the actual bottleneck.
+
+**What to monitor:** decoder cross-attention latency and memory per request against the fixed budget, EM/F1 accuracy as a function of the post-rerank k (Q8's scaling curve), and reranker recall — a reranker that discards a genuinely relevant document before FiD ever sees it silently caps quality regardless of how good the fusion step is.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Fusion-in-Decoder Fits |

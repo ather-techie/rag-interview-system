@@ -1156,6 +1156,40 @@ Likely evolution: this exact cost/limitation profile is precisely what motivated
 
 ---
 
+## Q21. A genealogy startup needs to answer "how is my great-aunt related to this other family member?" over a modest family-tree graph. Does Graph RAG make sense at this scale? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The corpus here is small — thousands, not millions, of people and relationships — but the query type itself is inherently relational, which is what actually motivates Graph RAG (Q16), not corpus size. "How is X related to Y" has no single-chunk answer for flat vector search to return; it requires walking a relationship chain, which is exactly the capability a graph structure provides regardless of how big that graph is.
+
+Because the source data is structured genealogical records (birth, marriage, and parentage records) rather than messy free text, build the entity/relationship graph directly from that structured data instead of running full LLM-based extraction (Q9) over documents — a more reliable and much cheaper path to a correct graph at this scale. Skip Leiden community detection and multi-level summarization (Q3) entirely; "what are the themes across this corpus" isn't the query pattern here, so that machinery would add cost without addressing the actual need. A direct graph-traversal or shortest-path query over the relationship graph answers the relationship-chain questions directly.
+
+The trade-off: a small, structured-source graph is cheap to build and query today, but if the startup later ingests messier unstructured sources — old letters, scanned parish records — it will need the fuller entity-resolution and LLM-extraction machinery this file describes (Q9, Q19). Keep the query interface simple now; expect the ingestion pipeline, not the query pattern, to be what eventually needs to grow.
+
+</details>
+
+---
+
+## Q22. A pharma company's drug-interaction assistant runs over a multi-million-node biomedical knowledge graph that gets a new ontology every night. What does production Graph RAG look like there? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints stack: graph scale in the millions of nodes, a nightly ontology/data refresh that has to land before the next business day, and a domain where a wrong drug-interaction answer is a patient-safety incident, not just a quality miss. Full Leiden community detection and re-summarization across the entire graph every night (Q11, Q17) is not affordable at this scale and cadence.
+
+Use an incremental update strategy: identify which communities are actually touched by the night's ontology delta and re-cluster and re-summarize only those, rather than rebuilding the whole graph — the same cost-driven reasoning behind LightRAG's and LazyGraphRAG's cheaper designs (Q15, cross-referencing #15/#47), applied here as a scoped nightly job instead of a different architecture entirely. Resolve entities against canonical biomedical identifiers (RxNorm/UMLS-style codes) rather than free-text drug names, since Q19's over-fragmentation failure mode — the same compound ending up as several disconnected nodes — is a patient-safety issue in this domain, not merely an incompleteness issue. Every returned interaction claim should carry a provenance trail back to the specific graph edge and source study it came from.
+
+What to monitor: whether the incremental nightly update actually completes before the next business day, an audit rate on high-degree drug nodes for entity-resolution drift, and clinician-review disagreement rate on flagged high-risk answers as an ongoing accuracy check. The trade-off: delta-scoped incremental re-clustering keeps nightly cost bounded, but it requires real engineering investment in dependency tracking (which communities a given ontology change actually affects) that a naive full-rebuild approach would never need to solve — justified here only because full nightly rebuilds are infeasible at this scale.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Graph RAG Fits |

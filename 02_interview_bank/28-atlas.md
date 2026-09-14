@@ -595,6 +595,46 @@ Prompting superseded joint fine-tuning for most few-shot use cases for the same 
 
 ---
 
+## Q21. A university lab has a niche QA benchmark (a specialized botany dataset) with only 80 labeled examples and wants to few-shot fine-tune an Atlas-style model. What approach would you recommend? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Eighty labeled examples is squarely the regime Atlas was built for (Q1, Q5, Q14), so the core recipe applies directly: initialize with a pretrained Contriever retriever and a pretrained FiD-style reader, then jointly fine-tune both on the 80 examples using an attention-distillation objective so the reader's cross-attention signal shapes what the retriever learns to prioritize (Q3).
+
+**What the lab's constraints imply:** a university lab typically has limited GPU budget and no dedicated infra team, so full joint retriever training with periodic full-corpus re-encoding (Q3's index-refresh cost) is likely too expensive relative to the benefit. The pragmatic choice is **query-side-only retriever updates** (Q9) — freeze the document encoder entirely and only update the query encoder, which avoids re-indexing the botany corpus while still letting retrieval adapt somewhat to the task.
+
+**Recommended approach:** initialize from a strong off-the-shelf Contriever + FiD checkpoint, fine-tune with attention distillation and query-side-only updates, and keep k (retrieved passages) modest (5–10) to control FiD's linear encoding cost on a small compute budget.
+
+**Trade-offs to flag:** (1) query-side-only updates trade away some of the retrieval-quality gain full joint training would give (Q9's "cheapest vs. fuller" spectrum); (2) the lab should first benchmark against simply prompting a strong modern LLM with the same 80 examples and retrieved passages (Q9's "try that baseline first") — if that's already competitive, the joint-training machinery may not be worth the engineering effort for a one-off academic benchmark.
+
+</details>
+
+---
+
+## Q22. A scientific publisher wants to deploy an Atlas-style retrieval-augmented model across dozens of narrow subject-matter domains (immunology, materials science, astrophysics, etc.), each with its own terminology, and it must stay few-shot-adaptable to new domains without full retraining each time. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraint here is combinatorial: dozens of domains, each potentially needing its own retrieval adaptation, but full joint retriever+reader fine-tuning per domain (Q3, Q9) — with its index-refresh cost — doesn't scale economically if it has to be repeated dozens of times and again for every new domain added later.
+
+**Recommended architecture:** maintain one shared, strong pretrained Contriever + FiD base, and adapt per domain via **query-side-only updates plus domain-scoped indexes** rather than full joint retraining per domain. Each domain gets its own corpus and index (so a materials-science query only retrieves from materials-science documents), but the retriever and reader backbone stay shared and mostly frozen, with only lightweight, domain-specific query-encoder adaptation from each domain's few-shot examples (Q9's cheapest-tier option).
+
+**Why not full joint training per domain:** with dozens of domains, the index-refresh cost (Q3, Q12) that Atlas already flags as a limitation multiplies dozens of times over, and re-encoding a domain's corpus every time its query encoder updates is precisely the recurring tax the architecture should avoid at this scale.
+
+**Trade-offs:** shared-backbone adaptation sacrifices some of the retrieval-quality ceiling full joint training would reach per domain (Q18's frozen-vs-joint comparison), but keeps onboarding a new domain cheap — a few-shot fine-tune of the query encoder against a new index, not a full retraining cycle.
+
+**What to monitor:** per-domain few-shot accuracy curves (Q18), retrieval recall@k segmented by domain (to catch domains where the shared backbone under-serves specialized vocabulary), and index-staleness gap per domain as documents are added. If a specific domain's accuracy plateau is well below the others, that domain alone may justify a full joint fine-tune as an exception rather than changing the strategy for all.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Atlas (few-shot, jointly-trained RAG) Fits |

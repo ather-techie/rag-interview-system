@@ -579,6 +579,40 @@ Likely evolution: **incremental or partitioned compression schemes** that allow 
 
 ---
 
+## Q21. A personal productivity app wants to recall a user's past conversations to answer vague follow-up questions like "what was that restaurant I mentioned?" Would MemoRAG's memory model be overkill here, and how would you scope it down? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A single user's conversation history is a small, low-stakes corpus compared to what this file's due-diligence and enterprise examples assume, so most of MemoRAG's heavier machinery can be scaled down without losing the core benefit. The memory model still earns its keep on exactly the query type Q3 and Q4 describe — vague recall like "what was that restaurant I mentioned?" shares little vocabulary with the actual message where it was mentioned — while a direct factual follow-up ("what did I say at 3pm yesterday") should route straight to standard retrieval, skipping clue generation entirely (Q4's routing logic).
+
+Freshness (Q13) is simple at this scale: recompress the user's memory on a straightforward daily or per-session cadence rather than building the partitioned/incremental schemes larger deployments need, since the corpus size makes full recompression cheap regardless. Given the corpus is one person's own conversations, the poisoning blast-radius concern (Q17) mostly doesn't apply, but the misleading-clue risk (Q4, Q12) still does: a lossy compression that generates a wrong clue could steer retrieval to the wrong past conversation and produce an answer that conflates two unrelated exchanges — a privacy-flavored annoyance here rather than a compliance risk, but still worth a lightweight cross-check (compare clue-guided results against raw-query results, per Q12) before presenting a recalled fact with confidence.
+
+Trade-off: skip the full decision-gate benchmark (Q15) at this scale — comparing against HyDE informally on a handful of test recall queries is enough to confirm the memory model earns its added latency before shipping it as a feature.
+
+</details>
+
+---
+
+## Q22. A Fortune 500 client's support desk wants a memory-augmented assistant that surfaces patterns across years of ticket history, but every component must stay within a strict data-residency boundary. How does that constraint reshape a MemoRAG deployment? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A strict data-residency requirement changes MemoRAG's most basic architectural choice before any of the usual tuning questions apply: the memory model itself — not just the retriever or the raw ticket data — has to be hosted and run entirely within the required jurisdiction, which rules out calling a third-party hosted API in another region for either compression or clue generation, and pushes toward a self-hosted, open-weight memory model backbone deployed in-region, even if that's a heavier operational lift than a managed API would be.
+
+Given years of one client's ticket history compressed into a single global memory, the poisoning and blast-radius concern in Q17 is sharper than usual — this memory represents one high-value client's entire support relationship, so access controls and audit logging around who can query it (and who can trigger a recompression) need to be as strict as the data-residency requirement itself implies, not just a technical afterthought. Freshness (Q13) at this scale is an ongoing operational commitment: recompression cadence should match the client's own reporting or account-review cycle, with staleness-aware fallback to raw retrieval for very recent tickets exactly as Q13 describes.
+
+Because surfacing cross-ticket patterns for account management is inherently a claim about the client relationship, treat every clue-guided finding as a lead for a human account manager to verify, not a final answer — the same discipline Q18's due-diligence design applies, translated to a support context. Given the in-region hosting requirement adds real infrastructure cost, run Q15's decision gate seriously before committing: confirm implicit/aggregate pattern-finding queries are common enough in this account to justify a dedicated, compliant memory-model deployment rather than defaulting to it because it sounds like the right architecture.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Enterprise document QA over very long reports** (financial filings, legal contracts, technical manuals) where key answers require synthesizing scattered, implicit signals rather than a single explicit passage

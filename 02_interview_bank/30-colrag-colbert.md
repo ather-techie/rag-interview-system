@@ -630,6 +630,46 @@ Likely evolution: continued improvement in compression techniques (further reduc
 
 ---
 
+## Q21. A small dev-tools startup wants to add token-level late-interaction search to their internal engineering docs (a few thousand pages) to help engineers find relevant runbooks. What would you build? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+At a few thousand pages, storage overhead is a non-issue in absolute terms (Q3's math scales down proportionally — a few thousand pages is a rounding error compared to the 1M-passage, 25GB example), so the main question is whether ColBERT's precision advantage is actually needed here. Engineering docs and runbooks are a good fit for late interaction specifically because engineer queries are often multi-concept ("how do I retry a failed deploy when the canary check times out," Q10) with low lexical overlap against the runbook's actual wording.
+
+**Recommended approach:** use off-the-shelf ColBERTv2 via RAGatouille (Q3) with no fine-tuning — the startup's docs are natural-language prose, not a specialized vocabulary like code or legal text, so the criteria in Q5 for warranting a fine-tune (recall@10 below 0.70, structural query patterns the base model hasn't seen) likely don't apply yet. A simple two-stage pipeline (fast pre-filter, then MaxSim rerank) is enough at this corpus size; the pre-filter doesn't even need heavy optimization since brute-force MaxSim across a few thousand documents would itself be fast.
+
+**Trade-offs to flag:** (1) the ~10-30x storage multiplier (Q4) is easy to absorb at this scale, but the startup should still run the decision-gate comparison (Q16) against a simpler hybrid BM25+dense baseline before committing — if the query mix turns out to be mostly single-concept lookups, the simpler and more standard hybrid approach may perform comparably without ColBERT's specialized serving stack (Q20); (2) plan for fine-tuning later only if the docs grow highly domain-specific (heavy internal jargon, API names) or if the golden-set evaluation shows a real gap.
+
+</details>
+
+---
+
+## Q22. A source-code hosting platform wants to index billions of functions with ColBERT-style late interaction for natural-language code search, but storage cost is under a strict budget cap. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+At billions of functions, the ~10-30x token-level storage multiplier (Q4, Q18) is the dominant constraint — uncompressed, this scale would run into petabytes, which is untenable under a strict budget. The design has to treat storage as the primary lever, not an afterthought:
+
+1. **Aggressive residual compression** (`nbits=2`, Q4) is the single biggest lever, cutting storage roughly 10x with modest quality loss — non-negotiable at this scale rather than an optional tuning knob.
+2. **Sharded PLAID indexing** (Q14) across many machines, with the two-stage pipeline's fast pre-filter running per shard so no single machine needs the full token-level index in memory.
+3. **Domain-specific fine-tuning** (Q5, Q19) on (natural-language query, code snippet) pairs — this is what lets a smaller, cheaper pre-filter candidate count still hit target recall, since a better-tuned model needs less brute-force breadth to compensate.
+4. **Punctuation/boilerplate masking tuned for code** (Q13) — masking common tokens (`import`, `def`, `return`) that would otherwise inflate MaxSim scores with spurious matches keeps the *quality* side of the compression trade-off intact even as storage shrinks.
+5. **Hybrid routing** (Q10): route exact-identifier queries (function/variable names) to BM25 rather than paying ColBERT's storage cost for a query type BM25 already handles well — this reduces how much of the corpus actually needs the full token-level treatment if identifier search can be served more cheaply alongside it.
+
+**Trade-offs:** compression and fine-tuning both trade some quality/engineering effort for storage headroom; hybrid routing reduces ColBERT's effective footprint requirement but adds routing-logic complexity (Q16's decision-gate discipline still applies before committing wholesale).
+
+**What to monitor:** actual storage cost against the budget cap per corpus growth, recall audits comparing the pre-filter's candidates against brute-force ground truth on a sample (Q17), and per-query-type accuracy segmentation (Q12) to confirm the hybrid split is routing correctly rather than sending everything through the expensive path.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Vespa.ai** uses ColBERT-style multi-vector scoring in production at scale

@@ -691,6 +691,42 @@ Likely evolution: continued exploration of the cost/depth spectrum this file, Gr
 
 ---
 
+## Q21. A two-person research lab wants a literature-graph assistant on a single laptop GPU — walk through how you'd stand up LightRAG within that constraint. `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a small, slowly-growing corpus (perhaps a few hundred to low-thousands of papers), no production SLA, and hardware that rules out anything heavyweight — the constraints are cost and simplicity, not scale.
+
+The straightforward approach is close to LightRAG's own default configuration: NetworkX for graph storage (Q3) rather than standing up Neo4j, and skipping Leiden community detection entirely (Q4's "optional, not mandatory" framing) since a two-person lab has no real use for cross-corpus thematic synthesis yet — local mode (entity-anchored) covers most "what did paper X say about method Y" and "how do these two techniques relate" questions a literature-review assistant actually gets asked. Use a cheap extraction model (Q3) for entity/relationship extraction, since a laptop GPU budget favors API calls to a small model over running extraction locally.
+
+Two trade-offs to flag: entity resolution (Q5) will be noisier without production-grade tuning — author names, method names, and dataset names will fragment into near-duplicate nodes more than a tuned pipeline would tolerate, so occasional manual merging is expected rather than exceptional. And naive mode (flat vector fallback) should stay available for straightforward single-paper lookups, since running graph extraction and traversal for every query wastes the lab's limited compute on questions that don't need it.
+
+</details>
+
+---
+
+## Q22. A manufacturing conglomerate wants one dual-level maintenance assistant spanning 200 plant manuals with weekly updates — what does the LightRAG deployment need to get right at that scale? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are scale (200 plants' worth of manuals, likely tens of thousands of chunks) and a weekly freshness SLA, with real cost on the other side of failure: a technician following a stale dependency or torque spec is a safety issue, not just an inconvenience.
+
+The approach leans on LightRAG's incremental update pipeline (Q8) rather than any full rebuild: each week's changed manuals are diffed, entities/relationships re-extracted only for changed chunks, and new nodes resolved against the existing entity set rather than re-running resolution corpus-wide. Metadata filtering by plant/equipment-line (mirroring the financial-corpus design in Q10) keeps cross-plant bleed from contaminating retrieval — a query about Plant 12's compressor shouldn't surface Plant 47's near-identical-sounding equipment.
+
+The real trade-off is entity resolution across plants: the same physical equipment model is often named slightly differently manual to manual (different revision, different translator), so type-constrained, anchor-based resolution (Q5) is necessary rather than optional at this scale — under-resolving fragments the graph per-plant instead of building the cross-plant view the conglomerate actually wants, while over-resolving risks merging genuinely different equipment lines. The second trade-off is community/global mode: cross-plant thematic queries ("what failure modes recur across our compressor fleet") are valuable but expensive to keep fresh weekly, so global mode should be recomputed on a slower cadence than the weekly incremental local-mode updates.
+
+Monitor: entity resolution precision sampled per plant, weekly update completion latency against the SLA, and query-mode routing accuracy so relational and thematic queries land on the retrieval path built for them.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why LightRAG Fits |

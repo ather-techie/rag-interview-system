@@ -583,6 +583,42 @@ This decoupling is what enabled the frozen-retriever-plus-prompted-generator pat
 
 ---
 
+## Q21. A graduate student wants to fine-tune a REALM-style retriever on just one course's reading list — is the full joint pre-training machinery even proportionate here? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a tiny, bounded corpus (a single course's reading list — tens to a couple hundred documents), a one-person project, and presumably a research or coursework goal rather than a production deployment.
+
+The straightforward answer is that REALM's full recipe is disproportionate at this scale, for a reason specific to what makes REALM hard in the first place (Q16): the asynchronous index-refresh machinery (Q3) exists to make re-indexing an entire large, actively-training-against corpus tractable, but re-encoding a reading-list-sized document set is cheap enough to just redo outright whenever needed — the exact problem REALM's async refresh solves barely exists at this scale. A more proportionate approach is to warm-start with a strong off-the-shelf or lightly-fine-tuned retriever (Q7's ICT-style warm-start, or simply a good pretrained encoder) and, if end-to-end training is the point of the exercise, freeze the document encoder and train only the query side (Q9's modern simplification) rather than attempting REALM's full joint marginalization-and-refresh loop.
+
+The trade-off to flag: implementing REALM's true joint pre-training end-to-end has real pedagogical value for understanding the mechanism (Q2), but as a practical retriever for a course-sized corpus, a simpler DPR-style supervised retriever or even an unmodified off-the-shelf encoder would likely perform comparably — the full machinery is worth building to learn from, not because the reading list actually needs it.
+
+</details>
+
+---
+
+## Q22. A search-engine vendor wants to retrain a REALM-style joint retriever-generator across a multi-billion-page index every quarter on a fixed compute budget — what has to give? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are corpus scale (multi-billion pages) and a fixed quarterly compute budget for retraining — and REALM's own cost profile (Q11) makes clear that the dominant expense in a fully joint approach is precisely what doesn't fit a fixed budget at this scale: continuously re-encoding the entire document corpus as the document encoder's parameters change during training.
+
+The approach has to take the pragmatic compromise Q9 describes as the default, not an optional simplification: freeze the document encoder and retrain only the query encoder end-to-end each quarter, eliminating the recurring full-corpus re-embedding cost that a truly joint retrain would require. Within the fixed budget, further control the marginalization cost via a reduced top-k during training (Q11) and approximate rather than exact ANN search. If any document-side updates are affordable at all within the budget, prioritize re-embedding high-traffic or highest-churn segments of the index rather than attempting a uniform full re-embed.
+
+The real trade-off is accuracy versus feasibility: freezing the document encoder sacrifices some of the benefit of REALM's fully joint design (Q16's own point that joint training is what makes retrieval task-aligned), but at multi-billion-page scale, a fully joint quarterly retrain would consume the entire compute budget on re-indexing alone, leaving nothing for the rest of the training pipeline — so the frozen-document-encoder compromise isn't a lesser choice, it's the only one that fits the constraint at all.
+
+Monitor: compute spend against the quarterly budget (with re-embedding cost broken out separately from query-encoder training cost), retrieval-recall drift quarter over quarter, and downstream QA accuracy before and after each quarterly retrain to confirm the frozen-encoder compromise isn't silently degrading over successive quarters.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why REALM (training-time learned retrieval) Fits |

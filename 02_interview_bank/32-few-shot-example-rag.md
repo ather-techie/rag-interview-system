@@ -703,6 +703,46 @@ Likely evolution: task-specific, structurally-aware retrieval (embedding models 
 
 ---
 
+## Q21. A small legal-aid clinic wants to retrieve similar past case examples to help intake volunteers (who have limited training) draft consistent responses. What would you build? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Volunteers with limited training need to see *what a good response looks like*, not just facts about the law — which is exactly the "patterns to imitate" problem Few-Shot Example RAG solves (Q1, Q7), as opposed to a documents-only approach.
+
+**What the situation implies:** a small clinic has a modest number of past cases (likely hundreds, not millions) and limited engineering capacity, so the setup should be simple: a small FAISS or Chroma index (Q2) over a curated library of (past intake query, well-handled response) pairs, retrieved by embedding the volunteer's current intake query.
+
+**Recommended approach:** build the initial library from a supervising attorney's hand-picked set of well-handled past cases, with every example reviewed before inclusion (Q17's review discipline) — this matters more here than in a low-stakes domain, since a volunteer will imitate whatever pattern is retrieved, including a subtly wrong one. Use MMR (Q3) with a modest k (2-3 examples) to avoid retrieving near-duplicate cases that add no new guidance. Given a clinic likely handles a limited number of case *types* (eviction, benefits denial, custody, etc.), also run the decision-gate check from Q15 — a well-chosen static set of examples per case type might perform nearly as well as dynamic retrieval, at much lower ongoing maintenance cost for a small volunteer-run organization.
+
+**Trade-offs to flag:** (1) library curation (attorney review time) is the real ongoing cost here, not infrastructure — budget for that, not for scaling the vector index; (2) since legal conventions and forms change, apply the staleness management discipline from Q13 so volunteers aren't taught an outdated procedure.
+
+</details>
+
+---
+
+## Q22. A global HR platform serving 30 countries needs to select dynamic few-shot examples per locale so that generated HR communications stay both on-brand and legally compliant with local labor law. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraint is that "correct" output differs by jurisdiction — a termination-notice example that's compliant and appropriately toned in one country's labor-law context could be actively wrong (legally or culturally) if retrieved for a query from a different country. A single shared example library retrieved by pure semantic similarity risks exactly this: an embedding model doesn't know that similarity in topic doesn't imply similarity in applicable law.
+
+**Design:** partition the example library into **locale-scoped sub-libraries**, each tagged with a locale/convention identifier (extending Q19's convention-tagging pattern), and restrict retrieval to the querying locale's own subset by default — never let a US example bleed into a German query's retrieved set just because the embedding similarity is high, since the two may need materially different legal language. Every example entering any locale's library requires **mandatory human review** (Q17) from someone with local compliance knowledge, given the liability stakes of getting employment-law-adjacent language wrong across 30 jurisdictions.
+
+**Staleness management (Q13) is critical and locale-independent** — a locale's labor law can change without the others changing at all, so each locale's library needs its own freshness/audit cadence rather than one global refresh cycle.
+
+**Evaluation (Q11):** segment correctness by locale explicitly — an aggregate accuracy score can mask a specific locale with thin example coverage (Q13's coverage-audit signal) producing subtly wrong, generic output that looks fine in aggregate metrics but fails locally.
+
+**What to monitor:** per-locale correctness and tone-compliance rates, library coverage gaps per locale, and any evidence of cross-locale retrieval leakage (a query in one locale's retrieval set surfacing an example tagged for a different locale) — that leakage is the single most consequential failure mode given the compliance stakes here, more so than the tone-consistency concerns that dominate lower-stakes Few-Shot Example RAG deployments.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **GitHub Copilot**: Retrieves similar code snippets from the open codebase as few-shot context for code completion

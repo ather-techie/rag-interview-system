@@ -596,6 +596,42 @@ Current limitations, several already flagged in this file's own guidance (Q6, Q1
 
 ---
 
+## Q21. A small clinic wants a symptom-triage assistant grounded in a curated knowledge graph — is KAG's machinery justified at that scale, and how would you scope it? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a modest, well-bounded domain (common symptoms, conditions, and a specific set of triage rules) and low query volume, but real stakes — a triage recommendation is a safety-relevant output even at a single small clinic, which is exactly the "rule-following, auditable deduction" case Q1 and Q12 describe, just at a smaller scale than KAG's usual enterprise framing.
+
+The straightforward approach: define a narrow schema covering only the clinic's actual triage domain (symptom, condition, severity, red-flag-rule) rather than a sprawling general-medical ontology, extract from the clinic's own guideline documents with mutual indexing (Q2) so every deduction traces back to source text, and keep the logical-form steps (Q3) simple — retrieve symptoms, match against red-flag rules, surface the matched rule's citation. Human-in-the-loop (the clinician makes the final call) is non-negotiable regardless of scale, per Q9's guardrail.
+
+The trade-off worth flagging: building even a narrow schema and mutual index is real upfront work relative to a small clinic's resources (Q6, Q12's build-cost concern), and it's only worth it because triage specifically demands rule-following, not because every question the clinic's assistant might field does — general informational questions ("what are your office hours," "what does this medication do") should route to a simpler RAG path, reserving KAG's machinery specifically for the safety-relevant triage-rule deductions where auditability actually matters.
+
+</details>
+
+---
+
+## Q22. A national health ministry needs formal logical consistency across thousands of clinical protocols in one KAG deployment — how do you keep that scale from becoming ungovernable? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are national scale (thousands of protocols, likely spanning many specialties and updated on different schedules) and a formal logical-consistency requirement — not just "each protocol is internally correct" but "the graph as a whole doesn't contain contradictory rules," which is a materially harder bar than any single-domain KAG deployment in this file has needed to clear.
+
+The approach: strict schema governance with a versioned ontology that's extended deliberately rather than organically (Q17's schema-strictness knob, taken seriously at this scale), mutual indexing at a granularity fine enough to support per-protocol citation (Q17), and an automated consistency-checking pass that runs whenever a new or updated protocol is ingested — specifically testing whether the new protocol's rules contradict existing ones already in the graph, not just whether extraction succeeded. Given the stakes, any logical-form parse below a confidence threshold, or any newly-detected cross-protocol contradiction, should be routed to human policy review (Q19's mitigation) rather than silently resolved by the system picking one rule over another.
+
+The real trade-off: consistency-checking at this scale will surface genuine conflicts between protocols written by different specialty bodies at different times — some of these are not extraction errors but real, unresolved policy disagreements, and no amount of engineering fixes that; the system's job is to surface these clearly for human resolution, not to paper over them with a confident-sounding but arbitrary tie-break.
+
+Monitor: logical-form parse accuracy on a clinician/policy-reviewed sample, the rate of newly-detected cross-protocol contradictions per ingestion batch, and the fraction of deductions requiring human review versus fully KG-grounded auto-answers.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why KAG Fits |

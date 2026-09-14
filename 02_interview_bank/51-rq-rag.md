@@ -646,6 +646,40 @@ Likely evolution: **adaptive branch pruning** (as sketched in Q16, Q18) becoming
 
 ---
 
+## Q21. A small consultancy wants a lightweight search tool that rewrites vague client questions into concrete sub-queries. Should they fine-tune an RQ-RAG-style model, or is prompted rewriting good enough here? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A handful of consultants asking vague, compound questions against a small internal knowledge base is a reasonable match for RQ-RAG's conceptual value — deciding per-query whether to rewrite, decompose, or disambiguate — but Q15's decision gate points fairly clearly toward prompted rewriting instead at this scale: low query volume doesn't amortize the fine-tuning investment, and a small consultancy evaluating or swapping between vendor LLMs periodically (a common pattern for a firm this size) runs directly into the base-model-coupling cost Q5 and Q7 flag, where a fine-tuned refinement policy is tied to one specific checkpoint and has to be retrained if the underlying model changes.
+
+The practical approach is to approximate RQ-RAG's three operations via prompting on a frozen model: ask it to first classify whether a client question needs rewriting, decomposing into sub-questions, or clarifying against prior conversation context, then execute accordingly — capturing most of the adaptive benefit without a training pipeline, special tokens, or tree-decoding infrastructure.
+
+Revisit the fine-tuning question later, not now: if the consultancy's query volume grows substantially and settles on one stable base model long enough to amortize training, Q15's gate may then pass, particularly if a genuine mix of well-formed, compound, and ambiguous questions is common enough that one fixed prompted strategy starts feeling inadequate — but that's a future decision point, not today's.
+
+</details>
+
+---
+
+## Q22. A multinational's internal search platform has to rewrite and decompose ambiguous employee queries across 15 business units that each use their own jargon. How does RQ-RAG's design need to change to avoid learning just one unit's vocabulary? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Fifteen business units with inconsistent terminology is a harder version of Q18's single-corpus jargon-translation scenario, and the key risk this scale adds is a policy that quietly overfits to whichever business units contributed the most training queries, silently underperforming on the others — training data synthesis (Q3, Q9) has to deliberately sample across all fifteen units' real search logs, not just whichever units were easiest to get data from first, or the fine-tuned model will systematically favor the terminology of its best-represented units.
+
+Action-distribution monitoring (Q12) needs to be segmented per business unit rather than aggregated, since different units will genuinely have different natural action mixes — a unit with heavy internal-acronym use will lean on `<rewrite>` far more than a unit whose questions are mostly already well-formed — and a single global expectation would mask a unit-specific miscalibration that looks fine in the aggregate. Given the scale implies real query volume, branch-pruning (Q16) is worth the engineering effort to keep tree-decoding cost bounded, and the perplexity-based path-selection risk in Q19 is sharper here than usual: a fluent-sounding disambiguation that happens to use the wrong business unit's terminology for an ambiguous term is exactly the kind of confidently-wrong answer perplexity alone won't catch, arguing for a lightweight business-unit classifier as a supplementary signal ahead of path selection.
+
+Retraining cadence (Q12, Q18) needs to track organizational reality, not just calendar time — reorganizations, renamed teams, and merged business units can shift terminology faster than a single stable corporation would, so resynthesizing training traces from recent search logs needs to happen on a schedule tied to organizational change, and per-unit action-selection accuracy should be tracked explicitly so any underrepresented unit's drift is caught rather than averaged away.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Multi-hop QA assistants**: Decomposing compound questions (e.g. "How does X compare to Y over time?") into independently retrievable sub-queries, similar in spirit to file 19's Iterative Multi-Hop RAG but driven by a fine-tuned action rather than an iterative loop

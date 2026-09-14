@@ -736,6 +736,42 @@ Likely evolution: automated, corpus-aware decision tooling that estimates expect
 
 ---
 
+## Q21. A five-lawyer boutique firm wants better clause retrieval across its shared drive of contracts — how would you apply Contextual Retrieval here, and what would you flag as trade-offs? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a modest, fairly static corpus (maybe a few thousand contract chunks), no dedicated ML team, and a concrete pain point: associates searching for "the indemnification clause" or "the termination-for-convenience language" get chunks that read fine in isolation but don't say which contract, party, or clause type they belong to — exactly Q1's motivating failure.
+
+The straightforward approach is to run the standard Contextual Retrieval pipeline (Q1, Q3) essentially as-is: chunk each contract, generate a one-to-two-sentence context prefix per chunk with a mid-tier model, and index the prefixed text in a hybrid dense+BM25 setup. At this scale, prompt caching (Q2) still helps but isn't make-or-break the way it is at enterprise scale (Q9) — a few thousand chunks is a one-time indexing job measured in dollars, not a recurring infrastructure concern.
+
+Two trade-offs worth flagging to the firm: first, the small team has no one to run Q6's faithfulness-checking pipeline at scale, so a lightweight manual spot-check (reading 20-30 generated prefixes before trusting the rest) substitutes for automated validation. Second, contracts are re-indexed only when new documents arrive, not continuously, so freshness is a non-issue — the bigger risk is a hallucinated prefix quietly misattributing a clause to the wrong contract, which a small firm won't catch without that spot-check discipline.
+
+</details>
+
+---
+
+## Q22. A global bank's regulatory-filings search system needs per-chunk context annotations refreshed nightly across 40 jurisdictions — how do you design the pipeline to hit that SLA without violating data-residency rules? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are a nightly refresh SLA across 40 jurisdictions and near-certain data-residency/regulatory rules that vary by jurisdiction — some filings likely cannot leave their home region to reach a shared third-party LLM API, which changes Q11's multi-tenant isolation question from a nice-to-have into a hard requirement.
+
+The recommended approach: partition the pipeline by jurisdiction, with a per-jurisdiction context-generation invocation (its own API key/endpoint or, where residency rules demand it, a self-hosted open-source model deployed in-region) rather than one global batch job. Nightly, diff each jurisdiction's filings against the previous run (content hash, per Q12's pattern) and regenerate context prefixes only for changed or new chunks — full-corpus regeneration every night across 40 jurisdictions would blow both the time and cost budget. Prompt caching per document (Q2) still applies within each jurisdiction's job.
+
+The real trade-off is between uniformity and compliance: a single global pipeline is operationally simpler but breaks residency rules for at least some jurisdictions, while 40 independently-configured pipelines (different models, different faithfulness thresholds, different regulatory review cadences) is far more resilient but meaningfully more to build and maintain. Given the regulatory stakes, compliance wins even at that operational cost.
+
+Monitor per-jurisdiction: refresh completion time against the nightly SLA (with alerting on backlog), faithfulness spot-check pass rate on a sample of regenerated prefixes, and any cross-jurisdiction data-egress violations as a hard-fail alert, not a warning.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Contextual RAG Fits |

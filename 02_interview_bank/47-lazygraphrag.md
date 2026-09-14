@@ -604,6 +604,40 @@ Likely evolution: **hybrid indexing** that selectively applies cheap LLM extract
 
 ---
 
+## Q21. A hobbyist genealogist wants to explore a modest family-letters archive without paying for expensive upfront graph construction. Why does LazyGraphRAG fit here, and what should they watch for? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A hobbyist exploring a personal family-letters archive sits squarely in LazyGraphRAG's ideal use case (Q1, and this file's own Real-World Applications framing): the archive is indexed "just in case" and most of it will never be queried in any given session, so paying GraphRAG's or LightRAG's upfront LLM-extraction cost across the whole archive would be wasteful compared to the near-zero NLP-only indexing this architecture offers (Q4).
+
+Set up the co-occurrence graph over the letters and records as-is, and let the relevance-test budget (Q2) do its job on queries like "who is connected to great-grandfather's immigration story" — at hobbyist query volume, caching (Q13) barely matters since repeat queries are rare, and adaptive budgeting (Q14) is worth the small implementation effort since query breadth will vary a lot between a narrow "who was this person's spouse" lookup and a broad "trace everyone connected to this event."
+
+The one thing worth double-checking given the low-stakes-but-personal nature of the task: co-occurrence is a noisy relevance signal (Q4, Q12), and old family letters plausibly mention unrelated relatives in the same paragraph for reasons that have nothing to do with genealogical connection (a shared address, a mutual acquaintance mentioned in passing) — before trusting a surprising "connection" the tool surfaces between two family members, manually check the underlying letters, since at this scale that kind of spot-check costs a hobbyist a few minutes and prevents building a family narrative on a co-occurrence artifact rather than a real relationship.
+
+</details>
+
+---
+
+## Q22. An investigative think tank keeps deferring graph construction across a leaked-documents archive that grows unpredictably and gets queried in ways no one can plan for in advance. How would you scale LazyGraphRAG to that setting responsibly? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A rapidly growing leaked-documents archive with unpredictable analyst query patterns matches Q18's exploratory-archive scenario almost exactly, but adds two complications that scenario doesn't have: the documents may be adversarially planted or mislabeled (a leak's provenance is inherently less trustworthy than an internal corpus), and analyst findings here can carry real legal and reputational consequences once published.
+
+The core fit still holds — cheap NLP-only indexing (Q1, Q4) is the only practical option given continuous, unpredictable-volume ingestion of new leaked batches, since re-running LLM extraction and Leiden clustering on every new batch at this scale and cadence would be both slow and expensive. Adaptive relevance budgeting (Q14) matters more here than in most deployments given how differently narrow ("who signed this specific memo") and broad ("trace everyone connected to this scandal") analyst queries can be within the same archive.
+
+The security risk this scenario adds beyond Q17's general treatment is sharper: an adversarial or mislabeled document in a leak could manufacture a misleading co-occurrence edge (Q17's adversarial-injection risk) that a co-occurrence-only signal has no way to distinguish from a genuine connection, and because findings here may be published externally, that risk needs a mandatory human corroboration step before any cross-document "connection" becomes part of a published finding — not just a caching or budget optimization, but an editorial gate. Cache canonical, frequently-asked questions about the leak (Q13) but invalidate aggressively as new batches arrive, since a newly-surfaced document can recontextualize a conclusion multiple analysts already relied on. Revisit the decision gate (Q15, Q18) as the archive matures — if a stable set of canonical questions emerges, migrating that subset to pre-built summaries may eventually be worth it despite the archive's overall unpredictability.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Microsoft's GraphRAG open-source library**: LazyGraphRAG ships as a lower-cost mode within [microsoft/graphrag](https://github.com/microsoft/graphrag), positioned as the cost-sensitive alternative to full GraphRAG indexing

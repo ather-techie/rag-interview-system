@@ -850,6 +850,40 @@ Naive RAG's limitations (Q2) map directly onto entire categories of this bank's 
 
 ---
 
+## Q21. A two-person startup needs a FAQ bot over their SaaS product's docs by next week — how do you build it with Naive RAG? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+This is about as clean a Naive RAG fit as exists: a small, fairly static documentation corpus (probably a few hundred pages), a tiny team with no dedicated ML engineer, a tight deadline, and a budget that rules out anything requiring fine-tuning or a managed reranking service. The requirements themselves point straight at Q5's "when Naive RAG is still the right choice" criteria — low query complexity, mostly single-fact lookups ("how do I reset my API key," "what's the rate limit on the free tier"), and a corpus that changes on a docs-release cadence rather than continuously.
+
+Recommended build: chunk the docs at roughly 400 tokens with light overlap (Q16), embed with an off-the-shelf hosted model rather than anything self-hosted (no infra to maintain), and store vectors in Chroma or a hosted Pinecone free tier — either is fine at this scale, and the choice matters far less than getting the pipeline shipped (Q17). Retrieve k=3-4 with plain cosine similarity, skip reranking and hybrid search entirely for launch, and have the generation prompt explicitly say "I don't know" when similarity scores are low rather than guessing.
+
+The trade-off to flag up front: skipping reranking means occasional wrong answers on ambiguous product terminology, and a two-person team has no bandwidth to build an evaluation harness before launch — so the practical mitigation is shipping fast, logging every query and its top-k similarity score, and reviewing low-confidence queries weekly rather than trying to get retrieval perfect before shipping anything.
+
+</details>
+
+---
+
+## Q22. Design a claims-status lookup bot for a 50,000-query/day insurer that must never expose one customer's PII to another's session. `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraint here isn't volume, it's data isolation: claims data is per-customer PII, so the failure mode to design against isn't "wrong answer" but "right answer surfaced to the wrong customer" — a worse outcome than Naive RAG's usual failure modes (Q2, Q18). A flat top-k vector search across an index of all customers' claim documents is unsafe by construction here: if two customers' claims happen to embed similarly (same claim type, adjuster, or dates), nothing in Naive RAG's basic pipeline (Q1) stops one customer's session from retrieving another's chunk.
+
+The fix is architectural, not a retrieval-quality tweak: partition retrieval with a hard metadata filter on the authenticated customer/policy ID before similarity search ever runs, so ANN search only ever ranks within that one customer's own claim documents. PII redaction happens at ingestion, not query time — scrub SSNs, account numbers, and other identifiers from claim documents before they're chunked and embedded (Q16), replacing them with typed placeholders the generation prompt can reference without ever seeing the raw value. Static, non-customer-specific policy content can still use a shared index exactly as in Q19's HR-bot pattern.
+
+What to monitor: automated PII-pattern scans on every generated answer before it's returned, alerts on any cross-customer filter bypass in logs, and p95 latency at full 50k/day load to confirm metadata-filtered search doesn't blow past SLA. The trade-off is real: per-customer partitioning and mandatory ingestion-time redaction add engineering cost Q19's HR bot never needed, but for regulated PII, cutting that corner isn't an option.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Naive RAG Fits |

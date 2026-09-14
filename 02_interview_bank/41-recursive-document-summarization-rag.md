@@ -627,6 +627,40 @@ Likely evolution: hybrid designs that combine this architecture's document-prese
 
 ---
 
+## Q21. A graduate student is assembling a recursive summary tree over the few hundred source papers cited in their thesis, purely for personal navigation while writing. What would this tree look like in practice, and what could they skip? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A graduate student citing a few hundred source papers doesn't need this file's full four-level, cross-user production design — Level 3 (a single corpus-wide summary) is genuinely useful here as a "what's the state of my sources" overview, but the real value is at Levels 1-2: a section summary per paper (methods, results, discussion) and a paper-level summary, built with a cheap model (Q4's Haiku-class default) since budget is zero and volume is modest.
+
+Build one subtree per paper, exactly as this architecture does by default (Q2), rather than RAPTOR's cross-document clustering — the student's actual need ("what did paper X say about Y") is document-scoped, not thematic synthesis, which is precisely the use case this architecture, not RAPTOR, is built for. Skip the query-time level router's complexity (Q5) entirely at this scale; a simple rule — search paper summaries first, drill into chunks (Q8's coarse-to-fine) whenever a specific quote is needed for a citation — covers nearly every real query a single user will ask.
+
+The trade-off worth flagging: this architecture's compounding-hallucination risk (Q12, Q17) matters more here than the scale suggests, because a misremembered figure that ends up quoted in the actual thesis is a real academic risk, not just a UX annoyance. The mitigation doesn't need Q12's full faithfulness-gate benchmark — it needs a personal habit: never cite a number or quote pulled from a Level 1/2 summary without checking it against the original paper's text first, treating the tree as a navigation aid, not a citable source in itself.
+
+</details>
+
+---
+
+## Q22. A government inquiry commission must recursively summarize millions of pages of testimony transcripts into a navigable hierarchy before a legally mandated public-disclosure deadline. How would you design this under that time pressure? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Millions of pages under a legally mandated disclosure deadline changes two things about this architecture's design at once: the tree has to be built at genuine scale under time pressure, and every level above the raw transcript has to be more trustworthy than a normal deployment would require, because a fabricated or distorted summary of testimony is a public-accountability failure, not just a quality bug.
+
+Structure the tree per witness or per hearing session (Level 2), exactly as Q18's legal-contract design preserves document identity per contract — testimony must never be blended across witnesses the way RAPTOR-style clustering would, since "who said what" is the entire point. Faithfulness gating (Q12) is not optional here and should run on every Level 1 summary against its source transcript before it's allowed to feed a Level 2 summary, given how directly Q17's hallucination-amplification risk threatens the commission's credibility if an error compounds up to a Level 3 summary a journalist or the public reads.
+
+The deadline forces a real trade-off: full corpus-wide (Level 3) summarization is the most expensive step (Q15) and the one hardest to keep fully faithful at this scale, so prioritize faithfulness-checking depth on the testimony most central to the commission's eventual findings, accepting a lighter check on peripheral testimony given finite review time before the deadline. Incremental updates (Q16) matter continuously since hearings likely continue until close to the deadline — only re-summarize the sessions that actually changed. Track faithfulness-check coverage and throughput against the deadline explicitly, and treat any drop in sampled faithfulness scores as grounds to slow down and re-review rather than ship on time with an uncaught error.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why This Architecture Fits |

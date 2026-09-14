@@ -617,6 +617,42 @@ Since FLARE can trigger retrieval multiple times per response (once per low-conf
 
 ---
 
+## Q21. A student drafting a research paper wants their assistant to pause and look up citations only when confidence drops — how simple can that FLARE setup be? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a single-user, offline drafting tool with no latency SLA and a human (the student) who will review every citation anyway — the lowest-stakes version of FLARE's use case, and one where the machinery can stay close to the paper's original design without much customization.
+
+The straightforward approach: use FLARE-direct (Q3) with a single global confidence threshold θ around 0.4-0.5 (Q8's practical default), sentence-level granularity, and whatever logprob access the student's chosen API provides — falling back to verbalized confidence (Q12) if it doesn't expose token probabilities. There's no need for dynamic, per-domain θ tuning (Q8's refinement) or multiple confidence signals (Q12) at this scale; one retrieval per low-confidence sentence, using the masked draft sentence itself as the query (Q3), is sufficient.
+
+The trade-off to flag: token-probability confidence is an imperfect proxy for factual uncertainty (Q7, Q19) — the model can be confidently wrong about a citation and FLARE simply won't trigger for it. For a personal drafting aid, this is an acceptable risk precisely because the student is expected to verify every citation before submitting the paper anyway; the confidence gate here is a convenience that reduces how often the student needs to manually double-check, not a safety-critical fact-checking system, so it doesn't need FLARE's more elaborate confidently-wrong mitigations.
+
+</details>
+
+---
+
+## Q22. A financial-analyst desk needs its equity-report generator to pause and verify the instant confidence drops on a market-moving figure — how do you engineer that trigger so it doesn't miss a confidently-wrong claim? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraint is that a client-facing equity report asserting a wrong market-moving figure is a reputational and potentially regulatory problem, not a minor inaccuracy — and Q7's "confidently-wrong" gap is precisely the failure mode that matters most here, since token confidence alone won't catch a fluent, high-probability but fabricated number.
+
+The approach layers signals rather than relying on token probability alone (Q12's combined-signal best practice): trigger retrieval on low token confidence OR the presence of an unverified entity/number/claim in the drafted sentence, with a dynamic θ (Q8) set higher specifically for fact-dense sentences (prices, percentages, earnings figures) and lower for transitional prose. Critically, add a mandatory post-hoc faithfulness check on every sentence containing a specific figure, regardless of whether it triggered retrieval at draft time — this is the direct mitigation for the confidently-wrong gap, since a sentence the model was "sure" about still needs independent verification when the claim is material to a client's decision.
+
+The real trade-off is cost and latency versus risk: this combined-signal, always-verify-numeric-claims approach retrieves and checks far more aggressively than FLARE's default token-confidence-only design, meaningfully slowing report generation and raising retrieval cost — but given that a wrong market-moving claim is the failure mode the desk is most exposed to, that cost is the correct trade, reserved specifically for numeric/material claims rather than applied uniformly to every sentence.
+
+Monitor: citation coverage of every numeric/material claim (should approach 100%, not just wherever token confidence happened to trigger), faithfulness pass rate on the post-hoc check, and retrieval-trigger rate weighed against the report's turnaround-time SLA.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why FLARE Fits |

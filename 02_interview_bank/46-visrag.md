@@ -588,6 +588,40 @@ Likely evolution: **cheaper, more efficient VLM encoders** specifically optimize
 
 ---
 
+## Q21. A small museum wants its visitor kiosk to answer questions straight from photos of exhibit labels, without an OCR step. How would you scope a VisRAG pipeline for this modest budget? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A museum's exhibit labels are exactly the kind of visually mixed content (small print, sometimes stylized fonts, occasional photos of artifacts alongside text) that Q1 and Q5 flag as VisRAG's advantage zone, and at a small museum's scale the whole pipeline can stay minimal: render each label as an image (Q2), embed with an off-the-shelf VLM encoder rather than a fine-tuned one, since the accuracy bar for a casual visitor kiosk is more forgiving than an enterprise deployment's, and generate answers with an off-the-shelf vision-capable model (GPT-4o, Gemini, or Claude with vision) — Q4 already notes generation works zero-shot with no fine-tuning required, which matters a lot when there's no budget for training a retrieval-specific encoder.
+
+Given the volume is naturally low (a kiosk serving visitors, not a high-QPS production service), the higher per-query cost this file flags throughout (Q16) stays small in absolute terms, and the citation/explainability weakness (Q13) matters far less for a casual "tell me about this exhibit" interaction than it would for a compliance-heavy domain — a bounding-box highlight, if added at all, is a nice-to-have rather than a requirement.
+
+The one thing worth doing carefully even at this scale: validate rendered images for a handful of poorly-lit or angled label photos before launch (Q19's rendering-quality check), since a museum's real-world photography conditions are less controlled than a scanned-document pipeline, and a garbled render will silently degrade an otherwise fine architecture.
+
+</details>
+
+---
+
+## Q22. A patent office wants to reason directly over scanned diagrams and figures across millions of patent images, with no OCR pipeline anywhere in the loop. What does a production-scale VisRAG deployment look like here, and where does it strain? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Millions of patent images with prior-art search stakes push VisRAG into a regime this file's default design doesn't fully anticipate: examiners need results precise enough to cite in an office action, which means the citation/explainability gap (Q13) that's a minor inconvenience for a museum kiosk becomes a hard requirement here — every VisRAG hit needs the bounding-box grounding pass, and for the highest-stakes prior-art comparisons, a parallel text index (Q5's hybrid) purely for producing an exact quotable citation alongside the visual one.
+
+Cost and latency at this scale (Q16) demand real DPI tuning per patent category — mechanical and electrical patents with fine diagram detail need higher render resolution than mostly-prose software patents, which argues for the same page-level, not document-level, routing Q18's 10-K design uses, sending diagram-heavy pages through VisRAG and prose-heavy pages through a cheaper text pipeline. Cross-page reasoning (Q14) matters more here than in most VisRAG deployments, since patent claims routinely reference figures spanning several pages or even cross-reference other patents — adjacent-page retrieval and ingestion-time multi-page structure detection are worth the extra engineering given how central this is to correct prior-art analysis.
+
+Given the corpus includes decades of legacy scans, rendering-quality validation (Q19) has to be automated rather than manual review at this volume — skew, degraded paper, and inconsistent scan quality are common enough that a systematic ingestion-time quality gate is necessary, not optional. Content screening (Q17) also needs its parallel lightweight-OCR safety net here, since patent content review has compliance obligations a from-scratch image-only pipeline wouldn't otherwise satisfy.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Financial report / 10-K analysis**: tables of quarterly figures and charts retrieved and read without risking a broken table-to-text conversion

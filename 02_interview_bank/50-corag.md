@@ -641,6 +641,40 @@ Likely evolution: **process-level supervision** replacing or supplementing today
 
 ---
 
+## Q21. A small research lab needs to answer a multi-part question chaining several facts together for a science-fair-style project. Would you train a CoRAG model for this, or is there a cheaper path to the same behavior? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A multi-part question chaining several independent facts together — the kind of thing a science-fair project might pose — is exactly the shape of question CoRAG's chain-of-retrieval was built to answer, but the lab almost certainly shouldn't train a CoRAG model for it: Q15's decision gate requires either an existing labeled dataset large enough for rejection sampling or the infrastructure to generate one, neither of which a small lab helping with a one-off project is likely to have or need.
+
+The cheaper path to the same behavior is IRCoT-style prompting (Q1, Q5) — a frozen, capable model interleaving one reasoning step, one retrieval call, and the next reasoning step, entirely via prompting, with no training pipeline at all. This gets most of the practical benefit (chaining retrieval to answer a genuinely multi-hop question) at essentially zero setup cost, which is the right trade for a single question or a handful of similar ones rather than a high-volume production system.
+
+Chain drift (Q4) is still worth watching even at this small scale — an early, slightly-off sub-answer can compound through later reformulations exactly as it would in a trained CoRAG chain — so keep the prompted chain short, have the model explicitly state its running assumptions at each step, and do a quick manual sanity-check of the final answer before it goes into a project write-up, rather than trusting a long unsupervised chain of retrieval steps at face value.
+
+</details>
+
+---
+
+## Q22. An insurance fraud unit chains retrieval across claims, medical records, and prior-case files, working against a strict investigation-window deadline where the final decision may face legal appeal. How would you adapt CoRAG for that combination of speed and defensibility? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Chaining retrieval across claims data, medical records, and prior-case files under a hard investigation-window deadline, where a fraud determination may later face legal appeal, is exactly the domain-adapted case Q18 anticipates, but the appeal risk adds a requirement beyond what that design already covers: the chain's *reasoning*, not just its final flag, needs to be defensible on review, since an appeal can challenge how the unit arrived at a conclusion, not only whether the conclusion was correct.
+
+That pushes intermediate-quality auditing (Q12) from a nice-to-have into a mandatory training-data filter — a chain that reached the right fraud/no-fraud determination via a garbled or coincidentally-lucky intermediate reformulation is not acceptable training signal here, unlike a general QA setting where outcome-only filtering is normally good enough. Expert-verified gold labels (Q17, Q18) matter more than usual too, since a mislabeled training case doesn't just cost accuracy — it risks teaching the model a reformulation habit that could bias real fraud determinations at scale, with legal exposure attached.
+
+Given the deadline, default to adaptive-length decoding for routine cases to fit within the investigation window, but route any case nearing the deadline or flagged as high-value to best-of-N with reranking (Q13) despite its added latency, since accuracy under appeal-level scrutiny matters more than speed for those specific cases. Monitor drift rate and chain quality by claim category on an ongoing basis (Q11), and specifically flag any case where time pressure might have pushed the system toward a faster but less-audited chain, routing those to a secondary human review before the determination is finalized.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Enterprise multi-hop search assistants at scale**: fine-tuned CoRAG-style models reduce per-query latency/cost versus prompting-based interleaved retrieval (IRCoT) when query volume is high

@@ -1225,6 +1225,40 @@ Agentic RAG's core limitations are direct consequences of its own flexibility: (
 
 ---
 
+## Q21. A small nonprofit with two staff wants an agentic assistant to research and draft grant applications. How much agentic machinery does it actually need? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a tiny team, thin budget for per-query iteration cost, and a task that genuinely benefits from a few rounds of research (finding matching grants, pulling eligibility criteria, checking past successful applications) but doesn't need open-ended exploration. That points at the simplest end of this file's spectrum rather than anything elaborate.
+
+A single-agent ReAct loop (Q1, Q2) is enough here — multi-agent orchestration (Q8) exists to handle task decomposition at a scale and complexity this nonprofit doesn't have. Keep `max_iterations` low (Q18), around 3-5, since grant research is a bounded task rather than genuinely open-ended reasoning, and use a cheap model for intermediate tool-selection steps, reserving a stronger model only for the final draft synthesis (Q18's model-tiering knob). Scope the agent's tools to a small, curated set of grant databases rather than general web search, which keeps both cost and the injection-risk surface (Q9) smaller than it needs to be for a task this narrow.
+
+The trade-off to flag: a cheap, tightly-bounded loop like this won't gracefully handle a genuinely unusual funder's guidelines — it will do its best within a few iterations and stop. The mitigation isn't more agentic sophistication, it's process: have the assistant surface its uncertainty explicitly and require a human read-through before any draft is submitted, rather than trying to engineer away every edge case at this budget.
+
+</details>
+
+---
+
+## Q22. An investment bank wants an autonomous due-diligence agent whose every tool call must be reconstructible for a regulator. How do you design that? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraint is regulatory auditability: every retrieval and tool call the agent makes during a due-diligence run has to be reconstructible after the fact, not just summarized in a final report — a materially stricter bar than the runaway-loop and cost concerns (Q18, Q19) this file otherwise emphasizes.
+
+Log the full think-act-observe trace (Q2) for every query into immutable, timestamped, tamper-evident storage — an append-only log or hash chain, not a mutable database row — since regulators need the actual sequence of reasoning and evidence, not a reconstructed narrative. Restrict tool access to an allowlisted set of vetted sources (SEC filings, internal compliance databases) rather than open web search, which both bounds the audit surface and reduces the prompt-injection risk this file flags in Q9 and Q20. Require the agent to attach an explicit source citation to every claim in its output, tied to the specific tool call it came from, and gate any due-diligence conclusion behind human sign-off with the full trace attached for review before it's treated as final.
+
+What to monitor: iteration count and cost per due-diligence run (Q11, Q18), audit-log completeness (no step silently dropped from the trace), and the rate at which human reviewers override or correct the agent's conclusions — a useful proxy for whether the agent's reasoning is trustworthy enough to eventually reduce, rather than just document, the scope of human review. The trade-off: full immutable logging and mandatory human sign-off add real latency and cost on top of what Q20 already flags as Agentic RAG's most expensive-per-query architecture, but in a regulated, high-stakes domain, auditability is a harder requirement than raw efficiency.
+
+</details>
+
+---
+
 ## Terminology Note: "A-RAG" vs. "Adaptive RAG"
 
 Some sources (including common workshop material) use **"A-RAG" / "Adaptive-Hierarchical RAG"** to mean *progressive disclosure*: the agent first reviews a brief summary or keyword snippet, and only retrieves the full, token-heavy chunk if the summary turns out to be insufficient. For example, asked "What's our incident response process for a P1 outage?", the agent first pulls a one-paragraph summary of the runbook; only if that summary is ambiguous or incomplete does it fetch the full runbook document.

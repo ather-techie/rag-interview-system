@@ -612,6 +612,46 @@ Likely evolution: vector databases are increasingly building native CDC-like cha
 
 ---
 
+## Q21. A small esports team wants a live-commentary assistant that pulls in-game stats within seconds during broadcasts. What streaming setup fits their scale? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A small team with a modest budget and a single game-stats feed doesn't need the full Kafka/Flink stack the file's architecture diagram implies — the situation calls for the lightest tooling that still gets fresh stats indexed within seconds.
+
+**What the situation implies:** the data source is a third-party game API (not a database the team controls), so this is application-level event publishing via webhook, not CDC (Q7's decision table — "documents come from third-party APIs" row points directly at webhooks). Query and data volume are both modest, so a heavyweight managed Kafka cluster is disproportionate infrastructure.
+
+**Recommended approach:** use a lighter-weight event stream — Redis Streams (explicitly called out in this file's own tools table as a lighter-weight alternative to Kafka) rather than standing up a full Kafka deployment, paired with a simple consumer that chunks, embeds, and upserts each incoming stat update. Micro-batching (Q8) with a short flush interval keeps stats fresh without needing dedicated stream-processing infrastructure like Flink. A freshness SLO in the 10-30 second range (rather than the sub-second targets high-stakes domains need) is entirely adequate for broadcast commentary.
+
+**Trade-offs to flag:** (1) skipping Kafka/Flink means less mature tooling for dead-letter queues and ordering guarantees, but at this volume a simple retry-with-logging approach is proportional to the risk; (2) delete-then-upsert (Q9's simple version) is fine here — the two-phase swap or versioned-upsert machinery built for zero-downtime updates (Q14) is unnecessary complexity for stats that refresh every few seconds anyway; (3) as the team scales to multiple simultaneous broadcasts, revisit whether Redis Streams still suffices or a move to Kafka is warranted.
+
+</details>
+
+---
+
+## Q22. An emergency-dispatch center needs to ingest 911-call transcripts and incident updates within a 2-second freshness SLO during a mass-casualty event. How do you design this? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A 2-second p95 freshness SLO is far tighter than this file's typical 30-second examples (Q18), and a mass-casualty event is precisely the burst-load scenario the decision-gate benchmark (Q12) exists to stress-test before deployment — this is not a situation where "usually fast enough" is acceptable.
+
+**Design:** ingest via CDC or webhook from the dispatch system, partitioned by incident ID (preserving per-incident ordering while parallelizing across concurrent incidents, per Q16). Set **micro-batch `flush_interval` far below the file's 0.5s default** — something on the order of 0.1s — accepting smaller, less-efficient embedding batches as the necessary cost of meeting a 2-second end-to-end SLO (Q8's freshness-vs-throughput trade-off pushed to its tight end). Use the **two-phase versioned upsert** (Q14) rather than simple delete-then-upsert, since an active mass-casualty incident cannot tolerate even a brief window where its record is absent from the index while being corrected or updated. **Autoscale consumer parallelism on lag**, not a fixed replica count (Q16) — a mass-casualty event can spike event volume by an order of magnitude within minutes, and the system must absorb that burst without freshness collapsing.
+
+Given the active-emergency context, there is no time for a human review gate on incoming updates (Q17's compliance-review caveat) — screening must be entirely automated and inline, accepting that trade-off explicitly given the domain's urgency.
+
+**Decision-gate discipline (Q12) is mandatory before go-live**, not optional: specifically simulate mass-casualty-scale bursts (not just steady-state traffic) and verify recovery time, since this file's own lesson is that freshness SLOs are trivially met at steady state and only burst behavior reveals the real risk.
+
+**What to monitor:** p95/p99 freshness lag with alerting well before the 2-second SLO is breached (e.g., at 1 second), burst-recovery time after a volume spike, and consumer-failure recovery time — given the life-safety stakes, alerting margin matters more here than in almost any other streaming RAG deployment.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Streaming RAG Fits |

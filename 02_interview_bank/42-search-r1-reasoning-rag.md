@@ -564,6 +564,40 @@ Likely evolution: **joint training of retriever and policy** (rather than treati
 
 ---
 
+## Q21. You're helping a hobbyist build a trivia bot for a small Discord server, and they want it to learn — via RL — when to search Wikipedia versus answer from memory. Is Search-R1-style training the right call here, and what would you tell them instead? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Before touching PPO/GRPO at all, this project needs to clear Q15's precondition: a large-enough set of (trivia question, gold answer) pairs, and a hobby Discord bot almost certainly doesn't have thousands of them lying around — a few hundred trivia questions scraped from past games is nowhere near what reliable RL training needs, and GRPO's group-relative advantage (Q12) degrades badly on a small, easy dataset where most rollouts get the same reward.
+
+The realistic path is to build the prompted version first — a frozen model told to search Wikipedia when unsure and answer from memory otherwise (file 04's Agentic RAG pattern) — and treat that as the actual product, using it to log real usage data. If the bot gets enough traffic that a genuinely large labeled dataset accumulates organically (community-corrected answers, confirmed-wrong flags), *then* revisit whether a small open-weight model fine-tuned via Search-R1's recipe is worth the training-infrastructure investment (Q16) it requires.
+
+Trade-off to flag explicitly: RL training here would mostly be a learning exercise, not a production improvement — at hobby scale, the frozen-retriever blind spot (Q14) and reward-hacking risks (Q5) are real but not worth engineering around when a well-prompted frozen model already gets most of the achievable value for free. Save the RL investment for if and when query volume and labeled-data volume actually justify it.
+
+</details>
+
+---
+
+## Q22. A cybersecurity SOC wants an RL-trained assistant that decides, in real time during an active incident, whether to query threat-intel feeds or reason from what it already knows. What would you change about Search-R1's design for this setting? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A SOC deciding in real time whether to query threat-intel feeds or reason locally inverts Search-R1's usual cost asymmetry: here, a false PARAMETRIC decision during an active incident — confidently reasoning from stale threat knowledge instead of checking a live feed — can delay containment, which is a materially worse failure than the efficiency loss of an unnecessary query (Q5's two failure modes, but with failure mode 1 now carrying operational, not just accuracy, cost).
+
+The design needs a hard override layered on top of the trained policy, not just a confidence threshold: any subquery touching an active IOC, a newly disclosed CVE, or an entity flagged in the current incident forces RETRIEVE regardless of the policy's own confidence, mirroring the time-sensitivity overrides described in Q5 and Q10 but tuned far more aggressively given the stakes. The frozen-retriever blind spot (Q14) is also sharper here — threat-intel feeds update constantly, so a policy trained even weeks ago may have learned to under-trust a feed that has since improved, or over-trust one that's gone stale; this argues for frequent retraining or a continuously-updated confidence calibration rather than a train-once deployment.
+
+Reward design is genuinely harder than QA-style exact-match (Q4): "was this retrieval decision correct" during incident response isn't cleanly labelable after the fact the way a trivia answer is, so a production system likely needs a human-reviewed post-incident labeling process feeding back into retraining, plus continuous monitoring of false-PARAMETRIC rate specifically on active-incident traffic, latency against the SOC's real-time SLO, and a hard audit log of every retrieve-or-reason decision for post-incident review.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Open-domain multi-hop QA systems**: Search-R1-style training reported large gains (+41% Qwen2.5-7B, +20% Qwen2.5-3B) over prompted RAG baselines on seven QA benchmarks (HotpotQA, 2WikiMultihopQA, Musique, etc.)

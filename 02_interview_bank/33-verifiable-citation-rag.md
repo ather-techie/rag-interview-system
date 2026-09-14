@@ -705,6 +705,46 @@ Likely evolution: tighter integration between retrieval-time source-trust scorin
 
 ---
 
+## Q21. A student essay-checker tool must cite the exact source sentence for every factual claim it flags. What verification setup is appropriate here? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+An educational tool checking student essays against assigned readings is a low-stakes, moderate-volume scenario — nobody's liability depends on a citation being perfectly precise, but the pedagogical value depends on the tool being basically trustworthy, so some verification is still warranted rather than none.
+
+**What the situation implies:** the corpus is small and known (assigned readings/sources), and the goal is teaching students to support claims, not producing a legally defensible document — so **passage-level citation** (Q1's middle tier) is a reasonable default rather than the more expensive span-level precision a compliance-critical domain would need (Q10, Q12).
+
+**Recommended approach:** generate citations with the structured method (Q2), then verify with the cheap **NLI-based check** (Q3) alone rather than escalating every claim to an LLM-judge call (Q11) — at student-essay volume and stakes, the tiered NLI-first-then-escalate-on-uncertainty pattern (Q11) is more than sufficient, and full LLM-judge verification on every claim would be an unnecessary cost given the domain's low liability. Unsupported claims should be **flagged to the student for revision** rather than silently removed (Q3's four options) — the point of the tool is teaching citation discipline, so showing the student what wasn't supported is more valuable than hiding it.
+
+**Trade-offs to flag:** (1) coarser passage-level granularity accepts a slightly higher misattribution risk (Q12) than span-level would, but that's an acceptable trade given the stakes; (2) keep cost low by defaulting to NLI verification, reserving any LLM-judge escalation for claims NLI scores as genuinely uncertain, since a tool serving many students needs to stay cheap per-check.
+
+</details>
+
+---
+
+## Q22. A pharmaceutical company's regulatory-submission tool must produce court-defensible citation trails for every clinical claim in a filing. How do you design the verification pipeline? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+"Court-defensible" sets the bar far above typical production RAG citation quality — an incorrect or loosely-verified citation in a regulatory submission creates direct legal and regulatory liability, so the design must favor thoroughness over cost at every stage, in contrast to a lower-stakes deployment like Q21's.
+
+**Design:** mandate **span-level citation** (Q1, Q10) — a citation must point to the exact sentence or data point in the source study, not just "this study is relevant." Use the **structured citation method** (Q2) with `passage_ids` restricted to specific spans within source documents. For verification, **escalate every claim to LLM-judge review** (Q11's tiering, but inverted for stakes) rather than relying on NLI alone — the cost trade-off that favors cheap-first-then-escalate in most domains flips here, because the cost of an undetected citation error vastly exceeds the cost of thorough verification. Build a **decision gate** (Q16) with a very high precision threshold (comparable to the ≥99% bar used for legal research, Q18) and mandatory human (regulatory-affairs or clinical) review of any claim the verifier doesn't confirm with high confidence.
+
+**Handle multi-passage claims explicitly** (Q13) — clinical arguments often synthesize results across multiple studies, and a verification pipeline that only checks single-passage support will wrongly flag legitimately-grounded compound claims as unsupported.
+
+**Full audit logging** (Q19) is mandatory, not optional: every verification verdict, including LLM-judge reasoning, must be retained, since a regulatory submission may need to defend its citation methodology years after filing — this is the same "audit trail" discipline as Q18's legal research assistant, applied to clinical rather than case-law claims.
+
+**What to monitor:** citation precision against a held-out adversarial set specifically constructed with topically-related-but-non-supporting passages (Q16, Q17), verifier calibration drift over time, and completeness of the retained audit trail itself.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Perplexity.ai and Bing Copilot**: Inline citations with hover-to-verify passage display

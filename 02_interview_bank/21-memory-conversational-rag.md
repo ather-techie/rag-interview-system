@@ -647,6 +647,42 @@ Run these scripted scenarios end-to-end (not just checking the final turn's answ
 
 ---
 
+## Q21. A personal-finance app just needs its chatbot to remember a user's stated budget goals for one session — how much of the tiered-memory architecture do you actually need? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a single-session scope (no requirement to recall a user's goals after they close the app and come back later), a fairly bounded conversation length, and a straightforward need: when the user says "keep that under $200," a later "what about groceries" should still know the $200 budget is in play.
+
+The straightforward approach is Q11's own right-sizing guidance taken literally: history-concatenation plus query rewriting (Q3) is sufficient here, since the requirement is explicitly session-scoped. There's no need for a long-term vector memory tier (Q2) at all — persisting facts across sessions is a different, bigger commitment (privacy review, retention policy, cross-session retrieval) that this use case hasn't asked for. A simple sliding window of recent turns, with condensation resolving "that" and "it" back to the stated budget figure, covers the actual requirement.
+
+The trade-off to flag: skipping long-term memory means a returning user has to restate their goals next session, which is a real UX cost — but it's the right trade at this stage, since building durable, cross-session memory means taking on real privacy and retention obligations (Q10) for a feature that hasn't been validated as needed yet. Add the long-term tier later, specifically if user feedback shows people expect the app to remember them between visits.
+
+</details>
+
+---
+
+## Q22. A telehealth platform must remember a patient's context across months of visits while obeying strict data-retention limits — how do you design memory tiers that don't quietly forget something clinically important? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are longitudinal scope (months between visits, so short-term/working memory alone is structurally insufficient) and strict, healthcare-grade data-retention limits that actively push toward aggressive summarization and expiry — directly in tension with not losing a clinically relevant detail mentioned once, months ago (Q19's failure mode).
+
+The approach: a full tiered memory (Q2) with the long-term tier scoped strictly per-patient and access-controlled at every retrieval (Q10's cross-user leakage mitigation is non-negotiable here, since this is health data). Rather than one undifferentiated running summary subject to a single retention clock, maintain a separate, narrower "key clinical facts" store (allergies, stated symptoms with dates, medication changes) with its own retention justification tied to care continuity, distinct from general conversational narrative that can expire faster under the platform's retention policy — directly following this file's own mitigation for Q19's summarization-loses-a-detail risk. Every durable fact written to long-term memory should be flagged for the format Q10 describes: fact vs. instruction, with provenance (patient-stated vs. clinician-confirmed).
+
+The real trade-off is completeness versus compliance: the retention limits exist for good legal and ethical reasons, and the platform cannot simply keep everything "just in case" — so the design has to accept that some low-signal conversational detail will be lost to summarization/expiry, while investing specifically in not losing the narrow set of details that matter clinically, rather than trying to preserve everything at the retention policy's expense.
+
+Monitor: cross-patient memory-leakage canaries (must be zero), retention-policy compliance audits on both memory tiers, and rate of patients having to re-state a previously-given clinical detail as a proxy for the key-facts store missing something it should have captured.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Memory / Conversational RAG Fits |

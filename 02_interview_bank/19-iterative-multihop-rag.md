@@ -581,6 +581,42 @@ Likely evolution: this exact set of limitations is precisely what motivated the 
 
 ---
 
+## Q21. A high-school debate team wants a research assistant that chains two lookups to answer "who influenced whom" questions — how simple can the iterative RAG loop be here? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The situation implies a narrow, shallow use case — genuinely two-hop questions like "who influenced [philosopher]'s views on X" — with student users who can sanity-check an answer themselves, and no production latency or cost pressure.
+
+The straightforward approach is the simplest of Q2's three patterns: a fixed two-iteration ITER-RETGEN-style loop (retrieve on the original question, generate a draft answer naming the first-hop entity, retrieve again using that draft as the query, generate the final answer) rather than IRCoT's more elaborate per-sentence interleaving. A fixed, small max-hops cap (2, per Q5) is sufficient since the use case doesn't need deep chains, and a single retriever over a general encyclopedia-style corpus is fine — no need for metadata filtering or structured-source verification the way a financial or legal deployment would require.
+
+The trade-off worth flagging: even at two hops, Q4's error-accumulation risk exists — if hop one retrieves the wrong influence, hop two confidently answers the wrong question. Given the audience, the mitigation doesn't need to be sophisticated verification machinery; simply surfacing the intermediate fact ("hop 1 found: X influenced by Y") alongside the final answer lets a student notice and correct an obviously wrong first hop themselves, which is a perfectly adequate safeguard for a low-stakes research aid.
+
+</details>
+
+---
+
+## Q22. An investigative newsroom needs to trace multi-hop ownership chains in leaked corporate-registry documents before a publication deadline — how do you balance thoroughness against the clock? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The hard constraints are a publication deadline (a hard time box) and genuinely high stakes in the other direction — publishing a wrong ownership claim risks libel exposure and reputational damage — over messy, leaked, inconsistently-formatted registry documents that won't retrieve as cleanly as curated corporate filings.
+
+The approach: use decompose-then-retrieve (Q9) wherever ownership branches are independent (tracing several subsidiaries in parallel), reserving sequential interleaved retrieval only for genuinely dependent chains (this entity's parent, then that parent's parent). Every hop gets a lightweight verification step against the specific source document it came from (Q4's mitigation), with full per-hop provenance retained for the newsroom's fact-checking and legal-review process — an unsourced or weakly-sourced hop should block publication of that specific claim, not just get flagged quietly. A firm, aggressive max-hops cap plus a hard per-query time budget (Q6) protects the deadline directly.
+
+The real trade-off is thoroughness versus the clock: given the choice between publishing an unverified ownership claim on deadline and publishing "ownership beyond this point could not be verified in time," the newsroom should structurally prefer the latter — the system should be designed to produce a clearly-labeled partial, honest chain rather than pushing to complete a chain it can't fully verify before the deadline.
+
+Monitor: per-hop confidence and source-strength scores, time-to-answer against the deadline budget, and the rate at which chains are escalated to human fact-checkers rather than auto-completed.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Iterative / Multi-hop RAG Fits |

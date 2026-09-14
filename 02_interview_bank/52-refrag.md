@@ -583,6 +583,40 @@ Likely evolution: **query-type-aware and confidence-calibrated expansion policie
 
 ---
 
+## Q21. A small startup wants to cut its LLM API bill by compressing what it feeds the model at generation time. Is REFRAG's training investment worth it at their scale, or should they look elsewhere first? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A startup watching its LLM API bill is the textbook case Q15's decision gate is built to catch early: REFRAG's training cost (a chunk encoder plus an RL policy, Q3) is fixed regardless of query volume, while its benefit scales with volume, and a small or early-stage startup's query volume is unlikely to amortize that investment within a reasonable payback period — the gate would most likely fail at step 1 for exactly this reason.
+
+The cheaper and more appropriate first move is LLMLingua-style prompt compression (file 10) or simply reducing retrieved chunk count/size — both require no training, work immediately with whatever base model the startup is using, and, unlike REFRAG, aren't tied to one specific decoder checkpoint (Q5, Q7's coupling concern), which matters a lot for a startup that may still be evaluating which model provider to standardize on.
+
+If the startup's volume is genuinely large and growing fast, and the team can spare the GPU time, Q15's own prescribed path is to prototype on a representative subset first — train a small chunk encoder and policy on a slice of the corpus and query distribution, and measure whether the projected savings at current and near-future volume would actually clear the training investment — rather than committing to the full pipeline speculatively. Until that prototype shows a clear payback, the honest trade-off to communicate is that REFRAG solves a real problem the startup probably doesn't have yet at its current scale.
+
+</details>
+
+---
+
+## Q22. A high-frequency-trading firm needs to compress retrieved context into a fixed token budget while holding a strict sub-100ms inference SLO. Where does REFRAG's default design break under that constraint, and how would you adapt it? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+A sub-100ms inference SLO in a high-frequency-trading context is close to the ideal case for REFRAG's core mechanism — the reported ~30x time-to-first-token improvement (Q9) directly targets exactly the bottleneck this SLO is fighting — but it also exposes the default design's weakest points more sharply than most deployments would, because both a missed SLO and a compressed-away numeric detail carry immediate financial consequences.
+
+Ingestion-time caching (Q14) isn't just an optimization here, it's a hard requirement: any cold-cache chunk-encoding latency at query time would likely blow the 100ms budget outright, so every chunk a query could plausibly retrieve needs its compressed embedding precomputed and cached well before it's needed. `expand_budget` should default low for routine retrieval to preserve the latency win, but query-type-aware budgeting (Q13, Q19's support-desk pattern) becomes safety-critical rather than a nice-to-have: any query touching a specific price level, threshold, or regulatory figure needs either a guaranteed-expanded top chunk or a bypass of compression entirely, since Q13's precision-loss failure mode — a compressed detail silently paraphrased instead of stated exactly — is unacceptable when it can trigger a bad trade.
+
+Given how fast market conditions and relevant document types shift, the RL policy (Q16) needs continuous retraining or recalibration rather than the largely static deployment REFRAG's own benchmark setting assumes; a policy that was well-calibrated last quarter can silently misjudge importance on today's market conditions. Because a synchronous re-expansion fallback would risk the SLO itself, targeted re-expansion (Q5's combination idea) has to happen via redundant precomputed expansion of top-ranked chunks, not an on-demand call. Monitor p99 (not just average) latency against the SLO specifically, expansion-rate drift, and treat any precision failure on a numeric or threshold-sensitive output as a financial incident requiring immediate review, not merely a quality metric to track over time.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Meta's production RAG inference stack**: REFRAG is presented as a Meta Superintelligence Labs approach to cutting inference cost for RAG-based assistants operating at scale, where time-to-first-token directly impacts perceived responsiveness

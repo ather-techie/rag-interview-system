@@ -1107,6 +1107,40 @@ The key design value is that CRAG's verdict distribution doubles as an operation
 
 ---
 
+## Q21. A weekend-project cooking assistant should double-check facts like safe cooking temperatures against a small trusted cookbook corpus. Is CRAG overkill for a hobby project? `[Basic]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The scale here is tiny — a hobbyist project, a small trusted cookbook corpus — but the specific concern (a wrong food-safety fact reaching the user) is exactly the kind of risk CRAG's evaluator step exists to catch, independent of query volume or production scale. That's the useful distinction to draw: CRAG's value proposition (Q14) is about never letting clearly-wrong retrieved content reach the generator unchecked, and that value doesn't disappear just because the deployment is small.
+
+A lightweight, prompted evaluator (no fine-tuning needed for a hobby project) that scores retrieved cookbook passages CORRECT or INCORRECT against the specific factual claim in the query (Q17) is proportionate here. Skip the AMBIGUOUS tier and the web-search fallback entirely — at this scale, an INCORRECT verdict can simply produce "I couldn't verify this against my cookbook" rather than triggering a live external search, which would add an API dependency this project doesn't need.
+
+The trade-off: without a web-fallback branch, the assistant can't answer anything genuinely missing from the small trusted corpus, which is a real limitation compared to the full three-branch design (Q17) — but for a weekend project, "I don't know" is a perfectly acceptable answer, and it's a much safer default than confidently stating an unverified cooking temperature.
+
+</details>
+
+---
+
+## Q22. A public health agency's outbreak-guidance bot must catch stale or superseded guidance during an active outbreak. How do you make CRAG's evaluator time-aware? `[Advanced]` `[Scenario]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+During an active outbreak, guidance can change by the hour, and the failure mode that matters most isn't topical irrelevance — it's a retrieved document that's topically CORRECT (it accurately describes what the guidance used to say) but has been quietly superseded. Standard CRAG's CORRECT/AMBIGUOUS/INCORRECT verdict (Q17) has no dimension for that at all, since it scores relevance, not recency.
+
+Extend the evaluator to check a document's version or publish date against the latest known revision for that specific guidance topic, treating "topically relevant but outdated" as its own branch rather than folding it silently into CORRECT. That branch should always trigger a check against the agency's own live guidance feed specifically — not general web search — given the accuracy stakes of public health guidance. During an active outbreak, tighten the staleness threshold so guidance verified more than a few hours ago escalates to a live check; the default recency tolerance this file assumes for a stable content period (Q17) is too loose for an active event.
+
+What to monitor: the rate of stale-but-topically-correct verdicts over time as a leading indicator that a guidance topic has changed faster than the internal KB has updated — the same idea as Q20's "verdict distribution as a content-gap signal," but tuned to detect time lag rather than topic gaps — and periodic audits against the known revision history to catch any false negatives (stale content that scored CORRECT). The trade-off: recency checking on every query adds latency and cost beyond topical-relevance scoring alone, but during an active outbreak, the cost of serving superseded guidance is far higher than that overhead.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Corrective RAG Fits |
