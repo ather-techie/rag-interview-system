@@ -452,6 +452,149 @@ FiD can copy retrieved passage text into answers, leaking sensitive corpus conte
 
 ---
 
+## Q13. Walk through the Atlas architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Pre-training/fine-tuning (joint):
+Retriever (a Contriever-style dense retriever) + Reader (a Fusion-in-
+Decoder-style, #29, generator) trained TOGETHER, with the retriever's
+parameters updated based on how much each retrieved passage helped
+the reader's output -- similar in spirit to REALM's (#26) latent-
+variable training, but built on top of FiD's passage-fusion mechanism
+rather than REALM's masked-LM objective
+
+Few-shot fine-tuning (Q5):
+Given only a handful of labeled examples for a new task, both
+retriever and reader are further fine-tuned jointly -- retrieval
+quality itself improves from just a few examples, not just the
+reader's output formatting
+
+Inference:
+Query -> retriever fetches passages -> FiD-style reader fuses them
+       -> answer
+```
+
+Atlas's position in this training-time-RAG family (alongside REALM, #26, and RETRO, #27) is combining REALM's joint-training philosophy with FiD's (#29) proven passage-fusion reading mechanism, specifically optimized for the few-shot regime (Q5) — where joint training's benefit is largest, since a reader with better-tuned retrieval needs fewer labeled examples to reach good task performance than a reader stuck with generic, unspecialized retrieval.
+
+</details>
+
+---
+
+## Q14. What is the research origin of Atlas, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Atlas (Izacard et al., *Few-shot Learning with Retrieval Augmented Language Models*, Meta AI, arXiv:2208.03299, 2022) specifically targeted the few-shot learning regime — demonstrating that a retrieval-augmented model with a jointly-trained retriever and reader could achieve strong performance on knowledge-intensive tasks using orders of magnitude fewer labeled examples than comparable closed-book (no retrieval) large language models required.
+
+The paper's headline result (Q1) is Atlas matching or exceeding much larger closed-book models on knowledge-intensive few-shot benchmarks with a fraction of the parameters, directly extending REALM's (#26) and RETRO's (#27) shared thesis — that retrieval can substitute for parametric scale — specifically into the few-shot setting, where the paper argues retrieval is *especially* powerful (Q5) because a jointly-trained retriever can be adapted to a new task's information needs from just a few examples, while a closed-book model has no equivalent lever to quickly adapt what it "knows."
+
+</details>
+
+---
+
+## Q15. How does Atlas compare to Fusion-in-Decoder (#29)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Atlas's reader **is** architecturally a Fusion-in-Decoder-style model (#29) — encoding each retrieved passage independently, then fusing them in the decoder's cross-attention (#29 Q2) — so the two share their core passage-fusion mechanism directly. The difference is training: FiD (#29) is typically paired with a **frozen** retriever (its own comparison table, #29 Q4, treats retriever training as separate from FiD's own contribution), while Atlas trains its retriever **jointly** with the FiD-style reader, specifically to improve few-shot adaptation (Q5).
+
+This makes Atlas best understood as "FiD's reading mechanism, plus REALM-style joint retriever training, specifically optimized for the few-shot regime" — it doesn't invent a new way of fusing retrieved passages, it takes FiD's already-effective fusion approach and adds the joint-training capability that lets the retriever itself adapt to a new task from limited labeled data, which a frozen retriever paired with FiD alone cannot do.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates Atlas from REALM (#26)? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both jointly train a retriever with a generator, but Atlas targets **few-shot task adaptation** specifically, while REALM's joint training happens once, during general-purpose masked-language-model **pre-training**, with the retriever's specialization to any specific downstream task happening only via subsequent fine-tuning on that task's full training set. Atlas's joint training extends into the few-shot fine-tuning stage itself (Q13) — the retriever keeps adapting jointly with the reader even when only a handful of labeled examples exist for a brand-new task, which is a meaningfully different regime than REALM's large-pre-training-corpus joint optimization.
+
+This is what makes Atlas's headline claim (Q14) specifically about few-shot performance rather than REALM's more general "retrieval substitutes for scale" framing — Atlas's contribution is demonstrating that joint retriever-reader training's benefit is not just about absolute task performance, but about how quickly (with how few labeled examples) that performance can be reached, which matters most exactly when labeled data is scarce.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for Atlas, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Number of retrieved passages fused | More passages give the FiD-style reader more evidence but increase compute proportionally (#29 Q6's same scaling consideration applies directly) | Follow FiD's own tuning guidance (#29 Q6) on passage count vs. diminishing returns, since Atlas inherits this exact trade-off from its FiD-based reader |
+| Retriever update frequency during joint training | More frequent retriever updates adapt faster to the task but risk the same index-staleness problem REALM's asynchronous refresh (#26 Q3) addresses | Periodic refresh, balancing adaptation speed against re-embedding cost, following the same pattern REALM established |
+| Few-shot example count | More examples improve joint fine-tuning stability but defeat the point of a genuinely few-shot method if the count grows too large | As few as the task allows while still stabilizing joint training — validate the lower bound empirically per task, since Atlas's own contribution is demonstrating this can be very small |
+| Retriever learning rate relative to reader | Determines how much the joint training process reshapes retrieval behavior vs. reader behavior | A more conservative retriever learning rate, similar to REALM's fine-tuning guidance (#26 Q17), preserving pre-trained retrieval quality while allowing task-specific adaptation |
+
+Few-shot example count is the knob most specific to Atlas's own contribution among this list — it's the parameter Atlas's headline claim (Q14) is actually about, making it worth the most deliberate empirical validation (Q19) rather than defaulting to a number borrowed from a different task's tuning.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether Atlas's joint training actually improves few-shot performance over a frozen-retriever baseline? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Build a few-shot evaluation protocol with a genuinely small number of labeled examples per task, and compare Atlas's joint retriever-reader fine-tuning against a baseline that fine-tunes only the FiD-style reader while keeping the retriever completely frozen (the natural ablation, isolating exactly the joint-training contribution Q16 identifies as Atlas's distinctive mechanism). Measure task accuracy as a function of example count specifically — Atlas's claimed advantage (Q14) should be largest at the smallest example counts, where a frozen, generic retriever has the least chance of happening to already suit the new task well, and should narrow as example count grows large enough that even a frozen retriever's reader-side fine-tuning captures most of the achievable performance.
+
+This curve-shaped comparison, rather than a single-point accuracy comparison, is what actually validates Atlas's specific few-shot claim — a single comparison at one example count can't distinguish "joint training helps a little, uniformly" from "joint training helps a lot exactly in the low-data regime, which is the point," and only the latter finding would confirm Atlas's architecture is solving the problem it specifically targets.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode of Atlas's joint training in the extreme few-shot setting? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+With only a handful of labeled examples, jointly updating both retriever and reader parameters simultaneously risks instability: a small number of examples provides a noisy gradient signal, and if the retriever's parameters shift too aggressively based on that noisy signal, retrieval quality can actually *degrade* relative to the original, more generically-trained retriever — the opposite of the intended few-shot adaptation benefit. This is a genuine risk specifically because joint training couples two components' optimization together; a reader-only fine-tuning approach doesn't have an equivalent way for a few noisy examples to corrupt the retrieval component at all, since the retriever simply isn't touched.
+
+**Detection:** track retrieval quality (recall@k against a held-out validation set, separate from the few-shot training examples) before and after few-shot joint fine-tuning — a measurable *drop* in retrieval quality post-fine-tuning, even if reader-side task accuracy improved, is the signature of this failure, and is easy to miss if only end-to-end task accuracy is monitored. **Mitigation:** a conservative retriever learning rate (Q17) is the primary lever — constraining how far the retriever's parameters are allowed to move during few-shot fine-tuning limits the damage a noisy few-example gradient signal can do, trading some of the theoretically-available adaptation speed for stability, which is generally the right trade-off when the alternative is risking retrieval quality regression from an already-good starting point.
+
+</details>
+
+---
+
+## Q20. What is Atlas's relationship to modern few-shot/in-context learning, and why did prompting supersede joint fine-tuning for few-shot tasks? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Atlas's few-shot approach (Q14) requires actually updating model parameters (both retriever and reader) using the few available labeled examples — a genuine fine-tuning process, even if a lightweight one relative to full-dataset training. Modern in-context learning, by contrast, achieves few-shot task adaptation by simply *including* the few examples directly in the prompt of a frozen, already-capable LLM, with no parameter updates at all — the same fine-tune-vs-prompt trade-off pattern that recurs throughout this bank (WebGPT vs. Agentic Web RAG, #39/#31; RAFT vs. prompt engineering, #16 Q20).
+
+Prompting superseded joint fine-tuning for most few-shot use cases for the same reason prompted tool use superseded WebGPT-style RLHF fine-tuning (#39 Q20): as base models became dramatically more capable at using in-context examples directly, the accuracy gap that justified Atlas's more elaborate joint-training approach largely closed, while prompting requires no training infrastructure at all and adapts instantly to a new task by simply changing what's in the prompt. Atlas's lasting contribution (Q10) is best understood the way REALM's is (#26 Q20) — establishing that retrieval-augmented few-shot learning was a viable, powerful approach, an insight modern in-context-learning-based RAG systems still rely on even though few of them reproduce Atlas's specific joint-training mechanism.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Atlas (few-shot, jointly-trained RAG) Fits |

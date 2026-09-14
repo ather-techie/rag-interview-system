@@ -473,6 +473,147 @@ If retrieval returns off-topic neighbors, cross-attention may inject noise.
 
 ---
 
+## Q13. Walk through the RETRO architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Training/inference (same architecture, both use retrieval):
+Input sequence, chunked into fixed-size blocks
+        │
+        ▼
+For each chunk: frozen retriever (BERT-based, not trained with RETRO)
+        fetches k nearest-neighbor chunks from a trillion-token datastore
+        │
+        ▼
+Chunked Cross-Attention (CCA, Q2): the decoder attends to the retrieved
+        neighbor chunks at specific interleaved layers, alongside its
+        normal self-attention over the input sequence so far
+        │
+        ▼
+Continue generation, retrieving fresh neighbors for each new chunk
+        as generation proceeds
+```
+
+The two design choices that most define RETRO relative to its training-time-RAG siblings (REALM, #26; Atlas, #28) are visible here: the retriever is **frozen** (never trained jointly with the generator, unlike REALM's latent-variable joint training or Atlas's joint fine-tuning), and retrieval happens **per chunk throughout generation**, not once upfront — closer in spirit to FLARE's (#23) mid-generation retrieval than to a single retrieve-then-generate pass, except RETRO's chunk-level retrieval cadence is fixed and architectural rather than confidence-triggered.
+
+</details>
+
+---
+
+## Q14. What is the research origin of RETRO, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+RETRO (Borgeaud et al., *Improving Language Models by Retrieving from Trillions of Tokens*, DeepMind, arXiv:2112.04426, 2021) demonstrated that a relatively small language model, augmented with chunked cross-attention over a massive frozen retrieval datastore, could match the performance of language models with far more parameters trained purely on parametric memory — directly testing whether retrieval could substitute for scale.
+
+The paper's headline result and central claim (Q1) is that RETRO achieves comparable performance to GPT-3-class models using a 25x smaller parameter count, by offloading a large share of the "knowledge" a model needs into an external, non-parametric datastore rather than baking it into weights — a finding that reinforced the broader retrieval-augmentation thesis (shared with REALM, #26 Q14) that external memory can substitute for parametric scale, at the trillion-token datastore scale specifically.
+
+</details>
+
+---
+
+## Q15. How does RETRO compare to DPR (#38) and REALM (#26) in terms of what's actually trained? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+All three are foundational learned/structured-retrieval architectures, but differ in exactly what gets trained and how. DPR (#38) trains a bi-encoder retriever with direct contrastive supervision, used entirely separately from whatever generator consumes its output — nothing about DPR's training involves a generator at all. REALM (#26) trains its retriever end-to-end jointly with a masked-language-model generator, with no direct relevance supervision — the retriever is a latent variable optimized purely through whether its retrieval helped the generation objective. RETRO trains **only the generator** — its retriever (Q3) is frozen, using an off-the-shelf, pre-trained (BERT-based) encoder that's never updated during RETRO's own training at all.
+
+This makes RETRO the "cheapest to train" of the three in one specific sense: it avoids both DPR's need for labeled relevance data and REALM's need for expensive joint end-to-end optimization, by simply accepting whatever a frozen, generically-good retriever provides and training the generator to make the best use of it via chunked cross-attention (Q2) — a design choice that trades away any possibility of the retriever specializing to RETRO's specific task, in exchange for a substantially simpler and more stable training recipe.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates RETRO from inference-time RAG? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **chunked cross-attention integrated directly into the generator's architecture at training time** (Q2), rather than retrieved text being concatenated into a prompt that an unmodified, off-the-shelf generator reads. Inference-time RAG (everything from Naive RAG, #01, onward) treats retrieval and generation as separable — you can swap the retriever, swap the generator, or swap both, independently, because retrieved text enters generation purely through the prompt, a channel any generator already understands. RETRO's generator was specifically trained with cross-attention layers interleaved at fixed positions to attend to retrieved chunks — the retrieval mechanism is baked into the model's own architecture, not bolted on via prompting.
+
+This is why RETRO cannot simply swap in a different frozen generator the way inference-time RAG can swap LLMs freely — the cross-attention layers were trained as part of this specific model's weights, making the retrieval integration a training-time architectural commitment rather than an inference-time prompting convenience, which is precisely the trade-off Q10's comparison to modern inference-time RAG addresses.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for a RETRO-style system, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Chunk size (input sequence granularity for retrieval) | Smaller chunks allow more frequent, fine-grained retrieval updates during generation but increase retrieval call frequency | The original paper's chunking granularity balances retrieval frequency against overhead — smaller than a typical RAG chunk, since retrieval happens many times per generated sequence |
+| Number of retrieved neighbors (k) | More neighbors give the cross-attention layer more context per chunk but increase compute per CCA layer | Tune against the irrelevant-neighbor robustness concern (this file's own security section) — too high a k risks diluting cross-attention with noise |
+| CCA layer placement (which decoder layers include cross-attention) | Placing CCA at more layers gives the model more opportunities to incorporate retrieved evidence but increases parameter count and compute | Interleaved at a subset of layers (not every layer), following the original paper's design, balancing integration depth against cost |
+| Datastore scale | A larger datastore improves recall of genuinely relevant neighbors but increases retrieval latency and storage cost | Scale to your domain's actual knowledge breadth — RETRO's trillion-token datastore was sized for general-purpose language modeling, not necessarily the right scale for a narrower domain-specific deployment |
+
+Datastore scale is the knob most specific to RETRO's design philosophy (Q1's central claim) — unlike inference-time RAG, where corpus size mainly affects retrieval difficulty (solvable by a good enough retriever at any scale), RETRO's whole premise of substituting external memory for parametric scale depends on the datastore being large enough to meaningfully offload knowledge the model would otherwise need to memorize in its weights.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether RETRO's frozen retriever or its chunked cross-attention is the actual bottleneck on quality? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Since RETRO's retriever is frozen and generic (Q3, Q15) while its cross-attention mechanism is specifically trained, a quality shortfall could originate from either component, and they call for different fixes. Isolate the retriever's contribution by measuring recall@k independently — for a labeled set of (chunk, genuinely relevant neighbor) pairs, does the frozen retriever actually surface the right neighbors at all, regardless of how well the generator uses them? Isolate the cross-attention's contribution by holding retrieval quality fixed (using oracle, manually-verified-relevant neighbors) and measuring how much the generator's output quality changes when fed oracle neighbors vs. the frozen retriever's actual top-k — a large gap here indicates the generator isn't making full use of even good retrieved evidence, while a small gap with poor absolute quality indicates the retriever itself is the limiting factor.
+
+This decomposition matters because the two failures have very different remedies: a retriever-quality problem might be addressed by using a better off-the-shelf encoder for retrieval (Q3 already notes RETRO's retriever isn't trained, so upgrading it doesn't require touching RETRO's own training at all), while a cross-attention-quality problem would require retraining the generator itself — a much larger undertaking, which is exactly why this diagnostic decomposition is worth doing before committing to either fix.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode of RETRO's datastore when retrieved neighbors overlap with training data? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+If RETRO's massive datastore substantially overlaps with the data the generator itself was trained on (a likely scenario at trillion-token scale, where both the pre-training corpus and the retrieval datastore are drawn from similar large-scale web/text sources), evaluation benchmarks risk a subtle contamination problem: the model may appear to benefit from "retrieval" when it's actually retrieving a near-verbatim continuation of something it already memorized during pre-training, inflating apparent retrieval-augmentation benefit without demonstrating that retrieval genuinely adds information beyond what the model's parametric memory already contains.
+
+**Detection:** this is precisely the methodological pitfall this file's own Q8 flags for RETRO evaluation generally — checking for train/datastore overlap on the specific benchmark examples being evaluated, and specifically measuring performance on benchmark subsets known to be free of such overlap versus subsets more likely to be contaminated. A model showing a large apparent retrieval benefit that shrinks substantially on decontaminated evaluation subsets reveals that much of the measured benefit was an artifact of datastore-training overlap rather than genuine retrieval-augmented reasoning. **Mitigation:** construct or use evaluation benchmarks specifically designed with a datastore that's deliberately time- or source-disjoint from the training corpus, so any measured retrieval benefit can be attributed to genuine external-knowledge use rather than disguised memorization retrieval.
+
+</details>
+
+---
+
+## Q20. How does datastore scale affect RETRO's quality, and what is the relationship to the trillion-token claim? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+RETRO's central claim (Q1, Q14) — matching much larger models with a 25x smaller parameter count — is specifically tied to datastore scale: the paper's reported gains grow as the datastore grows, up to the trillion-token scale used in the primary results, reflecting the underlying thesis that external, non-parametric memory can substitute for parameters, but only if that external memory is large and comprehensive enough to actually contain the knowledge the smaller model would otherwise need to have memorized.
+
+This has a direct practical implication for anyone considering a RETRO-style architecture at a smaller scale: the parameter-efficiency benefit is not guaranteed to hold at an arbitrarily smaller datastore size — a narrow, domain-specific datastore with only millions (not trillions) of tokens offloads correspondingly less knowledge, meaning the generator may still need substantial parametric capacity to handle everything the smaller datastore doesn't cover. This is exactly why RETRO's design philosophy is best understood as domain-appropriate rather than universally scale-reducing (Q9's "design considerations for a large datastore" already implicitly assumes this) — a production RETRO-style system's achievable parameter savings should be validated empirically against its own datastore's actual scale and coverage, not assumed to match the original paper's trillion-token results.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RETRO (architectural, scaled retrieval) Fits |

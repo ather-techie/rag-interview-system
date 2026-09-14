@@ -475,6 +475,148 @@ Since cost scales with k·L, an attacker forcing large-k retrieval (e.g., via cr
 
 ---
 
+## Q13. Walk through the Fusion-in-Decoder architecture end-to-end. `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+```
+Query + k retrieved passages
+        │
+        ▼
+Encode EACH (query, passage) pair INDEPENDENTLY through the encoder
+        (k separate, parallel encoder passes — no cross-passage
+        attention at this stage)
+        │
+        ▼
+Concatenate all k encoded representations
+        │
+        ▼
+Decoder attends jointly across ALL k encoded passages simultaneously
+        (fusion happens HERE, in the decoder, not the encoder)
+        │
+        ▼
+Generated answer
+```
+
+The name "Fusion-in-Decoder" describes exactly this design choice: fusion — the point where information from multiple passages first gets to interact — happens specifically in the decoder, not the encoder. This is what gives FiD its scaling advantage (Q3): encoding is embarrassingly parallel and its cost grows only linearly with the number of passages, since each encoder pass is independent and doesn't need to attend to any other passage; only the decoder's cross-attention needs to look across all of them at once, and that's a much cheaper operation than making the encoder itself jointly process everything.
+
+</details>
+
+---
+
+## Q14. What is the research origin of FiD, and what headline result does it report? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Fusion-in-Decoder was introduced by Izacard & Grave, *Leveraging Passage Retrieval with Generative Models for Open Domain Question Answering* (Meta AI, arXiv:2007.01282, 2020), proposing the independent-encoding-then-decoder-fusion architecture specifically to let a generative reader scale to many more retrieved passages than a naive "concatenate everything and encode jointly" approach could afford.
+
+The paper's headline result is that FiD's answer quality improves as more passages are retrieved and fused — a genuinely useful scaling property, since it means retrieval recall improvements translate directly into reader accuracy improvements without hitting the same encoder-cost wall a joint-encoding approach would (Q3) — and FiD achieved state-of-the-art open-domain QA results at publication specifically by exploiting this scalability to use far more retrieved passages than prior generative readers typically did.
+
+</details>
+
+---
+
+## Q15. How does FiD compare to RETRO's (#27) chunked cross-attention? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Both fuse retrieved evidence via attention mechanisms inside the generator rather than through prompt concatenation, but at different points and cadences. FiD encodes each retrieved passage once, independently, then lets the decoder attend across all of them **simultaneously** for the entire generation — a single fusion step covering the full passage set, computed once per query. RETRO's (#27) chunked cross-attention instead retrieves and fuses **repeatedly throughout generation**, once per output chunk, attending to a fresh set of retrieved neighbors specific to that chunk's local context as generation proceeds.
+
+The practical distinction: FiD fits open-domain QA and similar tasks where a fixed, upfront retrieval covers what's needed for the whole answer; RETRO's per-chunk retrieval fits long-form generation where different parts of the output may need different supporting evidence, closer in spirit to FLARE's (#23) mid-generation retrieval triggering, except RETRO's retrieval cadence is architecturally fixed (every chunk) rather than confidence-triggered.
+
+</details>
+
+---
+
+## Q16. What is the single distinctive mechanism that separates FiD from concatenation-based fusion? `[Basic]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+The distinctive mechanism is **encoding each retrieved passage independently, then fusing only in the decoder's cross-attention**, rather than concatenating all retrieved passages into one long sequence and encoding them jointly. Naive concatenation forces the encoder to process a sequence whose length grows with the number of passages, and — for encoder architectures with quadratic self-attention cost — this makes encoding cost grow quadratically with passage count, sharply limiting how many passages can practically be included. FiD's independent encoding means each passage's encoding cost is fixed and small regardless of how many other passages exist; only the decoder's fusion step scales with passage count, and that scaling is far more favorable (Q3).
+
+This single architectural choice is what lets FiD use dramatically more retrieved passages than a concatenation-based reader could afford (Q6) — directly translating better retrieval recall into better answer accuracy, which is precisely the scaling property that gave FiD its state-of-the-art results (Q14) and made it the reading mechanism Atlas (#28 Q15) later built its joint-training approach on top of.
+
+</details>
+
+---
+
+## Q17. What are the key tuning knobs for FiD, and how do you choose them? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+| Knob | Effect | Starting point |
+|---|---|---|
+| Number of passages fused (k) | More passages improve accuracy up to a point (Q6), with diminishing and eventually negative returns as noise accumulates | Tune empirically against your own retrieval quality — FiD's own paper found benefit scaling well beyond what earlier concatenation-based readers could use, but the exact ceiling is corpus- and task-dependent |
+| Passage length (L, truncation point per passage) | Longer passages preserve more context per passage but increase per-passage encoding cost and total decoder fusion cost (cost scales with k×L, per this file's own DoS-mitigation note) | Match to your chunking strategy elsewhere in the pipeline; no need for passages here to be longer than what a single retrieval chunk already provides |
+| Encoder/decoder size ratio | A larger encoder improves per-passage representation quality; a larger decoder improves fusion and generation quality | Follow standard encoder-decoder scaling guidance — FiD's specific contribution is architectural (where fusion happens), not a specific size ratio recommendation |
+| Passage ordering before fusion | Similar to lost-in-the-middle concerns elsewhere in this bank (#02 Q5), the order passages are presented to the decoder can affect which evidence the model weighs most heavily | Order by retrieval confidence/relevance score, placing the most relevant passages where the decoder's attention is most reliable |
+
+Number of passages fused is the knob most central to FiD's own value proposition (Q3, Q16) — since FiD exists specifically to make scaling passage count affordable, under-utilizing this knob (defaulting to a small k out of habit from concatenation-based systems) forfeits the exact advantage FiD's architecture was built to provide.
+
+</details>
+
+---
+
+## Q18. How do you evaluate whether FiD's per-passage independent encoding is actually necessary vs. a simpler joint encoding? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Compare FiD's independent-encoding-then-decoder-fusion against a naive concatenate-and-jointly-encode baseline on the same query set and passage count, tracking both accuracy and compute cost as passage count `k` increases — the expected pattern (Q3, Q16) is that the concatenation baseline's encoding cost grows much faster than FiD's as `k` increases, eventually becoming impractical at a `k` where FiD remains affordable, while accuracy should be comparable at the small `k` values where both approaches remain feasible to compare directly.
+
+This comparison is most useful for confirming *where* the crossover point sits for your specific encoder architecture and hardware — FiD's architectural advantage is asymptotic (it matters more as `k` grows), so at very small passage counts, a simpler joint-encoding baseline might be perfectly adequate and not worth FiD's additional architectural complexity; the decision to adopt FiD's independent-encoding design should be justified by your actual target `k`, not assumed necessary regardless of how many passages you actually plan to fuse.
+
+</details>
+
+---
+
+## Q19. What is the characteristic failure mode of FiD when passages contain contradictory information? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+Because each passage is encoded independently (Q13, Q16) with no cross-passage attention until the decoder's fusion step, FiD's encoder never gets a chance to notice that passage 3 contradicts passage 7 — that recognition, if it happens at all, has to emerge from the decoder attending across both encoded representations during generation. Unlike Astute RAG's (#48) explicit, iterative conflict-consolidation step (#48 Q3), which is specifically designed to surface and resolve contradictions before generation, FiD has no dedicated mechanism for this at all — contradictory passages are just two more encoded representations the decoder's cross-attention has to somehow reconcile implicitly, with no guarantee it does so sensibly rather than blending them into an incoherent or arbitrarily-one-sided answer.
+
+**Detection:** for queries known to have conflicting evidence across retrieved passages (constructed similarly to Astute RAG's own evaluation methodology, #48 Q11), check whether FiD's generated answer acknowledges the conflict, silently favors one source, or produces an internally inconsistent blend of both — the latter is the most concerning outcome, since it's the hardest for a downstream consumer to detect as a quality problem. **Mitigation:** pair FiD with an upstream conflict-detection step (comparing retrieved passages for contradiction before fusion, or explicitly tagging and surfacing detected conflicts in the passages fed to the decoder) rather than relying on FiD's implicit decoder-level fusion to handle disagreement sensibly on its own — the same architectural gap that motivates Astute RAG's more elaborate consolidation mechanism as a complementary addition on top of a FiD-style reader.
+
+</details>
+
+---
+
+## Q20. What is FiD's lasting influence on how modern RAG readers process multiple retrieved passages? `[Intermediate]`
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+FiD's core insight — separate the expensive per-passage encoding (parallelizable, linear cost) from the passage-fusion step (which needs cross-passage interaction but is cheaper to do only once, in the decoder) — established the architectural template that Atlas (#28) later adopted wholesale as its reader component, and the same underlying principle (don't force cross-passage interaction earlier in the pipeline than necessary) echoes in how modern inference-time RAG systems handle multiple retrieved chunks: passages are typically embedded independently at index time (exactly FiD's independent-encoding philosophy, just via an embedding model rather than an encoder-decoder's encoder) and only combined at generation time, when an LLM reads them together in one prompt.
+
+FiD's specific architecture — a dedicated encoder-decoder model with passage fusion built into the decoder's cross-attention — is less commonly reproduced verbatim today, since modern frontier LLMs simply read multiple retrieved passages directly in a prompt without needing FiD's specific independent-encoding machinery (an off-the-shelf decoder-only LLM already handles arbitrary numbers of passages in-context, without the quadratic-cost concern FiD's architecture specifically solved for encoder-decoder models). But the underlying lesson — passage count should scale affordably, and fusion should happen as late and as cheaply as the task allows — remains a design principle worth recognizing across both FiD's original encoder-decoder setting and today's prompt-based fusion in decoder-only LLMs.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Fusion-in-Decoder Fits |
