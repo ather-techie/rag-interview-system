@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "node scripts/build_site.mjs",
-    "test": "node --test scripts/lib/",
+    "test": "node --test \"scripts/lib/*.test.mjs\"",
     "check": "node scripts/check_questions.mjs check",
     "check:strict": "node scripts/check_questions.mjs check --strict",
     "gaps": "node scripts/check_questions.mjs gaps",
