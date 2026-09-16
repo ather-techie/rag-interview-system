@@ -78,6 +78,22 @@ the `<details>`/`**Answer:**` structure, or duplicates another question's title 
 the bank. `npm run readme` rewrites the `questions-###` badge and the per-file/section/grand/
 scenario totals in `README.md` for you — never hand-edit those counts.
 
+## Releasing
+
+Maintainer-only steps for cutting a new version:
+
+1. `git pull --ff-only` on `main`, then run `npm run ci` and confirm it's green.
+2. Bump `version` in `package.json` and add a dated entry to `CHANGELOG.md`.
+   Open a `release/vX.Y.Z` PR with just those two changes and merge it.
+3. Tag the merge commit and push the tag:
+   `git tag -a vX.Y.Z -m "vX.Y.Z — <one-line summary>"` then `git push origin vX.Y.Z`.
+4. Create the GitHub Release from that tag, using the matching `CHANGELOG.md`
+   section as the release notes: `gh release create vX.Y.Z --title "..." --notes-file <path>`.
+5. Versioning: **major** for restructures or anything that breaks existing
+   links, **minor** for new sections or tooling, **patch** for fixes and
+   wording. Pushing to `main` already redeploys the site — the tag/release
+   is a version marker, not a publish step.
+
 ## Opening Issues
 
 Use issues to:
