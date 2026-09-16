@@ -5,6 +5,7 @@
 [![License: MIT][license-shield]][license-url]
 ![Last Commit][commits-shield]
 ![Questions][questions-shield]
+[![Release][release-shield]][release-url]
 [![PRs Welcome][prs-shield]][prs-url]
 
 <p align="center">
@@ -429,6 +430,8 @@ For issues, questions, or general feedback:
 [license-url]: LICENSE
 [commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-system
 [questions-shield]: https://img.shields.io/badge/questions-1297-blue
+[release-shield]: https://img.shields.io/github/v/release/ather-techie/rag-interview-system
+[release-url]: https://github.com/ather-techie/rag-interview-system/releases
 [prs-shield]: https://img.shields.io/badge/PRs-welcome-brightgreen
 [prs-url]: CONTRIBUTING.md
 [pages-url]: https://ather-techie.github.io/rag-interview-system/
