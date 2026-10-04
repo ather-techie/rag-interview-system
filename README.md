@@ -9,10 +9,10 @@
 [![PRs Welcome][prs-shield]][prs-url]
 
 <p align="center">
-  <img src="assets/logos/banner.webp" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 1297 Q&A covering 52 architectures and production failure modes" width="800" />
+  <img src="assets/logos/banner.webp" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 1309 Q&A covering 52 architectures and production failure modes" width="800" />
 </p>
 
-**1297 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 52 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
+**1309 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 52 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
 
 ⭐ **Star this repo** if it helps your interview prep — it keeps the project growing.
 
@@ -21,7 +21,7 @@
 | Link | Use it for |
 |---|---|
 | 🧾 [Cheatsheet](cheatsheets/CHEATSHEET.md) | All 52 RAG types compared in one table — best for a phone screen the same day |
-| 🕹️ [Interactive Quiz Site][quiz-url] | Flip through every Q&A as flashcards, filterable by difficulty, section, and a "Scenario only" toggle, right in the browser |
+| 🕹️ [Interactive Quiz Site][quiz-url] | Flip through every Q&A as flashcards, filterable by difficulty, section, and a "Scenario only" toggle, plus auto-graded multiple-choice questions, right in the browser |
 | 🗺️ [Learning Path](00_overview/learning_path.md) | Structured curriculum if you have more than a few days to prepare |
 | ▶️ [Run Lab 01 in Colab](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/01_naive_rag.ipynb) | Build a working RAG pipeline in your browser, no local setup |
 
@@ -156,8 +156,8 @@ Full classification (retrieval control, data modality, feedback loop, scope, lat
 <!-- questions:table -->
 | # | Topic | Questions |
 |---|-------|-----------|
-| 02.01 | [Naive / Basic RAG](./02_interview_bank/01-naive-rag.md) | 22 |
-| 02.02 | [Advanced RAG](./02_interview_bank/02-advanced-rag.md) | 22 |
+| 02.01 | [Naive / Basic RAG](./02_interview_bank/01-naive-rag.md) | 26 |
+| 02.02 | [Advanced RAG](./02_interview_bank/02-advanced-rag.md) | 26 |
 | 02.03 | [Modular RAG](./02_interview_bank/03-modular-rag.md) | 22 |
 | 02.04 | [Agentic RAG](./02_interview_bank/04-agentic-rag.md) | 22 |
 | 02.05 | [Graph RAG](./02_interview_bank/05-graph-rag.md) | 22 |
@@ -210,7 +210,7 @@ Full classification (retrieval control, data modality, feedback loop, scope, lat
 | 02.52 | [REFRAG](./02_interview_bank/52-refrag.md) | 22 |
 <!-- /questions:table -->
 
-<!-- questions:total 02_interview_bank -->**RAG Architectures Total: 1144 questions**<!-- /questions:total -->
+<!-- questions:total 02_interview_bank -->**RAG Architectures Total: 1152 questions**<!-- /questions:total -->
 
 <details>
 <summary><strong>One-line summary of every architecture</strong> (click to expand)</summary>
@@ -278,7 +278,7 @@ REFRAG                             — Compresses chunks into embeddings, RL pol
 | # | Topic | Questions |
 |---|-------|-----------|
 | 03.01 | [Hallucination Despite Context](./03_failure_modes/01-hallucination_despite_context.md) | 10 |
-| 03.02 | [Retrieval Failure](./03_failure_modes/02-retrieval_failure.md) | 10 |
+| 03.02 | [Retrieval Failure](./03_failure_modes/02-retrieval_failure.md) | 14 |
 | 03.03 | [Embedding Mismatch](./03_failure_modes/03-embedding_mismatch.md) | 10 |
 | 03.04 | [Stale Index Problem](./03_failure_modes/04-stale_index_problem.md) | 10 |
 | 03.05 | [Context Window Overflow](./03_failure_modes/05-context_window_overflow.md) | 10 |
@@ -288,13 +288,15 @@ REFRAG                             — Compresses chunks into embeddings, RL pol
 | 03.09 | [Semantic Cache Leakage](./03_failure_modes/09-semantic_cache_leakage.md) | 5 |
 <!-- /questions:table -->
 
-<!-- questions:total 03_failure_modes -->**Failure Modes Total: 79 questions**<!-- /questions:total -->
+<!-- questions:total 03_failure_modes -->**Failure Modes Total: 83 questions**<!-- /questions:total -->
 
-<!-- questions:grand -->**Grand Total: 1297 questions**<!-- /questions:grand -->
+<!-- questions:grand -->**Grand Total: 1309 questions**<!-- /questions:grand -->
 
-<!-- questions:mix -->**Difficulty distribution across the interview bank and failure modes: 327 Basic, 448 Intermediate, 448 Advanced**<!-- /questions:mix -->
+<!-- questions:mix -->**Difficulty distribution across the interview bank and failure modes: 330 Basic, 454 Intermediate, 451 Advanced**<!-- /questions:mix -->
 
-<!-- questions:scenarios -->**Scenario-based questions (tagged `[Scenario]`): 148**<!-- /questions:scenarios -->
+<!-- questions:scenarios -->**Scenario-based questions (tagged `[Scenario]`): 151**<!-- /questions:scenarios -->
+
+<!-- questions:mcq -->**Multiple-choice questions (tagged `[MCQ]`): 12**<!-- /questions:mcq -->
 
 All cited papers with arXiv/DOI links: [REFERENCES.md](./REFERENCES.md)
 
@@ -365,6 +367,7 @@ Hands-on Jupyter notebooks and composition pattern guides:
    - Covers definitions, mechanisms, comparisons, implementation, evaluation, failure modes, production ops, and security
    - Questions are tagged with difficulty: `[Basic]` `[Intermediate]` `[Advanced]`
    - Situational questions also carry a `[Scenario]` tag (e.g. `` `[Advanced]` `[Scenario]` ``) — use the quiz's "Scenario only" filter to drill just these
+   - A growing set carry an `[MCQ]` tag — multiple-choice, auto-graded in the quiz — instead of a free-form answer
 
 4. **Failure Modes (03_failure_modes/)** — 10 questions per failure pattern
    - Nine critical production failure scenarios with diagnostic Q&A
@@ -429,7 +432,7 @@ For issues, questions, or general feedback:
 [license-shield]: https://img.shields.io/github/license/ather-techie/rag-interview-system
 [license-url]: LICENSE
 [commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-system
-[questions-shield]: https://img.shields.io/badge/questions-1297-blue
+[questions-shield]: https://img.shields.io/badge/questions-1309-blue
 [release-shield]: https://img.shields.io/github/v/release/ather-techie/rag-interview-system
 [release-url]: https://github.com/ather-techie/rag-interview-system/releases
 [prs-shield]: https://img.shields.io/badge/PRs-welcome-brightgreen

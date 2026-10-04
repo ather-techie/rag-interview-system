@@ -8,6 +8,9 @@
 //                                        on 02_interview_bank files that are
 //                                        not yet at the 22-question target or
 //                                        below the 2-question [Scenario] target
+//                                        (both counted over non-MCQ questions
+//                                        only; see TARGET_MCQ for the [MCQ]
+//                                        target, disabled during the pilot)
 //   gaps   [--file NN] [--dir <dir>] [--all] [--json]
 //                                        report per-file progress toward the
 //                                        22-question / 6-8-8 / 2-scenario
@@ -28,6 +31,7 @@ import {
   tagCounts,
   findNearDuplicates,
   normalizeTitle,
+  partitionMcq,
   HEADING_RE,
 } from './lib/questions.mjs';
 
@@ -35,9 +39,14 @@ const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const BANK_DIR = '02_interview_bank';
 const FAILURE_DIR = '03_failure_modes';
 const QUIZ_DIRS = [BANK_DIR, FAILURE_DIR];
-const TARGET_COUNT = 22; // per-file target for 02_interview_bank only
+const TARGET_COUNT = 22; // per-file target for 02_interview_bank only, excluding [MCQ] questions
 const TARGET_MIX = { Basic: 6, Intermediate: 8, Advanced: 8 };
 const TARGET_SCENARIOS = 2; // per-file target count of [Scenario]-tagged questions, 02_interview_bank only
+// Per-file target count of [MCQ]-tagged questions, 02_interview_bank only.
+// 0 during the pilot phase (a handful of files only) so W-MCQ stays silent
+// and `check:strict` doesn't fail across the whole bank; raise this once
+// MCQs roll out bank-wide (see CONTRIBUTING.md's "The [MCQ] tag" section).
+const TARGET_MCQ = 0;
 const MIX_TOLERANCE = 1;
 
 // Heuristic rubric used by `gaps` to suggest what to write next. Keyword
@@ -131,18 +140,22 @@ function runCheck({ strict, dir }) {
     warnCount++;
   }
 
-  // Per-file bank count target (warning, or error under --strict).
+  // Per-file bank count target (warning, or error under --strict). Counted
+  // over non-MCQ questions only -- see TARGET_MCQ/W-MCQ below for the
+  // separate [MCQ] target, so a file growing MCQs doesn't trip W-COUNT.
   for (const f of files) {
     if (!f.relPath.startsWith(BANK_DIR)) continue;
-    const count = f.questions.length;
+    const { flashcards, mcqs } = partitionMcq(f.questions);
+    const count = flashcards.length;
     if (count !== TARGET_COUNT) {
       const level = strict ? 'error' : 'warn';
+      const mcqNote = mcqs.length > 0 ? ` (excluding ${mcqs.length} MCQ)` : '';
       report.push({
         file: f.relPath,
         level,
         code: 'W-COUNT',
         line: null,
-        msg: `${count}/${TARGET_COUNT} questions`,
+        msg: `${count}/${TARGET_COUNT} questions${mcqNote}`,
       });
       if (level === 'error') errorCount++;
       else warnCount++;
@@ -164,6 +177,27 @@ function runCheck({ strict, dir }) {
       });
       if (level === 'error') errorCount++;
       else warnCount++;
+    }
+  }
+
+  // Per-file bank MCQ-tag target (warning, or error under --strict). Disabled
+  // while TARGET_MCQ is 0 (pilot phase) -- see the constant's comment.
+  if (TARGET_MCQ > 0) {
+    for (const f of files) {
+      if (!f.relPath.startsWith(BANK_DIR)) continue;
+      const mcqCount = tagCounts(f.questions).MCQ;
+      if (mcqCount < TARGET_MCQ) {
+        const level = strict ? 'error' : 'warn';
+        report.push({
+          file: f.relPath,
+          level,
+          code: 'W-MCQ',
+          line: null,
+          msg: `${mcqCount}/${TARGET_MCQ} questions tagged [MCQ]`,
+        });
+        if (level === 'error') errorCount++;
+        else warnCount++;
+      }
     }
   }
 
@@ -194,16 +228,21 @@ function rubricSlotsFor(questions) {
 }
 
 function gapsForFile(f) {
-  const mix = difficultyMix(f.questions);
+  const { flashcards, mcqs } = partitionMcq(f.questions);
+  const mix = difficultyMix(flashcards);
   const scenarios = tagCounts(f.questions).Scenario;
-  const count = f.questions.length;
+  const count = flashcards.length;
   const deltas = {
     Basic: TARGET_MIX.Basic - mix.Basic,
     Intermediate: TARGET_MIX.Intermediate - mix.Intermediate,
     Advanced: TARGET_MIX.Advanced - mix.Advanced,
     Scenario: TARGET_SCENARIOS - scenarios,
+    MCQ: TARGET_MCQ - mcqs.length,
   };
-  const rubricCoverage = rubricSlotsFor(f.questions);
+  // Rubric coverage is computed over flashcards only -- an MCQ's stem
+  // shouldn't count toward a conceptual/implementation/etc. slot that's
+  // really asking for a free-form answer.
+  const rubricCoverage = rubricSlotsFor(flashcards);
   const missingSlots = [];
   for (const rule of RUBRIC) {
     const have = rubricCoverage.get(rule.id).length;
@@ -212,7 +251,18 @@ function gapsForFile(f) {
       missingSlots.push(`${rule.label} x${need - have} (${rule.slots.slice(have).join(',')})`);
     }
   }
-  return { file: f.relPath, count, mix, scenarios, deltas, missingSlots, questions: f.questions, title: f.title };
+  return {
+    file: f.relPath,
+    count,
+    mix,
+    scenarios,
+    mcqs: mcqs.length,
+    total: f.questions.length,
+    deltas,
+    missingSlots,
+    questions: f.questions,
+    title: f.title,
+  };
 }
 
 function runGaps({ file, dir, all, json }) {
@@ -231,7 +281,7 @@ function runGaps({ file, dir, all, json }) {
   }
 
   for (const r of filtered) {
-    console.log(`\n${r.file}  ${r.count}/${targetDir === BANK_DIR ? TARGET_COUNT : '-'}  B${r.mix.Basic} I${r.mix.Intermediate} A${r.mix.Advanced} S${r.scenarios}`);
+    console.log(`\n${r.file}  ${r.count}/${targetDir === BANK_DIR ? TARGET_COUNT : '-'}  B${r.mix.Basic} I${r.mix.Intermediate} A${r.mix.Advanced} S${r.scenarios} M${r.mcqs}`);
     if (r.title) console.log(`  title: ${r.title}`);
     if (targetDir === BANK_DIR) {
       const needParts = [];
@@ -239,6 +289,7 @@ function runGaps({ file, dir, all, json }) {
       if (r.deltas.Intermediate > 0) needParts.push(`+${r.deltas.Intermediate} I`);
       if (r.deltas.Advanced > 0) needParts.push(`+${r.deltas.Advanced} A`);
       if (r.deltas.Scenario > 0) needParts.push(`+${r.deltas.Scenario} Scenario`);
+      if (TARGET_MCQ > 0 && r.deltas.MCQ > 0) needParts.push(`+${r.deltas.MCQ} MCQ`);
       if (needParts.length) console.log(`  need: ${needParts.join('  ')}`);
     }
     if (file || all) {
@@ -255,9 +306,11 @@ function runGaps({ file, dir, all, json }) {
   }
 
   const totalCount = results.reduce((s, r) => s + r.count, 0);
+  const totalMcq = results.reduce((s, r) => s + r.mcqs, 0);
   const totalTarget = targetDir === BANK_DIR ? results.length * TARGET_COUNT : null;
   console.log(
     `\n${targetDir}: ${results.length} files, ${totalCount} questions` +
+      (totalMcq > 0 ? ` (${totalMcq} MCQ)` : '') +
       (totalTarget ? ` / ${totalTarget} target (${totalTarget - totalCount} remaining)` : '')
   );
 }
@@ -276,12 +329,15 @@ function computeCounts() {
   const failureTotal = failureFiles.reduce((s, f) => s + f.questions.length, 0);
   const mix = { Basic: 0, Intermediate: 0, Advanced: 0 };
   let scenarioTotal = 0;
+  let mcqTotal = 0;
   for (const f of [...bankFiles, ...failureFiles]) {
     const m = difficultyMix(f.questions);
     mix.Basic += m.Basic;
     mix.Intermediate += m.Intermediate;
     mix.Advanced += m.Advanced;
-    scenarioTotal += tagCounts(f.questions).Scenario;
+    const tags = tagCounts(f.questions);
+    scenarioTotal += tags.Scenario;
+    mcqTotal += tags.MCQ;
   }
   return {
     byPath,
@@ -289,6 +345,7 @@ function computeCounts() {
     failureTotal,
     mix,
     scenarioTotal,
+    mcqTotal,
     bankFileCount: bankFiles.length,
     failureFileCount: failureFiles.length,
   };
@@ -356,6 +413,18 @@ function regenerateReadme(text, counts) {
   } else {
     errors.push(
       'Could not find "<!-- questions:scenarios -->" marker in README.md — add it (see CONTRIBUTING.md) so scenario counts can be regenerated'
+    );
+  }
+
+  // --- MCQ-tagged total (architectures + failure modes only) ---
+  if (/<!-- questions:mcq -->[\s\S]*?<!-- \/questions:mcq -->/.test(out)) {
+    out = out.replace(
+      /<!-- questions:mcq -->\*\*Multiple-choice questions[^*]*\*\*<!-- \/questions:mcq -->/,
+      `<!-- questions:mcq -->**Multiple-choice questions (tagged \`[MCQ]\`): ${counts.mcqTotal}**<!-- /questions:mcq -->`
+    );
+  } else {
+    errors.push(
+      'Could not find "<!-- questions:mcq -->" marker in README.md — add it (see CONTRIBUTING.md) so MCQ counts can be regenerated'
     );
   }
 

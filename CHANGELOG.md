@@ -7,6 +7,27 @@ Versioning follows [Semantic Versioning](https://semver.org/): **major** for
 restructures that break existing links, **minor** for new sections or
 tooling, **patch** for fixes and wording.
 
+## [Unreleased]
+
+### Added
+
+- Added the `[MCQ]` (multiple-choice, single-correct) question tag: a
+  lettered option list between the heading and `<details>`, and a
+  `**Correct: X.**` key line as the first line of the answer so the correct
+  option stays out of GitHub's rendered markdown view. Composes with
+  difficulty and `[Scenario]`.
+- Added format validation for `[MCQ]` questions (`E-MCQ-OPTS` for a missing
+  or malformed option list, `E-MCQ-KEY` for a missing or invalid
+  correct-answer line), a separate per-file `[MCQ]` target (`W-MCQ`,
+  disabled during the pilot phase), and a `<!-- questions:mcq -->`
+  README total.
+- Added an auto-graded multiple-choice card type to the quiz site: a "Type"
+  filter (All / Flashcards only / MCQ only), clickable options that reveal
+  correct/incorrect immediately, and keyboard shortcuts (A–F) to answer.
+- Added pilot `[MCQ]` questions to `02_interview_bank/01-naive-rag.md`,
+  `02_interview_bank/02-advanced-rag.md`, and
+  `03_failure_modes/02-retrieval_failure.md` ahead of a full bank rollout.
+
 ## [2.0.0] - 2026-09-15
 
 ### Breaking
@@ -65,5 +86,6 @@ tooling, **patch** for fixes and wording.
   tagged by difficulty (`Basic`/`Intermediate`/`Advanced`).
 - Quick reference table in the README for rapid orientation.
 
+[Unreleased]: https://github.com/ather-techie/rag-interview-system/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/ather-techie/rag-interview-system/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/ather-techie/rag-interview-system/releases/tag/v1.0.0

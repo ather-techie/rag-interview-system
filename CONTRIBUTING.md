@@ -5,7 +5,7 @@ Thanks for your interest in contributing! This repo grows better with community 
 ## Ways to Contribute
 
 - **Fix or improve an existing answer** — more detail, better examples, updated tooling
-- **Add new questions** to an existing section (keep the difficulty tag, and add `[Scenario]` if it fits)
+- **Add new questions** to an existing section (keep the difficulty tag, and add `[Scenario]` and/or `[MCQ]` if they fit)
 - **Add a new RAG variant** — open an issue first to discuss if it warrants a new section
 - **Improve the cheatsheet** — new tools, updated comparisons
 
@@ -33,8 +33,33 @@ Your answer here. Use tables, code blocks, and bullet points where they aid clar
 </details>
 ```
 
-Every question needs exactly one difficulty tag. The `[Scenario]` tag is optional
-and additive — put the difficulty tag first, then `[Scenario]` if it applies.
+A multiple-choice question adds a lettered option list between the heading
+and `<details>`, and the first line of the answer names the correct option:
+
+```markdown
+## Q23. Which metric rewards ranking the first relevant chunk high? `[Intermediate]` `[MCQ]`
+
+- A. Precision@k
+- B. Recall@k
+- C. MRR
+- D. Faithfulness
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** MRR averages 1/rank of the first relevant hit, so it specifically
+rewards surfacing the first good answer earlier — unlike precision or recall,
+which ignore ordering, or faithfulness, which measures something unrelated.
+
+</details>
+```
+
+Every question needs exactly one difficulty tag. The `[Scenario]` and `[MCQ]`
+tags are each optional and additive — put the difficulty tag first, then
+`[Scenario]` and/or `[MCQ]` if they apply (all three can combine, e.g.
+`` `[Advanced]` `[Scenario]` `[MCQ]` ``).
 
 **Difficulty guidelines:**
 - `[Basic]` — definition-level, anyone starting out should know this
@@ -52,6 +77,37 @@ question can be `[Basic]` if a beginner-level design is all that's asked for.
 Don't tag a purely conceptual "what is X" or "compare X and Y" question, even
 if its answer happens to mention a real-world example in passing. The quiz's
 "Scenario only" filter lets candidates drill just these questions.
+
+**The `[MCQ]` tag:**
+
+Add `[MCQ]` when the question has a single defensible correct answer among a
+small set of options — a good fit for metrics, hyperparameter choices, "which
+of these is true" style facts, or a scenario with one clearly-best option. The
+quiz auto-grades these: the candidate clicks an option and sees immediately
+whether they were right, instead of self-reporting "Got it" / "Review again".
+
+Format rules, enforced by `npm run check`:
+- The option list goes directly after the heading, as plain `- A. ...` /
+  `- B. ...` lines (no blank line required before `<details>`, but allowed).
+- 3–6 options, **4 recommended**. Keep each option to one line and roughly
+  parallel in length/phrasing with the others — a conspicuously longer or
+  more hedged option is a giveaway.
+- Letters run `A, B, C, ...` in order with no gaps or repeats, and no two
+  options may have identical text.
+- The first line of the answer must be `**Correct: X.**` naming the right
+  option, immediately followed by the explanation — this is what keeps the
+  correct answer out of GitHub's rendered markdown view (it's only visible
+  once `<details>` is expanded) while still letting the quiz read it out of
+  the rendered HTML.
+- Avoid "all of the above" / "none of the above" options — they don't work
+  well as clickable choices and usually signal a weak set of distractors.
+
+Authoring guidance: write distractors that are plausible mistakes, not random
+noise — a knowledgeable candidate should have to actually reason about the
+difference. The explanation should say why the correct option is right *and*
+briefly why each distractor is wrong, which naturally clears the same 40-word
+minimum every answer needs. `[MCQ]` composes with difficulty and `[Scenario]`
+as above.
 
 ## Style Guidelines
 
@@ -75,8 +131,11 @@ npm run build           # builds the site into _site/ and confirms your question
 `npm run check` will fail the build if a question is missing its difficulty tag, has more
 than one difficulty tag, uses an unrecognized tag, is numbered out of sequence, is missing
 the `<details>`/`**Answer:**` structure, or duplicates another question's title elsewhere in
-the bank. `npm run readme` rewrites the `questions-###` badge and the per-file/section/grand/
-scenario totals in `README.md` for you — never hand-edit those counts.
+the bank. For `[MCQ]` questions it also checks the option list and the `**Correct: X.**` key
+line (`E-MCQ-OPTS` for a missing/malformed option list, `E-MCQ-KEY` for a missing/invalid
+correct-answer line). `npm run readme` rewrites the `questions-###` badge and the
+per-file/section/grand/scenario/MCQ totals in `README.md` for you — never hand-edit those
+counts.
 
 ## Releasing
 
