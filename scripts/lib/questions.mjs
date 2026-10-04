@@ -19,7 +19,34 @@ export const DIFFICULTIES = ['Basic', 'Intermediate', 'Advanced'];
 // `Scenario` marks a question that drops the candidate into a concrete
 // situation (a named domain, corpus, SLO, incident, or constraint) and asks
 // them to design, diagnose, decide, or trade off — see CONTRIBUTING.md.
-export const TAGS = ['Scenario'];
+// `MCQ` marks a multiple-choice question: a lettered option list (`- A. ...`)
+// appears between the heading and `<details>`, and the first line of the
+// answer body must be `**Correct: X.**` naming the correct option — see the
+// MCQ_* constants and parseQuestionFile's option-block handling below.
+export const TAGS = ['Scenario', 'MCQ'];
+
+// One lettered option line in an `[MCQ]` question's option list, e.g.
+// "- C. MRR". Letters must run A, B, C, ... with no gaps or repeats (checked
+// in parseQuestionFile, not by this regex alone).
+export const MCQ_OPTION_RE = /^- ([A-Z])\.\s+(\S.*)$/;
+
+// The required first line of an `[MCQ]` question's answer body, e.g.
+// "**Correct: C.** MRR averages 1/rank of the first relevant hit, ...".
+export const MCQ_KEY_RE = /^\*\*Correct:\s*([A-Z])\.\*\*(?:\s+\S.*)?$/;
+
+export const MCQ_MIN_OPTIONS = 3;
+export const MCQ_MAX_OPTIONS = 6;
+
+/** True if a parsed question (or parseHeading result) carries the `MCQ` tag. */
+export const isMcq = (q) => (q.tags || []).includes('MCQ');
+
+/** Splits a parsed file's questions into { flashcards, mcqs } by the `MCQ` tag. */
+export function partitionMcq(questions) {
+  return {
+    flashcards: questions.filter((q) => !isMcq(q)),
+    mcqs: questions.filter(isMcq),
+  };
+}
 
 // A single backticked-bracket tag token, e.g. `[Advanced]` or `[Scenario]`.
 const TAG_TOKEN_RE = /`\[([A-Za-z]+)\]`/g;
@@ -91,6 +118,14 @@ export function normalizeTitle(title) {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// Normalizes one MCQ option's text for exact-duplicate comparison. Unlike
+// normalizeTitle, this keeps backticked content intact: two options often
+// differ only inside a code span (e.g. "Use `k=3`" vs "Use `k=10`"), and
+// stripping that would falsely flag them as duplicates.
+function normalizeOptionText(text) {
+  return text.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 /** Tokenizes a normalized title into a content-word set, for near-dup Jaccard comparison. */
@@ -191,6 +226,7 @@ export function parseQuestionFile(mdRaw, fileRel) {
     }
 
     const { n, title: qTitle, difficulty, difficultyCount, tags, unknownTags } = headingMatch;
+    const mcq = tags.includes('MCQ');
 
     if (n !== expectedN) {
       problems.push({
@@ -227,8 +263,73 @@ export function parseQuestionFile(mdRaw, fileRel) {
       });
     }
 
-    // Walk forward: <details> must be the first non-blank line after the heading.
-    let j = i + 1;
+    // Consume an optional option-list block (for `[MCQ]` questions) between
+    // the heading and <details>: a contiguous run of "- A. ..." lines,
+    // letters sequential from A with no gaps or repeats, 3-6 options.
+    let optStart = i + 1;
+    while (optStart < lines.length && lines[optStart].trim() === '') optStart++;
+    const options = [];
+    let p = optStart;
+    while (p < lines.length) {
+      const om = lines[p].match(MCQ_OPTION_RE);
+      if (!om) break;
+      options.push({ letter: om[1], text: om[2], line: p + 1 });
+      p++;
+    }
+    const hasOptions = options.length > 0;
+
+    if (mcq && !hasOptions) {
+      problems.push({
+        level: 'error',
+        code: 'E-MCQ-OPTS',
+        line: i + 1,
+        msg: `Q${n}: [MCQ] question has no option list (expected "- A. ..." lines between the heading and <details>)`,
+      });
+    } else if (!mcq && hasOptions) {
+      problems.push({
+        level: 'error',
+        code: 'E-MCQ-OPTS',
+        line: optStart + 1,
+        msg: `Q${n}: option list found but heading lacks [MCQ]`,
+      });
+    } else if (mcq && hasOptions) {
+      if (options.length < MCQ_MIN_OPTIONS || options.length > MCQ_MAX_OPTIONS) {
+        problems.push({
+          level: 'error',
+          code: 'E-MCQ-OPTS',
+          line: optStart + 1,
+          msg: `Q${n}: ${options.length} options (expected ${MCQ_MIN_OPTIONS}-${MCQ_MAX_OPTIONS}, 4 recommended)`,
+        });
+      }
+      const expectedLetters = 'ABCDEF'.slice(0, options.length);
+      const actualLetters = options.map((o) => o.letter).join('');
+      if (actualLetters !== expectedLetters) {
+        problems.push({
+          level: 'error',
+          code: 'E-MCQ-OPTS',
+          line: optStart + 1,
+          msg: `Q${n}: option letters must run A, B, C, ... in order with no gaps or repeats (found ${actualLetters || '(none)'})`,
+        });
+      }
+      const seenOptionText = new Map();
+      for (const o of options) {
+        const norm = normalizeOptionText(o.text);
+        if (seenOptionText.has(norm)) {
+          problems.push({
+            level: 'error',
+            code: 'E-MCQ-OPTS',
+            line: o.line,
+            msg: `Q${n}: option ${o.letter} duplicates option ${seenOptionText.get(norm)} text`,
+          });
+        } else {
+          seenOptionText.set(norm, o.letter);
+        }
+      }
+    }
+
+    // Walk forward: <details> must be the first non-blank line after the
+    // heading (or after the option list, for `[MCQ]` questions).
+    let j = hasOptions ? p : i + 1;
     while (j < lines.length && lines[j].trim() === '') j++;
     const detailsLine = j;
     if (lines[j]?.trim() !== '<details>') {
@@ -236,7 +337,7 @@ export function parseQuestionFile(mdRaw, fileRel) {
         level: 'error',
         code: 'E-DETAILS',
         line: i + 1,
-        msg: `Q${n}: "<details>" must be the first non-blank line after the heading`,
+        msg: `Q${n}: "<details>" must be the first non-blank line after the heading (or after the option list for [MCQ] questions)`,
       });
     } else {
       const summaryLine = j + 1;
@@ -257,6 +358,42 @@ export function parseQuestionFile(mdRaw, fileRel) {
           code: 'E-ANSWER',
           line: k + 1,
           msg: `Q${n}: expected "**Answer:**" to start the answer body`,
+        });
+      }
+
+      // MCQ correct-answer key: the first non-blank line after the answer
+      // marker must be "**Correct: X.**", naming one of the parsed options.
+      let correctLine = k + 1;
+      while (correctLine < lines.length && lines[correctLine].trim() === '') correctLine++;
+      const keyMatch = lines[correctLine]?.trim().match(MCQ_KEY_RE);
+      let correct = null;
+      if (mcq) {
+        if (!keyMatch) {
+          problems.push({
+            level: 'error',
+            code: 'E-MCQ-KEY',
+            line: correctLine + 1,
+            msg: `Q${n}: first line of the answer must be "**Correct: X.**" naming the correct option`,
+          });
+        } else {
+          correct = keyMatch[1];
+          const optionLetters = options.map((o) => o.letter);
+          if (!optionLetters.includes(correct)) {
+            problems.push({
+              level: 'error',
+              code: 'E-MCQ-KEY',
+              line: correctLine + 1,
+              msg: `Q${n}: "Correct: ${correct}" is not one of the options (${optionLetters.join(', ')})`,
+            });
+            correct = null;
+          }
+        }
+      } else if (keyMatch) {
+        problems.push({
+          level: 'error',
+          code: 'E-MCQ-KEY',
+          line: correctLine + 1,
+          msg: `Q${n}: "**Correct: ${keyMatch[1]}.**" line present but heading lacks [MCQ]`,
         });
       }
 
@@ -324,6 +461,8 @@ export function parseQuestionFile(mdRaw, fileRel) {
         detailsLine: detailsLine + 1,
         answerText,
         answerWords,
+        options: mcq ? options.map(({ letter, text }) => ({ letter, text })) : [],
+        correct,
       });
     }
   }

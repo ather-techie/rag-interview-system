@@ -973,6 +973,78 @@ What to monitor: p95 and p99 latency broken out per language specifically, since
 
 ---
 
+## Q23. When Reciprocal Rank Fusion merges a sparse (BM25) list and a dense list, what does it actually combine? `[Basic]` `[MCQ]`
+
+- A. Each document's absolute similarity scores from both lists
+- B. Each document's rank position in each list
+- C. Each document's raw term-frequency counts
+- D. Each document's embedding vector distance only
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** RRF's whole reason for existing (Q13) is that BM25 scores and cosine similarities live on incomparable scales — a BM25 score of 12 and a cosine similarity of 0.82 can't be averaged meaningfully — so RRF sidesteps the problem by discarding scores entirely and fusing on rank position instead, via `1/(k + rank)` summed across lists. Option A describes exactly the score-averaging approach RRF was designed to avoid. Option C confuses RRF with BM25's own internal scoring mechanism, which happens upstream, before fusion. Option D ignores the sparse list entirely, which isn't fusion at all.
+
+</details>
+
+---
+
+## Q24. Roughly how much latency does a cross-encoder reranking pass typically add per query, on top of first-stage retrieval? `[Intermediate]` `[MCQ]`
+
+- A. About 1–5 milliseconds
+- B. About 15–30 milliseconds
+- C. About 150–300 milliseconds
+- D. About 1.5–3 seconds
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** A cross-encoder scores each query-document pair jointly through a full transformer forward pass — unlike the first-stage retriever's precomputed embeddings, nothing about reranking can be cached ahead of time, which is exactly why Q19's conditional-reranking pattern and Q22's dispatch-support design both treat it as a cost to spend selectively rather than apply universally. A (1–5ms) understates it by roughly two orders of magnitude — that's closer to a single ANN lookup. B (15–30ms) is still too fast for a full cross-encoder pass over even a modest candidate set. D (1.5–3 seconds) overshoots into territory that would make reranking unusable for any interactive, sub-second-SLA product.
+
+</details>
+
+---
+
+## Q25. In hybrid search, what does the sparse/dense weighting parameter (often called alpha) actually control? `[Intermediate]` `[MCQ]`
+
+- A. The number of documents retrieved from each index before fusion
+- B. The relative contribution of the BM25 score versus the dense-embedding score in the final ranking
+- C. The temperature of the LLM's generation step
+- D. The chunk size used at ingestion time
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Alpha is the dial between "trust exact lexical matches more" and "trust semantic similarity more" (Q16, Q17) — at alpha near 1, dense similarity dominates the final ranking; near 0, BM25 dominates. It says nothing about how many candidates each index surfaces before fusion (A, which is governed by each index's own top-k setting), is unrelated to LLM decoding behavior (C), and has no connection to ingestion-time chunking decisions (D), which are fixed long before a query-time weighting parameter ever applies.
+
+</details>
+
+---
+
+## Q26. A multilingual customer-support search tool must hold a strict sub-second latency SLA while still catching ambiguous queries that genuinely need reranking. Which design best balances both goals? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Always apply cross-encoder reranking to every query, in every language
+- B. Never use reranking, to guarantee the sub-second budget universally
+- C. Apply reranking only when the first-stage retriever's top score falls below a confidence threshold
+- D. Apply reranking only to English-language queries, since most rerankers support English best
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** This is Q19's conditional-reranking pattern, the same one Q22's dispatch-support design relies on: reranking's ~150–300ms cost (Q24) only gets spent on the minority of queries where the first-stage retriever itself signals low confidence, so the common case stays fast and the SLA holds. Option A pays the full reranking cost on every query, which blows the sub-second budget as soon as traffic is non-trivial. Option B protects latency by giving up the accuracy gain entirely, discarding the one tool that fixes genuinely ambiguous retrieval results. Option D abandons the "multilingual" requirement outright — skipping reranking for every non-English query degrades exactly the users the SLA is supposed to cover.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Advanced RAG Fits |

@@ -26,7 +26,16 @@ pre { background: #f5f5f5; padding: 1rem; border-radius: 6px; overflow-x: auto; 
 .difficulty-badge.intermediate { background: #fff3e0; color: #e65100; }
 .difficulty-badge.advanced { background: #fce4ec; color: #c2185b; }
 .tag-badge.scenario { background: #e3f2fd; color: #1565c0; }
+.tag-badge.mcq { background: #f3e5f5; color: #6a1b9a; }
 .quiz-question { font-size: 1.1em; margin: 1.5rem 0; line-height: 1.6; }
+.mcq-options { display: flex; flex-direction: column; gap: 0.5rem; margin: 1rem 0; }
+.mcq-option { text-align: left; padding: 0.75rem 1rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 1em; line-height: 1.4; }
+.mcq-option:hover:not(:disabled) { background: #f0f0f0; border-color: #0070f3; }
+.mcq-option:disabled { cursor: default; opacity: 0.7; }
+.mcq-option.correct { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; opacity: 1; }
+.mcq-option.wrong { background: #fce4ec; border-color: #c2185b; color: #c2185b; opacity: 1; }
+.mcq-letter { font-weight: 600; margin-right: 0.4rem; }
+.mcq-result { font-weight: 500; margin: 0.5rem 0; }
 .quiz-answer { margin: 1.5rem 0; padding: 1rem; background: #f9f9f9; border-left: 4px solid #0070f3; border-radius: 4px; }
 .quiz-answer details { margin-top: 0; }
 .quiz-buttons { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }

@@ -42,6 +42,7 @@ body:
       options:
         - Conceptual / definitional
         - Scenario / situational (describes a concrete system, incident, or constraint)
+        - Multiple choice (interviewer offered options to pick from)
         - Not sure
     validations:
       required: false

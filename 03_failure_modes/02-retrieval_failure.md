@@ -1633,3 +1633,75 @@ Priority 3 (Use only if needed):
 </details>
 
 ---
+
+## Q11. Which of these is a directly observable *symptom* of retrieval failure, rather than one of its underlying root causes? `[Basic]` `[MCQ]`
+
+- A. The embedding model was trained on a different domain than the corpus
+- B. The generated answer cites content that isn't actually relevant to the question
+- C. Chunk boundaries split a key definition across two separate chunks
+- D. The vector index uses too few dimensions for the corpus's complexity
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** A user or reviewer can notice an irrelevant citation without knowing anything about the system internals — that's what makes it a symptom (Q2), something visible from the output alone. Options A, C, and D are all root causes (Q3): domain mismatch, bad chunk boundaries, and under-provisioned embedding dimensionality are explanations for *why* retrieval fails, discovered only by investigating the pipeline, not facts a user observes directly in a transcript.
+
+</details>
+
+---
+
+## Q12. What is the "semantic gap" problem in retrieval, most precisely? `[Intermediate]` `[MCQ]`
+
+- A. A mismatch between a query's vocabulary/phrasing and a relevant document's vocabulary/phrasing, despite shared meaning
+- B. A gap in index coverage where some documents were never embedded
+- C. The latency difference between first-stage retrieval and reranking
+- D. A version mismatch between the embedding model used at index time versus query time
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** The semantic gap (Q5) is specifically a *meaning-versus-wording* problem: "how do I get my money back" and "refund policy" mean the same thing but share almost no vocabulary, and a retriever that leans too heavily on lexical overlap misses exactly this kind of match. Option B describes an ingestion bug (missing documents), not a semantic phenomenon. Option C is a performance characteristic unrelated to meaning at all. Option D is an operational/versioning failure — a real risk, but a different one from the query-document meaning mismatch the term "semantic gap" refers to.
+
+</details>
+
+---
+
+## Q13. Per this file's optimization-priority checklist, which tier does cross-encoder reranking of the top-10 results fall into? `[Intermediate]` `[MCQ]`
+
+- A. Priority 1 — a quick win with no added cost
+- B. Priority 2 — good ROI, with a moderate added-latency cost
+- C. Priority 3 — use only if needed, given its complexity
+- D. It isn't part of the checklist at all
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Reranking the top-10 sits in Priority 2 precisely because it isn't free (roughly +50ms of latency) but earns that cost back with a meaningful +5–8% quality gain, unlike Priority 1's genuinely free wins (semantic chunking, relevance reordering) or Priority 3's higher-complexity, higher-cost options like HyDE or custom fine-tuned embeddings. Mistaking it for a Priority 1 item (A) understates its latency cost; filing it under Priority 3 (C) overstates both its cost and its complexity relative to what the checklist actually says.
+
+</details>
+
+---
+
+## Q14. A support-ticket retrieval system shows stable recall@k in offline evaluation, but production complaints about irrelevant answers rise right after a cross-encoder reranker upgrade — and the offline benchmark hasn't been rerun since. What should you check first? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Assume the embedding index is stale, and rebuild it
+- B. Compare the new reranker's behavior directly against production traffic, since a frozen recall@k benchmark only measures first-stage retrieval and wouldn't catch a reranker-only regression
+- C. Assume the chunking strategy regressed, and re-chunk the corpus
+- D. Lower the LLM's generation temperature
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Recall@k (Q8) is a first-stage-retrieval metric — it measures whether relevant chunks are *in* the candidate set, not how the reranker then orders them, so a benchmark frozen before the reranker changed can stay perfectly stable while the reranker itself introduces a regression invisible to that metric. The timing (complaints starting right after the upgrade) is the strongest clue pointing at the reranker specifically, not the earlier retrieval stage. Option A targets the embedding index, which this scenario gives no evidence points to. Option C blames chunking, an ingestion-time decision the reranker upgrade didn't touch. Option D is generation-side and unrelated to a retrieval-and-reranking symptom entirely — exactly the kind of production monitoring gap Q4's detection practices are meant to catch before a model upgrade ships unnoticed.
+
+</details>
+
+---

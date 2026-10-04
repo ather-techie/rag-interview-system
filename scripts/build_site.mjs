@@ -168,8 +168,19 @@ function rebaseRelativeUrls(html, srcDirRel) {
   });
 }
 
+// The optional `<ul>...</ul>` option list between the heading and <details>
+// belongs to `[MCQ]` questions (see scripts/lib/questions.mjs's MCQ_OPTION_RE
+// for the markdown-level shape). The lazy `[\s\S]*?` inside it is safe
+// because the validator forbids multi-line or nested option content.
 const QUESTION_RE =
-  /<h2 id="([^"]+)">(Q\d+\.[\s\S]*?)<\/h2>\s*<details>\s*(?:<summary>[\s\S]*?<\/summary>)?([\s\S]*?)<\/details>/g;
+  /<h2 id="([^"]+)">(Q\d+\.[\s\S]*?)<\/h2>\s*(?:<ul>([\s\S]*?)<\/ul>\s*)?<details>\s*(?:<summary>[\s\S]*?<\/summary>)?([\s\S]*?)<\/details>/g;
+
+// One lettered `<li>` in an MCQ option list, e.g. "<li>A. Precision@k</li>".
+const OPTION_LI_RE = /<li>\s*([A-Z])\.\s*([\s\S]*?)<\/li>/g;
+
+// The rendered form of an MCQ answer's required first line, e.g.
+// "<strong>Correct: C.</strong>" (mirrors MCQ_KEY_RE in questions.mjs).
+const CORRECT_RE = /<strong>Correct:\s*([A-Z])\.<\/strong>/;
 
 // The trailing run of one or more `<code>[Tag]</code>` spans on a rendered
 // question heading (mirrors the markdown-level trailing-tag-run definition
@@ -179,11 +190,11 @@ const QUESTION_RE =
 const TAG_RUN_RE = /(?:\s*<code>\[([A-Za-z]+)\]<\/code>)+\s*$/;
 const ALL_TAG_TOKENS = new Set([...DIFFICULTIES, ...TAGS]);
 
-/** Pulls {id, question, difficulty, tags, answer} quiz items out of a rendered quiz-page fragment. */
+/** Pulls {id, question, difficulty, tags, answer, options?, correct?} quiz items out of a rendered quiz-page fragment. */
 function extractQuizItems(html, { srcDirRel, pageHref, srcRel }) {
   const items = [];
   for (const match of html.matchAll(QUESTION_RE)) {
-    const [, id, headingHtml, answerHtml] = match;
+    const [, id, headingHtml, optionsHtml, answerHtml] = match;
     const runMatch = headingHtml.match(TAG_RUN_RE);
     const tokens = runMatch
       ? [...runMatch[0].matchAll(/<code>\[([A-Za-z]+)\]<\/code>/g)].map((t) => t[1]).filter((t) => ALL_TAG_TOKENS.has(t))
@@ -195,7 +206,26 @@ function extractQuizItems(html, { srcDirRel, pageHref, srcRel }) {
       .replace(/^Q\d+\.\s*/, '')
       .trim();
     const answer = rebaseRelativeUrls(answerHtml.trim(), srcDirRel);
-    items.push({ id, question, difficulty, tags, answer, href: `${pageHref}#${id}` });
+    const isMcq = tags.includes('MCQ');
+
+    let mcqFields = {};
+    if (isMcq) {
+      const options = [...(optionsHtml || '').matchAll(OPTION_LI_RE)].map(([, letter, optHtml]) => ({
+        letter,
+        html: rebaseRelativeUrls(optHtml.trim(), srcDirRel),
+      }));
+      const correct = answerHtml.match(CORRECT_RE)?.[1] ?? null;
+      if (options.length === 0 || !correct) {
+        extractionErrors++;
+        console.error(`[error] ${srcRel}: ${id} is tagged [MCQ] but options and/or the Correct line were not extracted`);
+      }
+      mcqFields = { options, correct };
+    } else if (optionsHtml) {
+      extractionErrors++;
+      console.error(`[error] ${srcRel}: ${id} has an option list but is not tagged [MCQ]`);
+    }
+
+    items.push({ id, question, difficulty, tags, answer, href: `${pageHref}#${id}`, ...mcqFields });
   }
   if (items.length === 0) {
     extractionErrors++;
@@ -206,9 +236,12 @@ function extractQuizItems(html, { srcDirRel, pageHref, srcRel }) {
 
 /**
  * Renders the shared "▶ Start Quiz / Filter: All Basic Intermediate Advanced
- * / Scenario only" control bar used on both individual section pages and the
- * aggregated quiz page. `extraControlsHtml`, when given, is appended inside
- * the same bar (the aggregated page's section `<select>` and shuffle toggle).
+ * / Scenario only / Type" control bar used on both individual section pages
+ * and the aggregated quiz page. `extraControlsHtml`, when given, is appended
+ * inside the same bar (the aggregated page's section `<select>` and shuffle
+ * toggle). The type select is a 3-state dropdown (All / Flashcards / MCQ)
+ * rather than an "MCQ only" checkbox: flashcard drillers also need to
+ * *exclude* MCQs from a session, not just include them.
  */
 function filterBarHtml(extraControlsHtml = '') {
   return `<div class="quiz-bar">
@@ -218,7 +251,12 @@ function filterBarHtml(extraControlsHtml = '') {
   <button class="filter-btn" onclick="setFilter('Basic', this)">Basic</button>
   <button class="filter-btn" onclick="setFilter('Intermediate', this)">Intermediate</button>
   <button class="filter-btn" onclick="setFilter('Advanced', this)">Advanced</button>
-  <label><input type="checkbox" id="scenario-toggle" onchange="onScenarioChange()"> Scenario only</label>${extraControlsHtml}
+  <label><input type="checkbox" id="scenario-toggle" onchange="onScenarioChange()"> Scenario only</label>
+  <select id="type-select" onchange="onTypeChange()">
+    <option value="All">All types</option>
+    <option value="Flashcard">Flashcards only</option>
+    <option value="MCQ">MCQ only</option>
+  </select>${extraControlsHtml}
 </div>
 `;
 }
@@ -281,7 +319,8 @@ function buildQuizPage(items, sections) {
       const rows = quizSectionsFor(dir)
         .map((s) => {
           const scenarioSuffix = s.scenarioCount > 0 ? ` · ${s.scenarioCount} scenario${s.scenarioCount === 1 ? '' : 's'}` : '';
-          return `<li><a href="${s.href}">${s.title}</a><span class="count">${s.count} question${s.count === 1 ? '' : 's'}${scenarioSuffix}</span></li>`;
+          const mcqSuffix = s.mcqCount > 0 ? ` · ${s.mcqCount} MCQ` : '';
+          return `<li><a href="${s.href}">${s.title}</a><span class="count">${s.count} question${s.count === 1 ? '' : 's'}${scenarioSuffix}${mcqSuffix}</span></li>`;
         })
         .join('\n');
       return `<h2>${QUIZ_GROUP_LABELS[dir]}</h2>\n<ul class="quiz-toc">\n${rows}\n</ul>`;
@@ -300,6 +339,7 @@ function buildQuizPage(items, sections) {
 
   const dataJson = JSON.stringify(items).replace(/</g, '\\u003c');
   const scenarioTotal = items.filter((it) => it.tags.includes('Scenario')).length;
+  const mcqTotal = items.filter((it) => it.tags.includes('MCQ')).length;
 
   const extraControls = `
   <select id="section-select" onchange="onSectionChange()">
@@ -308,8 +348,9 @@ ${sectionOptions}
   </select>
   <label><input type="checkbox" id="shuffle-toggle" onchange="onShuffleChange()"> Shuffle</label>`;
 
+  const mcqNote = mcqTotal > 0 ? ` and ${mcqTotal} multiple-choice` : '';
   const body = `<h1>RAG Interview Quiz</h1>
-<p>${items.length} questions (including ${scenarioTotal} scenario-based) across ${quizSectionsFor('02_interview_bank').length} architectures and ${quizSectionsFor('03_failure_modes').length} failure modes. Filter by difficulty, scenario, or section, then start the quiz.</p>
+<p>${items.length} questions (including ${scenarioTotal} scenario-based${mcqNote}) across ${quizSectionsFor('02_interview_bank').length} architectures and ${quizSectionsFor('03_failure_modes').length} failure modes. Filter by difficulty, scenario, or section, then start the quiz.</p>
 ${filterBarHtml(extraControls)}<div id="main-content">
 ${tocGroups}
 </div>
@@ -397,6 +438,7 @@ function main() {
         href: pageHref,
         count: items.length,
         scenarioCount: items.filter((it) => it.tags.includes('Scenario')).length,
+        mcqCount: items.filter((it) => it.tags.includes('MCQ')).length,
       });
     }
 

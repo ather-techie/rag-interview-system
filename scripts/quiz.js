@@ -3,7 +3,15 @@
 // scripts/lib/questions.mjs. These two vocab lists intentionally mirror
 // DIFFICULTIES / TAGS there; keep them in sync if the tag vocabulary changes.
 const DIFFICULTIES = ['Basic', 'Intermediate', 'Advanced'];
-const TAGS = ['Scenario'];
+const TAGS = ['Scenario', 'MCQ'];
+
+// An item only renders as a multiple-choice card if it's tagged [MCQ] *and*
+// carries a usable options list and correct letter -- otherwise (e.g. a
+// scrape that failed to find the option <ul>) it degrades to a flashcard
+// rather than rendering a broken quiz.
+function isMcqItem(q) {
+  return q.tags.includes('MCQ') && Array.isArray(q.options) && q.options.length > 0 && !!q.correct;
+}
 
 function scrapeFromDom() {
   const items = [];
@@ -23,10 +31,23 @@ function scrapeFromDom() {
       .replace(/^Q\d+\.\s*/, '')
       .replace(/(\s*\[[A-Za-z]+\])+\s*$/, '')
       .trim();
+    // For [MCQ] questions, an option <ul> sits between the heading and
+    // <details> — read it off before continuing the walk to <details>.
     let el = h2.nextElementSibling;
+    let options = null;
+    if (el && el.tagName === 'UL' && tags.includes('MCQ')) {
+      options = Array.from(el.children).map(li => {
+        const m = li.textContent.match(/^\s*([A-Z])\.\s/);
+        if (!m) return null;
+        return { letter: m[1], html: li.innerHTML.replace(/^(\s*)([A-Z])\.\s*/, '$1') };
+      }).filter(Boolean);
+      el = el.nextElementSibling;
+    }
     while (el && el.tagName !== 'DETAILS') el = el.nextElementSibling;
     const answerHTML = el ? el.innerHTML : '<summary>No answer found</summary>';
-    items.push({ questionText, difficulty, tags, answerHTML, section: null, sectionGroup: null, href: null });
+    const correctMatch = el ? el.textContent.match(/\bCorrect:\s*([A-Z])\./) : null;
+    const correct = correctMatch ? correctMatch[1] : null;
+    items.push({ questionText, difficulty, tags, answerHTML, options, correct, section: null, sectionGroup: null, href: null });
   });
   return items;
 }
@@ -40,6 +61,8 @@ function loadQuestions() {
     difficulty: item.difficulty,
     tags: item.tags || [],
     answerHTML: item.answer,
+    options: item.options || null,
+    correct: item.correct || null,
     section: item.section || null,
     sectionGroup: item.sectionGroup || null,
     href: item.href || null,
@@ -51,6 +74,8 @@ const allQuestions = loadQuestions();
 let filtered = [], currentIndex = 0, correctCount = 0, reviewCount = 0;
 let difficultyFilter = 'All';
 let scenarioOnly = false;
+let typeFilter = 'All';
+let answered = false;
 
 function shuffleArray(arr) {
   const a = arr.slice();
@@ -68,6 +93,11 @@ function applyFilters() {
   }
   if (scenarioOnly) {
     result = result.filter(q => q.tags.includes('Scenario'));
+  }
+  if (typeFilter === 'MCQ') {
+    result = result.filter(isMcqItem);
+  } else if (typeFilter === 'Flashcard') {
+    result = result.filter(q => !isMcqItem(q));
   }
   const sectionSelect = document.getElementById('section-select');
   if (sectionSelect && sectionSelect.value !== 'All') {
@@ -111,6 +141,16 @@ function onSectionChange() {
   }
 }
 
+function onTypeChange() {
+  const select = document.getElementById('type-select');
+  typeFilter = select ? select.value : 'All';
+  filtered = applyFilters();
+  currentIndex = 0;
+  if (document.getElementById('quiz-panel').classList.contains('visible')) {
+    renderQuestion();
+  }
+}
+
 function onShuffleChange() {
   filtered = applyFilters();
   currentIndex = 0;
@@ -141,6 +181,7 @@ function renderQuestion() {
     return;
   }
   const q = filtered[currentIndex];
+  answered = false;
   const progress = ((currentIndex + 1) / filtered.length * 100);
   const diffClass = q.difficulty.toLowerCase();
   const tagBadges = q.tags.map(t => `<span class="tag-badge ${t.toLowerCase()}">${t}</span>`).join('');
@@ -150,6 +191,19 @@ function renderQuestion() {
   const openLink = (q.section && q.href)
     ? `<a class="quiz-open" href="${q.href}">Open in section page ↗</a>`
     : '';
+
+  const mcq = isMcqItem(q);
+  const optionsHtml = mcq
+    ? `<div class="mcq-options">${q.options.map(o =>
+        `<button class="mcq-option" data-letter="${o.letter}" onclick="chooseOption('${o.letter}')"><span class="mcq-letter">${o.letter}.</span> ${o.html}</button>`
+      ).join('')}</div>
+    <div id="mcq-result" class="mcq-result"></div>`
+    : '';
+  const buttonsHtml = mcq
+    ? `<button onclick="skipQuestion()">Skip →</button>`
+    : `<button class="primary" onclick="showAnswer()">Show Answer</button>
+       <button onclick="skipQuestion()">Skip →</button>`;
+
   const html = `
     <div class="quiz-header">
       <div>
@@ -163,16 +217,40 @@ function renderQuestion() {
     </div>
     ${sectionLine}
     <div class="quiz-question">${q.questionText}</div>
+    ${optionsHtml}
     <div id="answer-container" style="display: none;">
       <div class="quiz-answer">${q.answerHTML}</div>
       ${openLink}
     </div>
     <div class="quiz-buttons">
-      <button class="primary" onclick="showAnswer()">Show Answer</button>
-      <button onclick="skipQuestion()">Skip →</button>
+      ${buttonsHtml}
     </div>
   `;
   document.getElementById('quiz-panel').innerHTML = html;
+}
+
+function chooseOption(letter) {
+  if (answered) return;
+  answered = true;
+  const q = filtered[currentIndex];
+  document.querySelectorAll('.mcq-option').forEach(btn => {
+    btn.disabled = true;
+    if (btn.dataset.letter === q.correct) btn.classList.add('correct');
+    else if (btn.dataset.letter === letter) btn.classList.add('wrong');
+  });
+  const isRight = letter === q.correct;
+  if (isRight) correctCount++;
+  else reviewCount++;
+  const resultEl = document.getElementById('mcq-result');
+  if (resultEl) {
+    resultEl.textContent = isRight ? 'Correct!' : `Not quite — the answer is ${q.correct}.`;
+  }
+  const container = document.getElementById('answer-container');
+  if (container) container.style.display = 'block';
+  const buttons = document.querySelector('.quiz-buttons');
+  if (buttons) {
+    buttons.innerHTML = `<button class="primary" onclick="nextQuestion()">Next →</button>`;
+  }
 }
 
 function showAnswer() {
@@ -235,3 +313,18 @@ function exitQuiz() {
   document.getElementById('quiz-overlay').classList.remove('visible');
   document.getElementById('main-content').classList.remove('hidden');
 }
+
+// Keyboard shortcut: press a letter key to choose that MCQ option, as long
+// as the quiz panel is open, the current card is an unanswered MCQ, and the
+// keystroke isn't meant for a focused form control (a <select> or <input>
+// in the filter bar).
+document.addEventListener('keydown', (e) => {
+  const panel = document.getElementById('quiz-panel');
+  if (!panel || !panel.classList.contains('visible') || answered) return;
+  const target = e.target;
+  if (target && /^(SELECT|INPUT|TEXTAREA)$/.test(target.tagName)) return;
+  const q = filtered[currentIndex];
+  if (!q || !isMcqItem(q)) return;
+  const letter = e.key.toUpperCase();
+  if (q.options.some(o => o.letter === letter)) chooseOption(letter);
+});

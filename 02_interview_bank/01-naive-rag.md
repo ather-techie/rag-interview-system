@@ -884,6 +884,78 @@ What to monitor: automated PII-pattern scans on every generated answer before it
 
 ---
 
+## Q23. In the standard Naive RAG pipeline, what gets passed into the LLM's prompt alongside the original user question? `[Basic]` `[MCQ]`
+
+- A. The raw text of the retrieved top-k chunks
+- B. The vector embeddings of the retrieved chunks
+- C. The full document index
+- D. Only the chunk IDs, which the LLM looks up itself at generation time
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** The retriever's job ends at finding the right chunks; the generator never sees vectors or IDs, only the decoded text that got retrieved, concatenated into the prompt alongside the question. Option B confuses what the retriever ranks with (embeddings) with what the generator consumes (text) — the LLM has no mechanism to interpret a raw vector. Option C defeats the purpose of retrieval, which exists precisely so the LLM doesn't need the whole corpus in context. Option D assumes the LLM has tool access to fetch chunk content by ID, which Naive RAG's single-shot pipeline doesn't provide — that capability belongs to agentic architectures, not this one.
+
+</details>
+
+---
+
+## Q24. Which ANN index strategy trades memory and query-time cost for guaranteed exact top-k recall, with no approximation at all? `[Intermediate]` `[MCQ]`
+
+- A. HNSW (hierarchical navigable small world graphs)
+- B. IVF-PQ (inverted file index with product quantization)
+- C. Flat (brute-force exact nearest-neighbor) search
+- D. LSH (locality-sensitive hashing)
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** A flat index scores the query against every vector directly, so its recall is exact by construction — there's no approximation step to introduce error, only the cost of scanning the whole index every query. HNSW (A) builds a navigable graph that skips most vectors for speed, trading a small, tunable recall loss for sub-linear query time. IVF-PQ (B) clusters vectors and compresses them, which is exactly the "approximation" that gives ANN search its name and its memory savings. LSH (D) hashes similar vectors into the same buckets probabilistically, which again sacrifices exactness for speed. Flat indexes stay a reasonable choice for the smaller corpora this architecture favors (Q5), where exactness is cheap enough to afford.
+
+</details>
+
+---
+
+## Q25. What does a semantic cache typically check to decide whether a new query can reuse a previous response? `[Intermediate]` `[MCQ]`
+
+- A. Whether the new query's text exactly matches a cached query string
+- B. Whether the new query's embedding is close enough (above a similarity threshold) to a cached query's embedding
+- C. Whether the new query retrieved the same chunk IDs as a cached query
+- D. Whether the LLM reports high confidence in a cached answer
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** The whole point of a *semantic* cache (Q9) is catching paraphrases — "What's our refund window?" and "How long do I have to return something?" never match as strings (ruling out A) but land close together in embedding space, so a cosine-similarity threshold against cached query embeddings is what lets the cache fire on meaning rather than wording. Option C has the dependency backwards: chunk-ID overlap would require running retrieval first, which is the expensive step the cache exists to skip. Option D isn't how caching works at all — nothing in a semantic cache inspects the LLM's own confidence; it only compares query embeddings before retrieval or generation ever runs.
+
+</details>
+
+---
+
+## Q26. A fintech's Naive RAG chatbot over regulatory filings must guarantee it never cites a filing version that has since been superseded, even though old versions stay in the index for audit purposes. Which retrieval-time change satisfies this with the least architectural disruption? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Delete superseded filings from the index entirely
+- B. Add an `is_current` metadata field to each chunk and apply it as a mandatory pre-filter before similarity search
+- C. Lower the similarity threshold so older filings naturally rank below newer ones
+- D. Instruct the LLM in the prompt to ignore outdated filings by date
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** This is the same pattern as Q22's customer-isolation fix: a hard metadata pre-filter applied before ANN search runs, so superseded chunks are structurally excluded from candidates rather than merely discouraged. It satisfies both constraints at once — audit retention (nothing is deleted) and citation safety (nothing non-current is ever a retrieval candidate). Option A breaks the audit requirement outright by removing the very records compliance needs to keep. Option C is a similarity-ranking nudge, not a guarantee — a highly relevant superseded filing can still outscore a less relevant current one, especially if wording barely changed between versions. Option D relies on the LLM reliably following an instruction buried in a long prompt, which is exactly the kind of soft constraint that fails silently under load — the question explicitly asks for a guarantee, and only a structural retrieval-time filter provides one.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Naive RAG Fits |
