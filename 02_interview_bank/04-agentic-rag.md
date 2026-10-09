@@ -178,6 +178,10 @@ Intent Classifier (LLM)
 4. **Audit trail** — log every tool call and observation for compliance and debugging.
 5. **Fallback** — if the agent exceeds 5 iterations, escalate to a human agent.
 
+**Human handoff:** authorize the reviewer on the server and redact sensitive customer fields and secrets before sending trace data to the browser. Keep run, span, and event IDs stable; resume from a cursor and deduplicate replayed events so reconnecting does not duplicate tool-call history. The reviewer interface should expose only the trace data that reviewer is allowed to see, independently of what the audit system retains.
+
+For browser-side interview practice, [AI Agent Run Inspector — free question and reference answer](https://frontendatlas.com/system-design/ai-agent-run-inspector) covers trace reconciliation, redacted payload inspection, and human-review controls.
+
 </details>
 
 ---
