@@ -110,10 +110,37 @@ function applyFilters() {
   return result;
 }
 
+// Marks `btn` as the pressed member of a segmented control (the other
+// buttons matching `selector` are released). Keeps the .active class and
+// aria-pressed in step so sighted and screen-reader users see the same state.
+function setPressed(selector, btn) {
+  document.querySelectorAll(selector).forEach(b => {
+    const on = b === btn;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+// Live "N questions match" readout under the filter bar, plus disabling
+// Start when the combination is empty. Both elements are optional so the
+// same script keeps working on pages whose bar lacks them.
+function updateMatchCount() {
+  const countEl = document.getElementById('quiz-match-count');
+  const startBtn = document.getElementById('quiz-start-btn');
+  if (!countEl && !startBtn) return;
+  const n = applyFilters().length;
+  if (countEl) {
+    countEl.textContent = n === 0
+      ? 'No questions match these filters'
+      : n === 1 ? '1 question matches' : `${n.toLocaleString('en-US')} questions match`;
+    countEl.classList.toggle('empty', n === 0);
+  }
+  if (startBtn) startBtn.disabled = n === 0;
+}
+
 function setFilter(level, btn) {
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   const target = btn || (typeof event !== 'undefined' ? event.target : null);
-  if (target) target.classList.add('active');
+  if (target) setPressed('.filter-btn', target.closest('.filter-btn') || target);
   difficultyFilter = level;
   filtered = applyFilters();
   if (currentIndex >= filtered.length) currentIndex = 0;
@@ -121,6 +148,7 @@ function setFilter(level, btn) {
     currentIndex = 0;
     renderQuestion();
   }
+  updateMatchCount();
 }
 
 function onScenarioChange() {
@@ -131,6 +159,7 @@ function onScenarioChange() {
   if (document.getElementById('quiz-panel').classList.contains('visible')) {
     renderQuestion();
   }
+  updateMatchCount();
 }
 
 function onSectionChange() {
@@ -139,16 +168,46 @@ function onSectionChange() {
   if (document.getElementById('quiz-panel').classList.contains('visible')) {
     renderQuestion();
   }
+  updateMatchCount();
 }
 
-function onTypeChange() {
-  const select = document.getElementById('type-select');
-  typeFilter = select ? select.value : 'All';
+// Called from the Type segmented control with the value directly. Falls
+// back to reading a legacy `#type-select` dropdown if invoked with no args.
+function onTypeChange(value, btn) {
+  if (typeof value === 'string') {
+    typeFilter = value;
+    if (btn) setPressed('.type-btn', btn);
+  } else {
+    const select = document.getElementById('type-select');
+    typeFilter = select ? select.value : 'All';
+  }
   filtered = applyFilters();
   currentIndex = 0;
   if (document.getElementById('quiz-panel').classList.contains('visible')) {
     renderQuestion();
   }
+  updateMatchCount();
+}
+
+// Returns every control in the filter bar to its default, then refreshes
+// the match count. Does not touch an in-progress quiz session.
+function resetFilters() {
+  difficultyFilter = 'All';
+  typeFilter = 'All';
+  scenarioOnly = false;
+  const firstDiff = document.querySelector('.filter-btn');
+  if (firstDiff) setPressed('.filter-btn', firstDiff);
+  const firstType = document.querySelector('.type-btn');
+  if (firstType) setPressed('.type-btn', firstType);
+  ['scenario-toggle', 'shuffle-toggle'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  });
+  const sectionSelect = document.getElementById('section-select');
+  if (sectionSelect) sectionSelect.value = 'All';
+  filtered = applyFilters();
+  currentIndex = 0;
+  updateMatchCount();
 }
 
 function onShuffleChange() {
@@ -157,6 +216,7 @@ function onShuffleChange() {
   if (document.getElementById('quiz-panel').classList.contains('visible')) {
     renderQuestion();
   }
+  updateMatchCount();
 }
 
 function startQuiz() {
@@ -328,3 +388,5 @@ document.addEventListener('keydown', (e) => {
   const letter = e.key.toUpperCase();
   if (q.options.some(o => o.letter === letter)) chooseOption(letter);
 });
+
+updateMatchCount();

@@ -235,28 +235,48 @@ function extractQuizItems(html, { srcDirRel, pageHref, srcRel }) {
 }
 
 /**
- * Renders the shared "▶ Start Quiz / Filter: All Basic Intermediate Advanced
- * / Scenario only / Type" control bar used on both individual section pages
- * and the aggregated quiz page. `extraControlsHtml`, when given, is appended
- * inside the same bar (the aggregated page's section `<select>` and shuffle
- * toggle). The type select is a 3-state dropdown (All / Flashcards / MCQ)
- * rather than an "MCQ only" checkbox: flashcard drillers also need to
- * *exclude* MCQs from a session, not just include them.
+ * Renders the shared quiz control card used on both individual section pages
+ * and the aggregated quiz page. The top tier holds labelled filter groups
+ * (difficulty + type segmented controls, the "Scenario only" chip); the
+ * bottom tier holds the primary Start button, a live "N questions match"
+ * count and a Reset link. The aggregated page passes `extraChipsHtml` (its
+ * shuffle chip, appended to the Options chip row) and `extraGroupsHtml`
+ * (its Section fieldset, appended after the built-in groups). Type is a 3-state control (All / Flashcards / MCQ) rather than an
+ * "MCQ only" toggle: flashcard drillers also need to *exclude* MCQs from a
+ * session, not just include them.
  */
-function filterBarHtml(extraControlsHtml = '') {
+function filterBarHtml({ extraChipsHtml = '', extraGroupsHtml = '' } = {}) {
   return `<div class="quiz-bar">
-  <button id="quiz-start-btn" onclick="startQuiz()">▶ Start Quiz</button>
-  <span style="font-weight: 500;">Filter:</span>
-  <button class="filter-btn active" onclick="setFilter('All', this)">All</button>
-  <button class="filter-btn" onclick="setFilter('Basic', this)">Basic</button>
-  <button class="filter-btn" onclick="setFilter('Intermediate', this)">Intermediate</button>
-  <button class="filter-btn" onclick="setFilter('Advanced', this)">Advanced</button>
-  <label><input type="checkbox" id="scenario-toggle" onchange="onScenarioChange()"> Scenario only</label>
-  <select id="type-select" onchange="onTypeChange()">
-    <option value="All">All types</option>
-    <option value="Flashcard">Flashcards only</option>
-    <option value="MCQ">MCQ only</option>
-  </select>${extraControlsHtml}
+  <div class="quiz-filters">
+    <fieldset class="filter-group">
+      <legend>Difficulty</legend>
+      <div class="segmented" role="group" aria-label="Difficulty">
+        <button class="filter-btn active" aria-pressed="true" onclick="setFilter('All', this)">All</button>
+        <button class="filter-btn" aria-pressed="false" onclick="setFilter('Basic', this)"><span class="dot basic"></span>Basic</button>
+        <button class="filter-btn" aria-pressed="false" onclick="setFilter('Intermediate', this)"><span class="dot intermediate"></span>Intermediate</button>
+        <button class="filter-btn" aria-pressed="false" onclick="setFilter('Advanced', this)"><span class="dot advanced"></span>Advanced</button>
+      </div>
+    </fieldset>
+    <fieldset class="filter-group">
+      <legend>Type</legend>
+      <div class="segmented" role="group" aria-label="Question type">
+        <button class="type-btn active" aria-pressed="true" onclick="onTypeChange('All', this)">All</button>
+        <button class="type-btn" aria-pressed="false" onclick="onTypeChange('Flashcard', this)">Flashcards</button>
+        <button class="type-btn" aria-pressed="false" onclick="onTypeChange('MCQ', this)">MCQ</button>
+      </div>
+    </fieldset>
+    <fieldset class="filter-group">
+      <legend>Options</legend>
+      <div class="chips">
+        <label class="chip"><input type="checkbox" id="scenario-toggle" onchange="onScenarioChange()"> Scenario only</label>${extraChipsHtml}
+      </div>
+    </fieldset>${extraGroupsHtml}
+  </div>
+  <div class="quiz-bar-actions">
+    <button id="quiz-start-btn" class="primary" onclick="startQuiz()">▶ Start Quiz</button>
+    <span id="quiz-match-count" class="match-count" aria-live="polite"></span>
+    <button class="link-btn" onclick="resetFilters()">Reset filters</button>
+  </div>
 </div>
 `;
 }
@@ -341,17 +361,35 @@ function buildQuizPage(items, sections) {
   const scenarioTotal = items.filter((it) => it.tags.includes('Scenario')).length;
   const mcqTotal = items.filter((it) => it.tags.includes('MCQ')).length;
 
-  const extraControls = `
-  <select id="section-select" onchange="onSectionChange()">
-    <option value="All">All sections</option>
+  const shuffleChip = `
+        <label class="chip"><input type="checkbox" id="shuffle-toggle" onchange="onShuffleChange()"> Shuffle</label>`;
+  const sectionGroup = `
+    <fieldset class="filter-group filter-group-section">
+      <legend><label for="section-select">Section</label></legend>
+      <select id="section-select" onchange="onSectionChange()">
+        <option value="All">All sections</option>
 ${sectionOptions}
-  </select>
-  <label><input type="checkbox" id="shuffle-toggle" onchange="onShuffleChange()"> Shuffle</label>`;
+      </select>
+    </fieldset>`;
 
-  const mcqNote = mcqTotal > 0 ? ` and ${mcqTotal} multiple-choice` : '';
+  const archCount = quizSectionsFor('02_interview_bank').length;
+  const failureCount = quizSectionsFor('03_failure_modes').length;
+  const stats = [
+    [items.length, 'Questions'],
+    [scenarioTotal, 'Scenario-based'],
+    ...(mcqTotal > 0 ? [[mcqTotal, 'Multiple-choice']] : []),
+    [archCount, 'Architectures'],
+    [failureCount, 'Failure modes'],
+  ];
+  const statTiles = stats
+    .map(([n, label]) => `  <div class="stat"><span class="stat-num">${n.toLocaleString('en-US')}</span><span class="stat-label">${label}</span></div>`)
+    .join('\n');
   const body = `<h1>RAG Interview Quiz</h1>
-<p>${items.length} questions (including ${scenarioTotal} scenario-based${mcqNote}) across ${quizSectionsFor('02_interview_bank').length} architectures and ${quizSectionsFor('03_failure_modes').length} failure modes. Filter by difficulty, scenario, or section, then start the quiz.</p>
-${filterBarHtml(extraControls)}<div id="main-content">
+<div class="quiz-stats">
+${statTiles}
+</div>
+<p class="lead">Filter by difficulty, type, or section, then start the quiz.</p>
+${filterBarHtml({ extraChipsHtml: shuffleChip, extraGroupsHtml: sectionGroup })}<div id="main-content">
 ${tocGroups}
 </div>
 <div class="quiz-panel-overlay" id="quiz-overlay"></div>
