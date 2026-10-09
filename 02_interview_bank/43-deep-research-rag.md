@@ -641,6 +641,78 @@ The board deadline forces careful budget-monitor tuning (Q4, Q10): the early-ter
 
 ---
 
+## Q23. In Deep Research, which step turns a broad research brief into work that sub-agents can run concurrently? `[Basic]` `[MCQ]`
+
+- A. Merging all sub-agent sources into one global citation numbering
+- B. Decomposing the brief into independent sub-questions upfront
+- C. Capping total dollars and seconds through the budget monitor
+- D. Prompting the synthesizer to flag conflicting findings
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Upfront decomposition is the distinctive mechanism (Q7): the lead agent splits the brief into sub-questions narrow and independent enough that one sub-agent can research each without waiting on another, which is what makes parallel dispatch possible (Q2). Citation merging (A) happens after the sub-agents return and does nothing to enable concurrency. The budget monitor (C) bounds cost and latency but does not create parallelizable work. Conflict flagging (D) is a synthesis-time behavior (Q3) that runs once all findings are in, so it cannot decide how the work is split.
+
+</details>
+
+---
+
+## Q24. Two parallel sub-agents burn budget researching overlapping market-size facts. Which design property of the architecture causes this? `[Intermediate]` `[MCQ]`
+
+- A. The aggregator deduplicates URLs before assigning citation IDs
+- B. The budget monitor stops dispatch once new findings dry up
+- C. The lead agent caps its plan at a fixed number of sub-questions
+- D. Sub-agents run in isolated contexts and cannot see each other's findings
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Context isolation is a deliberate benefit (Q2) but carries this cost (Q12, Q5): parallel workers do not see each other's findings mid-flight, so two of them can independently cover the same ground. URL deduplication (A) happens after the work is already done and merely cleans up the bibliography. Early termination (B) reduces wasted dispatch rather than causing duplicated effort. A plan-size cap (C) limits breadth and cost; it neither creates nor prevents overlap between sub-questions the lead agent has already assigned.
+
+</details>
+
+---
+
+## Q25. Which model allocation best matches where a Deep Research run actually spends its tokens? `[Intermediate]` `[MCQ]`
+
+- A. A cheaper model for the many sub-agent steps, the strongest model for final synthesis
+- B. The strongest model for every sub-agent step, a cheaper model for final synthesis
+- C. The same strongest model at every stage, so findings stay stylistically consistent
+- D. A cheaper model for final synthesis, since sub-agents already did the reasoning
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Sub-agent search-and-extract steps are the highest-volume stage, while synthesis is a single high-stakes call (Q10, Q4), so tiering cheap-for-volume and strong-for-synthesis controls cost where it accumulates. Using the strongest model on every sub-agent step (B) inverts this and multiplies spend by sub-agents times searches. One model everywhere (C) gives up the main cost lever for a negligible consistency gain. Downgrading synthesis (D) puts the weakest model on the step that must resolve conflicts and keep citations aligned across dozens of sources (Q3).
+
+</details>
+
+---
+
+## Q26. A biotech competitive-intelligence team finds its Deep Research report quoted one market size that silently averages two sub-agent estimates differing by 2x. Which fix is best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Raise max_searches_per_subagent so each agent finds more sources
+- B. Switch synthesis to a cheaper model to make reruns affordable
+- C. Have the synthesizer present both estimates with sources and flag the gap
+- D. Drop the lower estimate automatically as an outlier before synthesis
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Q3 describes exactly this: the inputs themselves disagree, so the synthesizer should be prompted to surface the disagreement ("Source A estimates X; Source B estimates Y") rather than silently average or pick one. More searches per sub-agent (A) may add sources but does not resolve conflicting ones. A cheaper synthesis model (B) makes conflict handling worse, not better. Auto-dropping the lower figure (D) is another silent choice that hides a real disagreement and could discard the correct number, which is the opposite of what a source-reliability-focused team needs.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **OpenAI Deep Research** (ChatGPT, launched Feb 2025): autonomously browses the web for roughly 5-30 minutes to produce analyst-level cited reports for finance, science, policy, and engineering research

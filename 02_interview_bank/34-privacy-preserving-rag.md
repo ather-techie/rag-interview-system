@@ -642,6 +642,78 @@ This differs from the multi-hospital case (Q18) in one critical way: hospitals i
 
 ---
 
+## Q23. In federated retrieval, why does the coordinator merge silo results with RRF instead of averaging their raw similarity scores? `[Basic]` `[MCQ]`
+
+- A. Raw scores would reveal the text of the matching documents to the coordinator
+- B. RRF needs fewer round trips to each silo than score averaging does
+- C. Scores from independently scaled silo indexes are not comparable, but rank positions are
+- D. RRF adds differential-privacy noise to the merged list automatically
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Each silo trains or scales its own index independently, so a 0.82 similarity in one silo does not mean the same thing as 0.82 in another. Rank position is comparable, which is why RRF sums 1/(60 + rank) across silos (Q5). Raw scores (A) are returned with doc IDs anyway and carry no document text, so hiding them is not the motivation. Both merge methods use the same single fan-out (B), so round trips do not differ. RRF (D) is a deterministic rank-fusion formula and adds no noise; DP noise belongs on the query embedding (Q8).
+
+</details>
+
+---
+
+## Q24. Compared with DP noise on query embeddings, what does k-anonymity query obfuscation cost? `[Intermediate]` `[MCQ]`
+
+- A. About k times the server retrieval work, with no recall loss for the real query
+- B. A recall loss that grows with k, with no extra server work
+- C. About k times the on-device embedding cost, with no extra server work
+- D. A recall loss that grows with 1/epsilon, with no extra server work
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Obfuscation sends the real query embedding unmodified alongside k-1 dummies, so retrieval quality for the real query is untouched, but the server does roughly k times the retrieval work and the client makes k times the round trips (Q9, Q10). Option B reverses the trade-off: quality loss comes from noise, not from dummies. Option C misplaces the cost, since the client embeds only the real query once. Option D describes DP noise (Q8), where smaller epsilon means more noise and lower recall; it is the cost of the other technique.
+
+</details>
+
+---
+
+## Q25. After epsilon is cut sharply to strengthen DP noise on query embeddings, which queries typically suffer the largest recall drop? `[Intermediate]` `[MCQ]`
+
+- A. Long, specific queries that contain distinctive terms
+- B. Queries whose relevant documents all sit in a single silo
+- C. Queries sent together with many dummy queries
+- D. Short, generic queries whose embeddings sit in dense regions
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Over-noising pushes the noisy vector away from its true neighbors, and short generic queries are hit hardest because they sit in dense regions where a fixed noise magnitude covers many wrong neighbors (Q13). Long, specific queries (A) have distinctive embeddings that tolerate more drift. Single-silo placement (B) is about where documents live, not how the query vector is perturbed. Dummy queries (C) are a separate k-anonymity mechanism that sends the real embedding unmodified, so it adds server load rather than recall loss (Q9).
+
+</details>
+
+---
+
+## Q26. A legal e-discovery platform deploys on-device embedding, DP noise, k-anonymity, federated retrieval and anonymization. Audits still find privileged passages quoted verbatim in logged answers. Which control closes this gap? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Lower epsilon further on the query embeddings
+- B. Add output-side controls that filter responses before they leave the trust boundary
+- C. Increase k_anon so more dummy queries are sent per request
+- D. Add more silos so each one holds fewer documents
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** All five techniques protect the query and index path; none governs what the generated answer reveals, so a verbatim quote of a retrieved chunk leaks corpus content regardless of how private retrieval was (Q17, Q20). Response filtering or output-side DP closes that channel. Lowering epsilon (A) further hides the query embedding, which is not what leaked. A larger k_anon (C) hides which query was real and adds server cost (Q15), but does nothing for answer content. More silos (D) change where documents live, yet any retrieved chunk can still be quoted in the answer.
+
+</details>
+
+---
+
 ## Compliance Considerations
 
 | Regulation | Requirement | RAG Implication |

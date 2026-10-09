@@ -690,6 +690,78 @@ Monitor: recall@k per language pair, hypothetical language-correctness rate, and
 
 ---
 
+## Q23. In HyDE, what happens to the hypothetical document once the nearest-neighbor search has run? `[Basic]` `[MCQ]`
+
+- A. It is passed to the final generator as supporting context
+- B. It is discarded, and only real retrieved passages ground the answer
+- C. It is added to the corpus index to speed up later queries
+- D. It becomes the query the reranker scores documents against
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** The hypothetical exists only to produce an embedding that lands near real answer passages; the generator answers from the retrieved real documents, so its factual accuracy never reaches the final answer (Q13, Q2). Passing it to the generator (A) would let hallucinated specifics leak into the response. Indexing it (C) would pollute the corpus with unverified text. Reranking against it (D) is the opposite of recommended practice, since rerankers should score against the user's actual question (Q11).
+
+</details>
+
+---
+
+## Q24. For which retrieval setup is HyDE most likely to deliver a large gain? `[Intermediate]` `[MCQ]`
+
+- A. A zero-shot encoder applied to a new domain with no labels
+- B. An encoder fine-tuned on abundant in-domain query-document pairs
+- C. An exact-match index over invoice and error-code identifiers
+- D. A cross-encoder reranker already scoring query-document pairs
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** HyDE acts as a label-free substitute for fine-tuning: it turns the query into a document so an unsupervised encoder only does document-to-document similarity, its strength (Q9). A fine-tuned encoder (B) has already learned the query-to-document mapping, so HyDE's benefit shrinks or turns negative. Identifier lookups (C) have no meaningful answer-shaped text to generate (Q5). A cross-encoder reranker (D) jointly encodes query and document, so it does not suffer the bi-encoder asymmetry HyDE fixes.
+
+</details>
+
+---
+
+## Q25. In a HyDE pipeline with a cross-encoder reranker after hybrid retrieval, what should the reranker score candidates against? `[Intermediate]` `[MCQ]`
+
+- A. The hypothetical document alone
+- B. The average of the hypothetical embeddings
+- C. The user's original question
+- D. Keywords extracted from the hypothetical
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** HyDE improves recall at the bi-encoder stage; the reranker then reorders candidates and should judge relevance to what the user actually asked, which cross-encoders handle without help because they encode query and document jointly (Q11). Scoring against the hypothetical alone (A) would reward agreement with a possibly hallucinated draft rather than the real question. An averaged embedding (B) is a retrieval-stage device, not a text a cross-encoder can consume. Extracted keywords (D) throw away the dense context the reranker is good at using.
+
+</details>
+
+---
+
+## Q26. A semiconductor firm's internal wiki is full of proprietary tool codenames, and HyDE's hypotheticals come out generic and retrieve worse than the raw query. What is the best adjustment? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Make the hypothetical far longer so it covers more codenames
+- B. Ask the LLM for search keywords instead of a passage
+- C. Average embeddings from several more sampled hypotheticals
+- D. Gate HyDE by query type and fuse hypothetical and raw-query retrieval
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The LLM does not know the codenames, so its hypothetical lands in the wrong region (Q5). Gating HyDE for such queries and fusing hypothetical-based retrieval with raw-query retrieval means a bad hypothetical cannot fully break results, the guardrail Q5 recommends. Longer text (A) just elaborates the same ignorance. A keyword list (B) is the anti-pattern from Q6, pulling retrieval back into sparse query space. Averaging more samples (C) helps with noise but, as Q5 notes, does not fix a model that lacks domain knowledge.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why HyDE Fits |

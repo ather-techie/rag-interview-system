@@ -548,6 +548,78 @@ The regulator-audit-trail requirement is a hard compliance constraint that shift
 
 ---
 
+## Q23. Which WebGPT browser action records a passage together with its source so the final answer can cite it? `[Basic]` `[MCQ]`
+
+- A. click(n)
+- B. quote(text)
+- C. scroll(dir)
+- D. done
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** The `quote` action saves exact supporting text and the Citation Collector stores it with its source document, so evidence is gathered explicitly during browsing rather than reconstructed afterward (Q3). `click` only opens a search result and returns page content. `scroll` only pages through the document that is already open. `done` ends the loop and hands the collected quotes to the Answer Synthesizer; it records nothing itself. This explicit quote step is why citation quality is described as excellent by construction, and why it can be checked by string matching (Q11).
+
+</details>
+
+---
+
+## Q24. In WebGPT's RLHF stage, what do human labelers compare to produce the reward model's training signal? `[Intermediate]` `[MCQ]`
+
+- A. Two individual browser actions taken at the same step
+- B. One answer against a reference answer written by the labeler
+- C. Two search queries issued for the same question
+- D. Two complete answers to the same question, with their evidence
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Labelers see two full answers to the same question, along with the browsing evidence behind them, and pick the better one; the reward model learns from those pairs and PPO then optimizes the policy against it (Q4). Comparing single actions (A) would give no view of overall answer quality, since good answers emerge from whole transcripts. A reference-answer comparison (B) describes supervised imitation, not preference learning. Comparing search queries alone (C) ignores everything after the search, including quoting and the final synthesis.
+
+</details>
+
+---
+
+## Q25. In Toolformer's data-filtering step, which condition decides that a candidate API call is kept for fine-tuning? `[Intermediate]` `[MCQ]`
+
+- A. Inserting the call and its result meaningfully lowers perplexity on the following tokens
+- B. A human annotator confirms that the API call is appropriate
+- C. The API call executes without raising an error
+- D. The call is copied from a human browsing demonstration
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Toolformer is self-supervised: a call is kept only if putting it and its result into the text makes the continuation noticeably easier for the model to predict, using a threshold on perplexity reduction (Q5, Q8). Human confirmation (B) is the WebGPT-style supervision that Toolformer removes. Merely executing without error (C) says nothing about usefulness. Copying demonstrations (D) describes WebGPT's behavior cloning; Toolformer needs no demonstration data. Because perplexity is only a proxy, it can misfire (Q14).
+
+</details>
+
+---
+
+## Q26. A logistics firm needs an assistant that calls exactly three stable internal APIs (rate lookup, tracking, customs codes) at high volume and tight latency, and every call can be checked by executing it. Which approach fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Prompt a large general model with tool definitions and no tuning
+- B. Collect human preference comparisons and train a WebGPT-style RLHF policy
+- C. Fine-tune a small model on query-to-call pairs verified by execution, Gorilla-style
+- D. Add the three APIs as new actions to an already trained WebGPT policy without retraining
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** A narrow, stable tool set, a cheap execution-based correctness check, and tight latency and volume constraints are the criteria Q18 gives for fine-tuning, and Gorilla (Q9) shows the verifiable-call recipe: a small tuned model can be both reliable and fast. Prompting a large model (A) is the sensible default elsewhere, but here it loses on latency and per-call cost. Human preference RLHF (B) is the most expensive signal when execution already provides a free one. New actions cannot be bolted onto a trained policy (D), because its weights have no representation of them (Q13).
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why This Pattern Fits |

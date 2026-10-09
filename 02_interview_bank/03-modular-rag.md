@@ -1198,6 +1198,78 @@ What to monitor: per-region routing and module-health metrics (Q9), canary succe
 
 ---
 
+## Q23. In Modular RAG, what does the routing module decide for each incoming query? `[Basic]` `[MCQ]`
+
+- A. Which embedding model should be used to index the corpus
+- B. Which tokens the generator is allowed to emit in its answer
+- C. Which retrieval module or modules should be invoked for the query
+- D. Which reranker weights should be updated from user feedback
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** The routing module sits at the front of the pipeline and picks the retrieval pathway per query, such as SQL for structured questions, vector search for conceptual ones, web search for recent events, or memory only for a conversational follow-up (Q2). Indexing-time embedding choices (A) are fixed before any query arrives and are not a per-query routing decision. Constraining generator tokens (B) is not a router's job; the generation module handles that. Updating reranker weights from feedback (D) is offline training, whereas routing happens online at query time and only selects which existing modules run.
+
+</details>
+
+---
+
+## Q24. Why is Reciprocal Rank Fusion commonly used in a Modular RAG fusion module when merging BM25 and dense-vector results? `[Intermediate]` `[MCQ]`
+
+- A. It relies only on each result's rank, so incompatible score scales do not matter
+- B. It re-embeds every result so both retrievers share one vector space
+- C. It discards any document that only one of the retrievers returned
+- D. It asks the LLM to rate each candidate before the lists are merged
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** RRF scores each document by its rank position in each retriever's list, so a raw BM25 score with no fixed range and a 0-1 cosine similarity can be combined without any normalization (Q3). That is exactly the incompatibility that silently corrupts naive score-summing when output contracts differ (Q19). Re-embedding results (B) is not part of RRF and would add cost for no benefit. RRF does not drop single-retriever hits (C); documents found by only one list still receive a contribution. Calling an LLM to rate candidates (D) describes a reranker, which is a separate stage after fusion.
+
+</details>
+
+---
+
+## Q25. In a Modular RAG deployment, the SQL retrieval module times out on a query. Which response best matches the intended design? `[Intermediate]` `[MCQ]`
+
+- A. Surface the timeout error to the user so they can retry
+- B. Abort the whole pipeline and cache the failed result
+- C. Permanently route all future queries away from the SQL module
+- D. Follow a predefined fallback chain such as vector search over a denormalized copy
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The orchestrator's job includes fallback and error recovery, so a preferred module failing should trigger an explicit, pre-defined fallback chain, for example vector search over a denormalized copy of the same data, accepting lower precision over a hard failure (Q17). Showing the raw error (A) lets a single module failure become a user-facing outage. Aborting and caching the failure (B) both kills the answer and risks serving the failure again later. Permanently disabling the module (C) overreacts to a transient timeout and removes a module the router still needs for structured queries.
+
+</details>
+
+---
+
+## Q26. An e-commerce retailer swaps in a new vendor's vector retrieval module. Each module scores well when tested alone, but fused answers get worse. Which diagnosis and fix fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. The router is misclassifying queries, so retrain its classifier on more examples
+- B. The new module breaks the shared output contract, so enforce a versioned schema validated at integration
+- C. The reranker is too large for the fused list, so replace it with a smaller model
+- D. The memory module holds stale turns, so clear the session history more often
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Good isolated scores combined with worse fused results points at the interface between modules: a new vendor module may return scores on a different scale or different metadata fields, and fusion then compares incompatible values without crashing (Q19). The fix is a strict, versioned output schema every module must satisfy, validated when modules are integrated or swapped (Q7). Router errors (A) would show up in routing-accuracy checks (Q18), not as degradation tied to one swapped module. Reranker size (C) and stale memory (D) do not explain a regression that began exactly when this module was replaced.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Modular RAG Fits |

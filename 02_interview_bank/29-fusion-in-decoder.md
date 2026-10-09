@@ -657,6 +657,78 @@ Fusing hundreds of passages runs directly into FiD's real bottleneck: while enco
 
 ---
 
+## Q23. In Fusion-in-Decoder, where can evidence from two different retrieved passages first interact? `[Basic]` `[MCQ]`
+
+- A. In the encoder's self-attention, since all passages share one batch
+- B. During retrieval scoring, before any passage is encoded
+- C. In the decoder's cross-attention over the concatenated encodings
+- D. In the shared embedding layer that both passages pass through
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Each (question, passage) pair is encoded in isolation, so no passage sees another inside the encoder; the encoded representations are concatenated and the decoder cross-attends over all of them at once, which is where evidence is combined (Q13). Option A confuses batching with attention: passages in a batch never attend to each other. Option B is wrong because retrieval is external to FiD and scores passages independently of how they are read. Option D is wrong because embedding lookups are per-token and carry no cross-passage interaction.
+
+</details>
+
+---
+
+## Q24. As the number of fused passages grows very large in FiD, which component becomes the dominant inference bottleneck? `[Intermediate]` `[MCQ]`
+
+- A. The decoder's cross-attention over all k times L encoded tokens
+- B. The encoder's self-attention, which grows quadratically in k
+- C. The upstream retriever's nearest-neighbor lookup over the corpus
+- D. The step that concatenates the per-passage encodings
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Encoding stays linear in k, but at every generation step the decoder cross-attends over all k times L encoded tokens, a memory-bandwidth-bound cost that eventually dominates (Q7, Q11). That is why FiD-light and FiDO target this step. Option B is the cost of naive concatenation (Q3), which FiD avoids by encoding passages separately. Option C is a retriever concern outside FiD itself. Option D is a cheap tensor join with negligible cost next to attention.
+
+</details>
+
+---
+
+## Q25. Which pre-FiD change keeps most of a large candidate set's recall while shrinking the decoder's workload? `[Intermediate]` `[MCQ]`
+
+- A. Enlarging the encoder so each passage representation is richer
+- B. Merging all candidates into one long input before encoding
+- C. Retrieving a smaller candidate set from the start
+- D. Reranking the candidates and passing only the top scorers to FiD
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Retrieve broadly for recall, then prune: a reranker keeps the genuinely useful passages and lets FiD fuse a small k, cutting decoder cross-attention cost without giving up most of the recall benefit (Q6, Q9). Option A raises per-passage cost rather than lowering it. Option B is the concatenation approach whose quadratic encoder cost FiD was designed to escape (Q3). Option C also cuts cost but gives up recall up front, since the answer-bearing passage may never be retrieved.
+
+</details>
+
+---
+
+## Q26. A tax authority's FiD assistant fuses 40 passages per query, including recently amended rulings that contradict older guidance. Answers often blend both versions into one inconsistent statement. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Increase k to 100 so the newer rulings are outnumbered less often
+- B. Add an upstream step that detects conflicts and removes superseded rulings before FiD
+- C. Retrain the encoder so passages attend to each other before fusion
+- D. Replace the decoder with a larger one that resolves contradictions
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Passages are encoded independently, so the encoder never notices that one contradicts another; any resolution must emerge during decoder cross-attention, which often yields a blend (Q19, Q13). Conflict detection and filtering of superseded rulings upstream removes the contradiction before fusion. Option A adds more passages, which can multiply the conflict and raises decoder cost. Option C abandons the independent-encoding design that gives FiD its linear scaling (Q3). Option D is an expensive hope, not a mechanism, and still sees both versions.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Fusion-in-Decoder Fits |

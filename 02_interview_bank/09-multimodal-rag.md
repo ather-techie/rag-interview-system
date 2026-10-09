@@ -1090,6 +1090,78 @@ What to monitor: cross-modal retrieval quality specifically on cases where the c
 
 ---
 
+## Q23. What practical consequence does CLIP's 77-token text-encoder limit have for a Multimodal RAG system? `[Basic]` `[MCQ]`
+
+- A. Queries beyond 77 tokens are rejected by the vector store with an error
+- B. Long queries or captions are truncated, so details past the limit never influence retrieval
+- C. Image embeddings are restricted to 77 dimensions per picture
+- D. Queries are limited to 77 distinct words when matching images
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** CLIP's text encoder truncates its input at 77 tokens (Q2), so anything beyond that point in a long query or caption is silently dropped and cannot influence the embedding. The fix is to shorten or summarize queries and captions, or to caption images with a multimodal LLM and embed that text instead. Option A is wrong because truncation happens inside the encoder, and the vector store never sees an over-length input to reject. Option C confuses a token limit with embedding dimensionality; CLIP image vectors are in the hundreds of dimensions. Option D invents a distinct-word rule that does not exist.
+
+</details>
+
+---
+
+## Q24. When merging ranked results from a CLIP image index and a text-chunk index, which fusion input is most reliable? `[Intermediate]` `[MCQ]`
+
+- A. Raw cosine similarity scores summed with equal weights
+- B. Only the image index's scores, since they are cross-modal
+- C. The higher of the two raw scores for each document
+- D. Rank positions from each list combined with weighted reciprocal rank fusion
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Cosine similarities from CLIP space and from a text-embedding space are not on a comparable scale, so fusion should work on ranks, not scores; weighted RRF does that and lets you tune modality weights (Q5, Q17). Option A adds numbers that mean different things in each space, so one modality quietly dominates, which is the late-fusion alignment problem in Q19. Option B discards the text evidence entirely. Option C has the same scale problem, because taking the max of two incomparable scores simply favors whichever encoder produces larger values, regardless of actual relevance.
+
+</details>
+
+---
+
+## Q25. What distinguishes ColPali-style retrieval from single-vector CLIP retrieval for scanned PDFs? `[Intermediate]` `[MCQ]`
+
+- A. It embeds page screenshots as multi-vector patch embeddings scored with MaxSim, skipping OCR and chunking
+- B. It embeds each page as one pooled vector from a larger contrastive backbone
+- C. It runs OCR on every page and indexes the text with a sparse lexical encoder
+- D. It captions each page with a vision LLM and indexes only the caption text
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** ColPali and ColQwen2 use a vision-language backbone to emit multi-vector embeddings over page-image patches and score them with ColBERT-style late interaction (MaxSim), so page screenshots are indexed directly with no OCR, layout, or chunking pipeline (Q2). The cost is heavier multi-vector storage. Option B describes the single-vector approach that ColPali moves away from. Option C describes a conventional OCR-plus-lexical pipeline, which is precisely the machinery ColPali avoids. Option D is captioning-based indexing, a separate approach that reuses the text stack but depends on caption quality.
+
+</details>
+
+---
+
+## Q26. A wind-turbine maintenance company's Multimodal RAG assistant sends 20 retrieved schematics plus manual text to its vision LLM per query; answers are slow, costly, and miss labeled details. Which change fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Switch to a larger CLIP model so embeddings are more precise
+- B. Downscale all 20 images to thumbnails and pass them together
+- C. Rerank across modalities and pass only the top 2-3 images with their text chunks
+- D. Drop images at generation time and answer from text chunks alone
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Vision LLMs cannot use 20 images well, so the standard remedy is to rerank and pass only the top 2-3 images alongside the supporting text (Q4); a per-modality quota can keep at least one diagram in the mix (Q5). Option A improves retrieval precision but does not reduce what reaches the generator, which is the actual bottleneck. Option B keeps all 20 images and makes labeled details even harder to read. Option D removes the diagrams that technicians need, so any answer depending on a wiring or part-layout figure would be unsupported.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Multimodal RAG Fits |

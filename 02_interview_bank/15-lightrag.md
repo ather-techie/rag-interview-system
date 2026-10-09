@@ -727,6 +727,78 @@ Monitor: entity resolution precision sampled per plant, weekly update completion
 
 ---
 
+## Q23. In LightRAG, which query mode skips the graph and runs plain similarity search over chunk embeddings? `[Basic]` `[MCQ]`
+
+- A. Local mode, which anchors on entities found in the query
+- B. Global mode, which draws on community or theme-level information
+- C. Hybrid mode, which merges local and global retrieval results
+- D. Naive mode, which is the flat vector fallback
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Naive mode is standard ANN search over chunk embeddings with no entity extraction or graph traversal, which makes it the right choice for single-chunk fact lookups where graph structure adds only latency (Q2, Q6). Option A still extracts entities from the query and traverses their one-hop neighborhood in the graph. Option B retrieves theme-level or community summaries rather than raw chunk similarity, so it is aimed at synthesis questions. Option C runs both graph-based paths and merges them, so it is the most graph-heavy mode and the default for mixed or unclear query types rather than the fallback.
+
+</details>
+
+---
+
+## Q24. Which entity-resolution safeguard best prevents LightRAG from merging an organization with a product that shares its name? `[Intermediate]` `[MCQ]`
+
+- A. Lowering the embedding-similarity threshold so more name variants are grouped
+- B. Comparing candidate entities only within the same extracted entity type
+- C. Merging on embedding similarity alone, without an LLM confirmation step
+- D. Merging only mentions whose surface strings match exactly
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Type-constrained resolution never compares an ORG such as "Apple Inc." against a PRODUCT such as "Apple", so a shared name cannot trigger a false merge, while true variants of the same type can still be consolidated (Q5). Option A moves in the wrong direction: a looser threshold groups more candidates and raises the chance of over-resolution. Option C removes the LLM merge check that exists to catch embedding-similar but distinct entities. Option D avoids that false merge but causes under-resolution, since "Apple", "Apple Inc." and "Apple Computer" would stay as separate nodes and fragment the graph, hurting relational recall (Q6).
+
+</details>
+
+---
+
+## Q25. A source document is revised, and its old entities and relationships are already in the LightRAG graph. Which procedure avoids leaving stale edges behind? `[Intermediate]` `[MCQ]`
+
+- A. Tombstone what the old version produced, re-run insertion, then delete the tombstones after verification
+- B. Insert the new version and rely on entity resolution to overwrite the old edges
+- C. Re-embed the revised chunks and leave the existing graph untouched
+- D. Rebuild the whole graph from scratch over the entire corpus
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Nodes and edges are tagged by source document, so those from the old version can be marked deprecated, the revised document run through the normal insert pipeline, and the old items removed only once the new ones are verified; shared entities are protected by reference counts (Q8). Option B does not work because resolution merges entity mentions, not stale relationships, so contradicting edges would coexist (Q6). Option C refreshes only vector search and leaves the graph's old relationships, which graph-based modes would keep serving. Option D is correct but wasteful, discarding the incremental-update advantage that makes LightRAG cheaper to maintain than full-rebuild designs.
+
+</details>
+
+---
+
+## Q26. A legal-services platform hosts many law firms in one LightRAG graph, and several firms' documents mention the same public companies. A lawyer at Firm A must never see relationships derived from Firm B's documents. Which design is best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Merge shared company entities across firms for a richer graph, then filter chunks by firm at answer time
+- B. Resolve entities globally across firms, but hide other firms' chunks from the generator prompt
+- C. Run entity resolution within each firm and tag every edge with a firm ID that is filtered at query time
+- D. Disable local mode so that no entity-based graph traversal ever runs
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Scoping resolution to each firm means entities are never merged across tenants, and a tenant tag on every edge lets traversal exclude other firms' relationships before anything reaches the generator (Q12). Option A merges nodes across tenants, so a traversal from a shared company node can surface edges, and the relationships they encode, from Firm B even if raw chunks are filtered afterward. Option B has the same flaw and also hides the evidence only at the prompt stage, after leakage has already shaped retrieval. Option D removes the capability the graph exists to provide, and global-mode community summaries built across tenants could still blend firms' content (Q5).
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why LightRAG Fits |

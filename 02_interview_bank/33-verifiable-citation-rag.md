@@ -745,6 +745,78 @@ An educational tool checking student essays against assigned readings is a low-s
 
 ---
 
+## Q23. In Verifiable RAG, which stage independently confirms that a cited passage actually supports its paired claim? `[Basic]` `[MCQ]`
+
+- A. The citation-aware generator, which inserts markers after each claim
+- B. The attribution/entailment verifier, which checks each claim against its cited passage
+- C. The retriever, which only returns passages that match the query
+- D. The citation renderer, which formats the final cited output
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** The verifier is the architectural addition that re-examines each (claim, cited passage) pair using NLI or an LLM judge, a process separate from the generator (Q3, Q7). The generator (A) only produces claimed attributions and can hallucinate a citation as easily as a fact, so it cannot vouch for itself. The retriever (C) supplies candidate passages but has no view of which claim cites which passage. The renderer (D) acts on the verifier's verdict by flagging or removing unsupported claims, but it makes no entailment judgment of its own.
+
+</details>
+
+---
+
+## Q24. Which verifier error lets an unsupported claim reach the user without any flag, making it the more dangerous of the two? `[Intermediate]` `[MCQ]`
+
+- A. A false negative, marking a well-grounded claim as unsupported
+- B. A NEUTRAL verdict that is escalated from NLI to an LLM judge
+- C. A retrieval miss that leaves a true claim with nothing to cite
+- D. A false positive, marking an unsupported claim as supported
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** A false positive passes a wrong or unsupported claim straight through the gate built to stop it, with no visible signal that anything failed, which defeats the purpose of the architecture (Q19). A false negative (A) is the safer error: a good claim is flagged or dropped, costing recall but not correctness. A NEUTRAL escalation (B) is the intended tiered behavior from Q11, not an error. A retrieval miss (C) is an upstream recall problem (Q15), and it tends to produce omitted or uncited claims rather than a wrongly approved one.
+
+</details>
+
+---
+
+## Q25. A claim compares two companies, and each company's figure appears in a different retrieved passage. A per-passage verifier marks it unsupported. What is the best fix? `[Intermediate]` `[MCQ]`
+
+- A. Decompose it into atomic sub-claims and verify each against its own passage
+- B. Lower the entailment threshold until the compound claim passes
+- C. Switch to source-level citations so the whole document is checked
+- D. Drop every claim that cites more than one passage
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Neither passage alone entails the combined comparison, so a single-passage check correctly fails it even though the claim is well grounded (Q13). Splitting it into atomic sub-claims lets each one verify against its own passage, and the compound claim counts as grounded when all of them pass. Lowering the threshold (B) weakens every verdict and admits genuinely unsupported claims. Source-level citations (C) are the permissive, coarse level whose precision looks artificially high (Q12). Dropping multi-passage claims (D) discards legitimate synthesis, which legal and clinical answers rely on heavily.
+
+</details>
+
+---
+
+## Q26. An investment research assistant passes every citation check, yet an analyst finds a false revenue figure backed by a verified citation to a fabricated press release in the corpus. What addition addresses the root cause? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Raise the NLI entailment threshold from 0.7 to 0.95
+- B. Escalate every claim from NLI to an LLM-judge verifier
+- C. Add source-trust scoring on corpus documents alongside verification
+- D. Move from passage-level to span-level citations
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Verification only confirms that the cited passage entails the claim; it cannot tell whether the passage itself is true. A planted press release that states the false figure entails it perfectly (Q17, Q20). Source-trust scoring addresses the corpus-level gap directly. A higher threshold (A) still passes a passage that states the claim outright. An LLM judge (B) reads the same fabricated text and agrees with it. Span-level citations (D) make the cited text easier to inspect (Q10), but a precisely cited fabrication is still a fabrication.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Perplexity.ai and Bing Copilot**: Inline citations with hover-to-verify passage display

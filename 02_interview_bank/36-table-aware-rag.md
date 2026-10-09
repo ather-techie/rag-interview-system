@@ -641,6 +641,78 @@ At this scale — thousands of tables, many logically linked (age-by-region cros
 
 ---
 
+## Q23. In Table-Aware RAG, what does the `chunk_type` metadata field make possible at query time? `[Basic]` `[MCQ]`
+
+- A. Boosting table-row results over prose chunks for numerical queries
+- B. Choosing between TAPAS and a dense retriever for each query
+- C. Detecting merged header cells in the extracted tables
+- D. Computing exact aggregates directly inside the vector database
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** With `chunk_type` stored beside each vector, the hybrid retriever can tell `table_row` chunks from `text` chunks and up-weight tables in the RRF merge for numerical questions; without it the two are indistinguishable (Q8, Q9). The field does not route between models (B): TAPAS is a reader applied after retrieval (Q7). Merged-header detection (C) happens at extraction time, before any metadata exists (Q13). Vector databases return nearest neighbors, so exact aggregation (D) needs SQL or code execution rather than a metadata tag.
+
+</details>
+
+---
+
+## Q24. A 500-row table is indexed with one chunk per row and no summary chunk. Which query is it most likely to answer wrongly? `[Intermediate]` `[MCQ]`
+
+- A. "What was Europe's Q3 revenue?"
+- B. "Which row covers the Asia-Pacific region?"
+- C. "What is the average Q3 revenue across all regions?"
+- D. "What currency unit is the revenue column reported in?"
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Each row chunk is independently context-blind, so a question that needs every row cannot be answered from the few rows retrieved; aggregate and "across all" queries fail far more often than lookups (Q14). The specific lookup (A) needs only one correctly retrieved row with its headers attached. The region question (B) is also a single-row match. The unit question (D) is answerable because column headers are re-attached to every row chunk (Q5). A summary chunk or a code-execution path is the usual fix for the aggregate case.
+
+</details>
+
+---
+
+## Q25. Extraction of a table with a merged "2025" header over Q1 to Q4 sub-columns produces columns named `Unnamed: 0`. Which fix preserves the meaning before linearization? `[Intermediate]` `[MCQ]`
+
+- A. Drop the header rows and rely on column position
+- B. Forward-fill merged cells and join multi-row headers into composite names
+- C. Raise the table_boost factor in the RRF merge
+- D. Linearize the table as full Markdown regardless of its size
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Merged and multi-row headers are common in real filings, and naive extraction either duplicates or drops them. Forward-filling and concatenating into names such as "2025 Q1 ($M)" keeps both halves of the meaning once rows are linearized (Q13). Dropping headers (A) removes exactly the context that makes a row meaningful in isolation (Q5). Raising table_boost (C) changes ranking between table and prose chunks, not the content of the chunks (Q9). Full Markdown (D) is a size-based choice (Q10) and would still embed the broken header names.
+
+</details>
+
+---
+
+## Q26. An audit firm's assistant must report the total restated revenue across all 480 subsidiaries in a PDF consolidation table. Totals from the LLM change between runs. What is the best design change? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Raise table_boost so more table rows are retrieved
+- B. Increase k so every row chunk fits in context for the LLM to sum
+- C. Prompt the model to sum the rows twice and compare the results
+- D. Route the aggregation to code execution over the extracted DataFrame
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** A total over hundreds of rows needs exact arithmetic, and the file's guidance is to route aggregation around the LLM by loading the full table and computing in Python; this also avoids the manipulation risk of LLM-computed aggregates (Q14, Q17, Q18). A bigger table_boost (A) changes ranking, not arithmetic. A larger k (B) still leaves the LLM summing hundreds of fragments, and one dropped row skews the total. Summing twice (C) improves auditability at best, since show-your-work prompting does not guarantee correctness (Q11, Q20).
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Table-Aware RAG Fits |

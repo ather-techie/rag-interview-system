@@ -602,6 +602,78 @@ Monitor: incremental update latency versus report arrival rate, entity-link rate
 
 ---
 
+## Q23. At query time, which nodes does HippoRAG seed Personalized PageRank on? `[Basic]` `[MCQ]`
+
+- A. Every knowledge-graph node, with equal starting probability mass
+- B. The highest-degree hub nodes found anywhere in the graph
+- C. The nodes of the top-k passages from a dense retriever
+- D. The graph nodes linked to entities extracted from the query
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** HippoRAG extracts named entities from the query, links them to graph nodes by embedding similarity, and places the restart probability mass on those nodes so activation spreads outward from them (Q3). Uniform seeding (A) would make the result query-independent. Hub seeding (B) is the hub-explosion problem PPR is meant to avoid, and ignores the query. Seeding from dense-retriever passages (C) is not part of the design and would reintroduce the isolated-passage retrieval the graph is meant to improve on.
+
+</details>
+
+---
+
+## Q24. Multi-hop questions whose answers sit three edges from the query entities keep failing in HippoRAG. Which PPR adjustment most plausibly helps? `[Intermediate]` `[MCQ]`
+
+- A. Lower the damping factor so restarts happen more often
+- B. Seed the walk on every node to widen coverage
+- C. Raise the damping factor so the walk travels farther
+- D. Remove synonymy edges to reduce graph density
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** The damping factor sets how far the random walk wanders before restarting at the seeds, so a higher value reaches more distant hop neighbors (Q11). If 3-hop questions fail, raising it is the first knob to sweep, watching that mass does not diffuse into popular hubs. Lowering it (A) keeps retrieval near direct neighbors, which makes the failure worse. Seeding everywhere (B) discards the query anchor. Removing synonymy edges (D) would fragment the graph and break chains across name variants (Q6).
+
+</details>
+
+---
+
+## Q25. Which query is HippoRAG most likely to handle worse than plain dense retrieval? `[Intermediate]` `[MCQ]`
+
+- A. Which services depend on the auth module owned by the payments team?
+- B. How can our managers improve team morale across departments?
+- C. Where was the designer of the Eiffel Tower born?
+- D. Which suppliers share a parent company with Acme?
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** PPR needs entity seeds, and the morale question has no clear named entities to anchor the walk, so retrieval degenerates (Q7). This matches the hippocampal analogy: with no strong cue, pattern completion has nothing to start from (Q12). Options A, C and D are entity-rich, path-following questions (team to module to dependents, tower to designer to birthplace, Acme to parent to siblings), which is exactly where single-pass spreading activation excels over plain dense retrieval.
+
+</details>
+
+---
+
+## Q26. A pharma-research HippoRAG index returns passages about the wrong drug whenever users query one compound, and the graph shows a synonymy edge between it and a similarly named drug. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Raise the synonymy similarity threshold and spot-check edge precision
+- B. Lower the damping factor so activation stays near the seeds
+- C. Raise the top-k so the correct drug's passages also appear
+- D. Re-run OpenIE over the corpus with a larger extraction model
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** A synonymy threshold set too loosely merges distinct entities with similar names or embeddings, so PPR mass flows to the wrong drug (Q6, Q19). Tightening the threshold and checking sampled edges on a labeled set removes the false connection at its source. A lower damping factor (B) only shrinks how far wrong mass spreads, while the bad edge directly adjacent to the seed still carries it. A larger top-k (C) dilutes context without removing wrong passages. Re-extracting triples (D) targets extraction quality, which is not the identified cause.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why HippoRAG Fits |

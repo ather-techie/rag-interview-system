@@ -675,6 +675,78 @@ Given the deadline, default to adaptive-length decoding for routine cases to fit
 
 ---
 
+## Q23. In CoRAG's training pipeline, which rule decides which sampled retrieval chains are kept? `[Basic]` `[MCQ]`
+
+- A. Chains with the highest retrieval relevance score at every hop
+- B. Chains that human annotators rated as well reasoned
+- C. The shortest chains, regardless of the final answer
+- D. Chains whose final answer matches the gold answer
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Datasets like KILT label only final answers, so CoRAG samples many candidate chains per question and keeps those whose final answer matches the gold label (Q2). Option A would need relevance labels per hop, which do not exist. Option B describes hand-labeling, which Q2 says is infeasible at scale. Option C ignores correctness entirely and would teach the model to stop early. Note the filter is outcome-only, which is the root of the lucky-chain risk in Q12.
+
+</details>
+
+---
+
+## Q24. Which decoding strategy lets one trained CoRAG model spend extra hops only on questions that need them? `[Intermediate]` `[MCQ]`
+
+- A. Greedy decoding with a fixed long chain length
+- B. Best-of-N sampling with reranking on every query
+- C. Adaptive-length decoding that stops once the model is confident
+- D. Lowering the sampling temperature at inference time
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Adaptive-length decoding lets the model stop when it judges the chain sufficient, approaching best-of-N accuracy at a fraction of the compute and limiting drift opportunities (Q3, Q4). Option A wastes hops on simple queries and raises the risk of chain drift. Option B samples N full chains for every query, the highest-cost operating point, best reserved for high-stakes segments. Option D changes randomness, not how many hops are used, and greedy chains are not inherently shorter.
+
+</details>
+
+---
+
+## Q25. Why does CoRAG's best-of-N reranking rely on signals like self-consistency voting rather than gold-answer matching? `[Intermediate]` `[MCQ]`
+
+- A. Gold answers exist only for short chains
+- B. No gold answer exists at inference, so agreement across sampled chains acts as a proxy
+- C. Gold matching would reject chains that were actually correct
+- D. The retriever cannot score chains containing sub-answers
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Rejection sampling can filter on gold labels at training time (Q2), but at inference there is no ground truth, so the selector must score chains by proxies; self-consistency, where independent chains reaching the same answer raise confidence, is the cheapest and closest to the paper's framing (Q13). Option A invents a length restriction on labels. Option C is false: gold matching is exactly right when labels exist. Option D is unrelated, since retrieval relevance can be one of several scoring terms.
+
+</details>
+
+---
+
+## Q26. After deployment, a hospital's CoRAG assistant gets correct final answers on its eval set, yet clinicians see many off-topic intermediate reformulations. Which fix targets the cause? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Add an intermediate-step quality filter on top of final-answer matching during rejection sampling
+- B. Raise n_samples so more candidate chains are accepted per question
+- C. Switch inference decoding from adaptive length to greedy fixed length
+- D. Raise the sampling temperature to diversify the accepted chains
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Rejection sampling is outcome-only, so a chain with a garbled hop that still lands on the right answer gets accepted and imitated (Q12); an intermediate-quality check, such as an LLM judge, removes those lucky chains from training data (Q18). Option B accepts more chains, including more lucky ones (Q10). Option D adds diversity, which also raises lucky acceptances. Option C changes decoding, not the learned reformulation policy, so poor reformulations persist; Q11's drift-rate tracking would still show them.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Enterprise multi-hop search assistants at scale**: fine-tuned CoRAG-style models reduce per-query latency/cost versus prompting-based interleaved retrieval (IRCoT) when query volume is high

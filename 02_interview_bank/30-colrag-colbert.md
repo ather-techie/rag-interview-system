@@ -670,6 +670,78 @@ At billions of functions, the ~10-30x token-level storage multiplier (Q4, Q18) i
 
 ---
 
+## Q23. What does ColBERT's MaxSim compute for each query token, before summing across the query? `[Basic]` `[MCQ]`
+
+- A. The average dot product against all of the document's token vectors
+- B. The dot product against one mean-pooled vector for the document
+- C. The softmax attention weight over all of the document's tokens
+- D. The maximum dot product against any one of the document's token vectors
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** For every query token, MaxSim takes its best match over the document's token vectors, then sums those per-token maxima into the document score, so each query token can align independently with its most relevant document token (Q1). Option A would dilute strong matches with irrelevant tokens. Option B describes a standard bi-encoder, which pools the document into a single vector and loses token-level alignment (Q7). Option C describes cross-encoder-style attention, which needs query and document processed together rather than precomputed offline.
+
+</details>
+
+---
+
+## Q24. Which setting gives ColBERTv2 roughly a 10x index-size reduction at under 3% quality loss? `[Intermediate]` `[MCQ]`
+
+- A. Raising the pre-filter candidate count to several thousand
+- B. Lowering residual compression to 2 bits per dimension
+- C. Increasing the maximum tokens stored per passage
+- D. Capping the number of query tokens at 32
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Residual compression (the nbits setting, 2 bits by default in ColBERTv2) shrinks each stored token vector, cutting index size about tenfold with minimal quality loss (Q4, Q11). Option A enlarges the candidate set scored at query time, which costs compute but does not shrink storage. Option C does the opposite: more tokens per passage means more vectors to store. Option D limits query-side MaxSim cost but leaves the stored document vectors untouched.
+
+</details>
+
+---
+
+## Q25. Why does ColBERT mask punctuation and stop-word token vectors in MaxSim scoring? `[Intermediate]` `[MCQ]`
+
+- A. Function-word tokens can each find a strong match in almost any document, inflating scores
+- B. Long documents otherwise exceed the maximum passage length and get truncated
+- C. The ANN pre-filter would otherwise miss relevant documents before MaxSim runs
+- D. Residual compression would otherwise add quantization error to those token vectors
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** MaxSim sums each query token's best match, so generic tokens like "the" or "of" can find a decent match in nearly any candidate and add score without discriminative signal; masking them keeps the sum focused on content-bearing tokens (Q13). Option B is governed by the passage-length setting, not masking. Option C is a pre-filter recall problem (Q17) that masking does not address. Option D is unrelated: compression affects every vector equally and masking does not remove its error.
+
+</details>
+
+---
+
+## Q26. A legal-research vendor serves 40M case-law passages on ColBERTv2. A brute-force MaxSim audit shows known relevant cases ranking in the true top 10, yet they never appear in production results. What should they do first? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Add a cross-encoder reranker after the MaxSim stage
+- B. Fine-tune MaxSim to weight rare query tokens more heavily
+- C. Widen the pre-filter candidate count and audit its recall
+- D. Raise the compression bits to store token vectors at higher fidelity
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Cases that are in the true top 10 under full MaxSim but absent in production were dropped by the fast pre-filter before MaxSim ever scored them (Q17). The first remedy is widening the candidate count, validated with the recall audit, trading some latency for recall (Q11). Option A cannot rescue documents that never reach the scoring stages. Option B changes scoring among candidates that survived, not who survives. Option D raises storage cost and addresses fidelity, which the audit shows is not the failure.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Vespa.ai** uses ColBERT-style multi-vector scoring in production at scale

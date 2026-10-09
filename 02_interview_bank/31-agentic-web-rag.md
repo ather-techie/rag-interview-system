@@ -809,6 +809,78 @@ The hard constraints here are compounding: information changes by the minute, so
 
 ---
 
+## Q23. What does a web search API return that lets an Agentic Web RAG system skip full page fetches for some queries? `[Basic]` `[MCQ]`
+
+- A. Short snippets alongside each URL that can suffice for simple factual questions
+- B. Pre-chunked page text already embedded for vector lookup
+- C. Verified citation labels confirming each result's reliability
+- D. Cached full-page content for every URL in the result list
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Search APIs typically return a title, URL and a short snippet per result; for simple factual queries those snippets may contain enough to answer without the slower full-page fetch (Q4, Q10). Option B describes a pre-built corpus index, which is exactly what web RAG replaces with live search. Option C is wrong because search APIs rank pages but do not verify their reliability, which is why source filtering is needed (Q3). Option D is wrong because pages are fetched separately over HTTP, which is the main latency cost.
+
+</details>
+
+---
+
+## Q24. Which fetch-layer defense addresses a search result that redirects through several hops to a lookalike of a trusted domain? `[Intermediate]` `[MCQ]`
+
+- A. Wrapping fetched text in structural markers so the LLM treats it as data
+- B. Reducing the number of pages fetched per search
+- C. Truncating extracted text to a fixed maximum character count
+- D. Checking trust lists against the final resolved domain after redirects
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** A URL can pass through redirects and land on a typosquatted domain; checking the trust list against the final resolved domain, not the initial URL, catches this (Q18, Q3). Option A targets indirect prompt injection from page content, which is a different threat. Option B reduces exposure and latency but does not make any individual fetch safer. Option C bounds memory and token use but says nothing about which domain actually served the content.
+
+</details>
+
+---
+
+## Q25. Why is a snippet-sufficiency check usually a better latency lever than uniformly lowering the number of pages fetched per search? `[Intermediate]` `[MCQ]`
+
+- A. It raises search API cost, so fewer results force repeated searches
+- B. It skips fetches only when snippets suffice, preserving coverage for queries that need full pages
+- C. It removes the need for the domain trust score on neutral domains
+- D. It only reduces generation time, not fetch time, so total latency barely changes
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Uniformly fetching fewer pages cuts coverage for every query, including those that genuinely need detail. A snippet-sufficiency check skips the fetch only for queries where snippets are enough, so latency drops where it is safe to drop it (Q10, Q4). Option A is not how the knob works: fewer fetched pages does not trigger repeated searching. Option C is unrelated, since trust scoring still applies to whatever is fetched (Q3). Option D is wrong because fetching is the slow step being reduced.
+
+</details>
+
+---
+
+## Q26. A financial research assistant's page fetcher follows any URL the search API returns. A pen test shows a crafted, indexed page redirecting the fetcher to an internal cloud metadata endpoint. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Wrap all fetched content in structural markers before it reaches the LLM
+- B. Raise the domain trust threshold so only high-trust sites are fetched
+- C. Lower the character limit applied to each extracted page
+- D. Restrict the fetcher's network egress and validate every redirect destination
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** This is server-side request forgery, a network-level risk of fetching attacker-influenced URLs (Q18). The fix belongs in the fetch infrastructure: egress restrictions blocking internal addresses plus validation of each redirect hop's destination. Option A defends against prompt injection in page text (Q3), which does nothing to stop the request itself. Option B checks the initial domain, while the redirect target is what matters. Option C limits how much text is kept, but the internal request has already been made.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Perplexity.ai**: Commercial implementation combining web search, parallel page fetching, and streaming generation with inline citations

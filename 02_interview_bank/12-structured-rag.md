@@ -1624,6 +1624,78 @@ What to monitor: audit-log completeness, so no query executes without a correspo
 
 ---
 
+## Q23. In a Structured RAG pipeline, which component parses generated SQL and checks it against an allowlist of tables and operations before execution? `[Basic]` `[MCQ]`
+
+- A. The schema retriever
+- B. The result formatter
+- C. The SQL validator
+- D. The text-to-SQL generator
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** The SQL validator sits between generation and execution, parsing the query's AST and enforcing allowlisted tables and operations before anything reaches the database. Option A, the schema retriever, links relevant tables and columns to the question and does not inspect the output. Option B, the result formatter, runs after execution and turns rows into an answer. Option D generates the SQL and cannot be trusted to police itself, which is why validation is a separate layer in the defense-in-depth stack (Q12).
+
+</details>
+
+---
+
+## Q24. Why is execution accuracy preferred over exact-match string comparison for scoring generated SQL? `[Intermediate]` `[MCQ]`
+
+- A. It is faster to compute than comparing SQL strings
+- B. It credits equivalent queries written with different joins or aliases, by comparing result sets
+- C. It confirms that the query is safe to run on production
+- D. It counts how many retries the pipeline needed
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Execution accuracy runs both the generated and reference queries and compares the returned rows, so semantically equivalent SQL with different join order, aliases, or clause phrasing is still scored correct, whereas exact-match would penalize it (Q18). Option A is wrong, because executing queries is slower than string comparison. Option C confuses accuracy with safety, which is the validator's and sandbox's job (Q12). Option D describes the retry loop in Q5, not a correctness metric. Note that merely checking that a query executes still misses wrong-but-valid SQL (Q19).
+
+</details>
+
+---
+
+## Q25. A generated query joins orders to line items and uses COUNT(*) to report order totals, returning inflated numbers with no error. Which failure best explains this? `[Intermediate]` `[MCQ]`
+
+- A. Join fan-out repeats each order once per line item, so COUNT(*) counts rows rather than orders
+- B. The retry loop swallowed a syntax error and returned stale results
+- C. Schema linking selected a column that does not exist
+- D. The validator rewrote the aggregate into a SUM
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** This is the semantically wrong but executable failure from Q19: a one-to-many join repeats each order per line item, so COUNT(*) counts joined rows and inflates the total with no error at all. Counting DISTINCT order IDs, or aggregating before joining, fixes it. Option B is wrong because the retry loop (Q5) only fires on errors or empty results, and this query succeeds. Option C would make execution fail with a schema error, which is what schema linking (Q3) tries to prevent. Option D invents behavior, since validators check scope and safety and do not rewrite aggregates.
+
+</details>
+
+---
+
+## Q26. A retailer's finance team asks the same dozen metrics every week, such as net revenue last quarter, but its Structured RAG bot sometimes computes gross instead of net. Which design change fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Increase the few-shot examples to twenty per prompt
+- B. Raise generation temperature so retries explore other definitions
+- C. Add a second LLM pass to review each query for definitional correctness
+- D. Expose vetted, named metrics through a semantic layer instead of free-form SQL generation
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** When query patterns are dominated by a finite set of known business questions, a semantic layer or metrics store with centrally defined, vetted metrics removes the ambiguity: the model selects a named metric rather than re-deriving gross versus net each time (Q20). Option A adds prompt cost and still leaves definitions to model judgment (Q17). Option B makes outputs less consistent, and retries only trigger on errors, not on wrong-but-valid results (Q19). Option C adds latency and cost, and a reviewing model can share the same blind spot about what the company means by net revenue.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Structured RAG Fits |

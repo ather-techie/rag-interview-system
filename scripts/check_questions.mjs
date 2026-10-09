@@ -10,7 +10,7 @@
 //                                        below the 2-question [Scenario] target
 //                                        (both counted over non-MCQ questions
 //                                        only; see TARGET_MCQ for the [MCQ]
-//                                        target, disabled during the pilot)
+//                                        target)
 //   gaps   [--file NN] [--dir <dir>] [--all] [--json]
 //                                        report per-file progress toward the
 //                                        22-question / 6-8-8 / 2-scenario
@@ -43,10 +43,9 @@ const TARGET_COUNT = 22; // per-file target for 02_interview_bank only, excludin
 const TARGET_MIX = { Basic: 6, Intermediate: 8, Advanced: 8 };
 const TARGET_SCENARIOS = 2; // per-file target count of [Scenario]-tagged questions, 02_interview_bank only
 // Per-file target count of [MCQ]-tagged questions, 02_interview_bank only.
-// 0 during the pilot phase (a handful of files only) so W-MCQ stays silent
-// and `check:strict` doesn't fail across the whole bank; raise this once
-// MCQs roll out bank-wide (see CONTRIBUTING.md's "The [MCQ] tag" section).
-const TARGET_MCQ = 0;
+// Set to 0 to silence W-MCQ (e.g. while rolling MCQs out to a new batch of
+// files); see CONTRIBUTING.md's "The [MCQ] tag" section.
+const TARGET_MCQ = 4;
 const MIX_TOLERANCE = 1;
 
 // Heuristic rubric used by `gaps` to suggest what to write next. Keyword
@@ -181,7 +180,7 @@ function runCheck({ strict, dir }) {
   }
 
   // Per-file bank MCQ-tag target (warning, or error under --strict). Disabled
-  // while TARGET_MCQ is 0 (pilot phase) -- see the constant's comment.
+  // while TARGET_MCQ is 0 -- see the constant's comment.
   if (TARGET_MCQ > 0) {
     for (const f of files) {
       if (!f.relPath.startsWith(BANK_DIR)) continue;

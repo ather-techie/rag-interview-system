@@ -1015,6 +1015,78 @@ What to monitor: routing accuracy and answer quality segmented by country (Q18's
 
 ---
 
+## Q23. Which route in Adaptive RAG skips the retriever entirely and answers from the generator's parametric knowledge? `[Basic]` `[MCQ]`
+
+- A. The no-retrieval path used for low-complexity queries
+- B. The single-hop path used for moderate queries
+- C. The multi-hop loop used for high-complexity queries
+- D. The fallback path used when classifier confidence is low
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** The no-retrieval path sends low-complexity queries straight to the generator, avoiding embedding, vector search, and retrieval cost entirely (Q3). Option B runs one embed, search, and generate pass, so it does retrieve. Option C is the iterative retrieve-reason loop, the most retrieval-heavy tier. Option D is a trap: when the classifier is unavailable or its calibrated confidence is below the floor, the safe default is the single-hop tier, not no-retrieval (Q5), because skipping retrieval on a misjudged query is the costliest mistake.
+
+</details>
+
+---
+
+## Q24. How does the original Adaptive-RAG paper obtain labels for its T5-large complexity classifier without human annotation? `[Intermediate]` `[MCQ]`
+
+- A. Annotators rate each query's difficulty on a three-point scale
+- B. Queries are labeled by their length and number of named entities
+- C. Each query is labeled with the cheapest strategy that answered it correctly
+- D. Each query is labeled with the highest-quality strategy regardless of cost
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** The paper builds silver labels by running all three strategies and labeling each query with the cheapest one that matched the gold answer: no-retrieval, else single-step, else multi-step. Where no strategy succeeds, dataset-bias labels fill the gap (Q2, Q5). Option A is manual annotation, the approach the silver-label method replaces. Option B describes handcrafted features a classifier might use as input (Q2), not a labeling scheme. Option D would label nearly everything as complex, since the multi-hop tier is often the highest-quality, defeating the routing purpose of saving cost on easy queries.
+
+</details>
+
+---
+
+## Q25. Given how costly each type of misroute is in Adaptive RAG, which threshold bias is recommended? `[Intermediate]` `[MCQ]`
+
+- A. Bias t2 low so more queries reach the multi-hop tier
+- B. Bias t1 low so uncertain queries escalate to retrieval instead of skipping it
+- C. Bias t1 high so more queries skip retrieval and save cost
+- D. Set t1 equal to t2 to remove the single-hop tier
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Sending a complex query to no-retrieval destroys answer quality, while sending a simple query to a heavier tier only wastes money, so t1 should be biased low and cost controls should handle the upper tiers (Q3, Q5). Option A pushes many moderate queries into expensive multi-hop for little gain. Option C does the opposite of the recommendation and invites quality failures. Option D removes the single-hop tier, which is the safe default for low-confidence predictions and the best worst-case balance of quality and cost.
+
+</details>
+
+---
+
+## Q26. An airline's Adaptive RAG bot has a classifier whose softmax says 0.9 on predictions that are right about 70% of the time, so multi-hop rebooking questions reach no-retrieval and get fabricated answers. Which fix keeps the cost savings? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Replace the classifier with an LLM judge on every request
+- B. Retrain with ten times more simple-class examples
+- C. Remove the no-retrieval tier so every query retrieves at least once
+- D. Calibrate with temperature scaling and route low-confidence predictions to single-hop
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Thresholds are only meaningful on calibrated probabilities, so temperature scaling on a held-out set plus a confidence floor that routes uncertain predictions to single-hop fixes the overconfidence while keeping no-retrieval for confident easy queries (Q5). Option A adds an LLM call to every request, which undermines the latency goal (Q2). Option B skews the data further toward simple queries, and production logs already under-represent the complex class. Option C works but throws away the cost and latency savings that justify adaptive routing in the first place.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Adaptive RAG Fits |

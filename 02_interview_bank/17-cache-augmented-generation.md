@@ -783,6 +783,78 @@ Monitor: actual observed staleness window (bulletin timestamp to live-cache time
 
 ---
 
+## Q23. In Cache-Augmented Generation, what does the precomputed cache hold at query time? `[Basic]` `[MCQ]`
+
+- A. Embeddings of the corpus chunks, used for similarity search against the query
+- B. The top-k chunks chosen in advance for the most common user questions
+- C. The key and value attention tensors computed from every token of the corpus
+- D. Previously generated answers, keyed by the text of earlier queries
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** CAG runs one forward pass over the whole corpus and stores the resulting key/value tensors, so at query time the model only processes the new query tokens against an already-encoded corpus (Q2). Option A describes a RAG vector index, which is exactly the retrieval machinery CAG removes. Option B would be a pre-selected subset, but CAG caches the entire corpus rather than choosing chunks per question. Option D describes a response or semantic cache, which stores outputs for repeated queries and does not let the model read the corpus for new questions.
+
+</details>
+
+---
+
+## Q24. Which change most directly shrinks the GPU memory taken by a CAG cache while keeping the full corpus? `[Intermediate]` `[MCQ]`
+
+- A. Switching to a model that has more key/value heads per layer
+- B. Quantizing the stored cache to INT8 or INT4 precision
+- C. Prepending a table of contents so attention can skip sections
+- D. Running the corpus prefill in chunks instead of in one pass
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Cache size scales with bytes per element, so INT8 roughly halves a float16 cache and INT4 cuts it by about three quarters, with small quality impact (Q8). Option A goes the wrong way: more KV heads per layer enlarges the cache, which is why grouped-query attention models have smaller caches. Option C helps the model navigate long context (Q5) but every cached token still occupies memory. Option D reduces the peak memory needed while computing the cache and avoids out-of-memory errors during prefill, but the finished cache has the same size.
+
+</details>
+
+---
+
+## Q25. In a multi-turn CAG chatbot, where should conversation history go so the corpus cache stays reusable across turns? `[Intermediate]` `[MCQ]`
+
+- A. Outside the cached prefix, as part of each request's dynamic input
+- B. Inside the cached prefix, rebuilding the cache after every turn
+- C. In a separate vector store that is searched at the start of each turn
+- D. Nowhere, with each turn answered as an independent single query
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Passing history alongside the query keeps the corpus prefix identical on every request, so the same cache is reused across all turns, with older turns summarized or windowed to stay inside the token budget (Q7); the support-bot design in Q10 follows the same cached-prefix plus dynamic-suffix split. Option B invalidates the cache constantly and pays a full re-prefill per turn, erasing CAG's latency benefit. Option C reintroduces a retrieval component for a problem that needs no search, and may drop turns the user is implicitly referring to. Option D breaks follow-up questions such as "what about the other model?", which depend on earlier turns.
+
+</details>
+
+---
+
+## Q26. A hospital pharmacy has a stable 40K-token formulary guide, plus a drug-shortage feed that changes daily and is relevant to about a third of its questions. Which architecture fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Pure CAG that rebuilds the full cache every day to absorb the shortage feed
+- B. Pure RAG over the formulary and the shortage feed, with no cache at all
+- C. Pure CAG over both sources, rebuilt weekly with a seven-day staleness window
+- D. Cache the formulary guide and retrieve shortage-feed chunks at query time
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** This is the hybrid pattern: the stable core lives in the KV cache with near-zero retrieval latency, while the fast-changing feed stays in a normal index so it is always fresh, and the one-third dynamic query share is above the roughly 20% threshold that justifies the extra component (Q11, Q6). Option A rebuilds a cache every day, which Q4 treats as the point where CAG's benefits are negated. Option B discards the cache benefit for the stable core, which is small enough to preload. Option C accepts stale shortage answers for up to a week, an unacceptable staleness window for medication availability.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Cache-Augmented Generation Fits |

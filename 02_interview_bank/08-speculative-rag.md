@@ -1147,6 +1147,78 @@ What to monitor: p99, not just p95, latency given the firmness of the SLA; inter
 
 ---
 
+## Q23. In Speculative RAG, what does the large verifier model actually read when it picks the final answer? `[Basic]` `[MCQ]`
+
+- A. The full set of top-k retrieved chunks, as in standard RAG
+- B. Only the user query plus the single best-ranked chunk
+- C. The candidate drafts together with their rationales
+- D. The drafter's token-level logits at every decoding step
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** The verifier never sees the raw chunks; it receives the m drafts and their rationales, and the rationale is what carries the evidence forward (Q1). That is exactly why its input is several times shorter than in standard RAG. Option A describes conventional RAG, where the large model reads all retrieved chunks and pays for it in latency and cost. Option B drops the diversity that partitioning creates, since only one chunk would be visible. Option D confuses this with speculative decoding; here drafts cross the boundary as plain text, not token distributions (Q4), and the verifier computes its own conditional probabilities over that text (Q3).
+
+</details>
+
+---
+
+## Q24. Which statement about pairing a Mistral-7B drafter with an API-hosted GPT-4-class verifier in Speculative RAG is correct? `[Intermediate]` `[MCQ]`
+
+- A. It works, because drafts are passed as plain text rather than token distributions
+- B. It fails, because both models must share one tokenizer vocabulary
+- C. It works only if both models were fine-tuned on the same corpus
+- D. It fails, because the verifier must reuse the drafter's KV cache
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Drafts cross the drafter/verifier boundary as plain text, so tokenizer compatibility is irrelevant and cross-vendor pairs are fine (Q4, Q6). Option B is the speculative-decoding constraint, where per-token probability distributions must be compared; it does not apply to answer-level drafting. Option C is wrong because only the drafter is fine-tuned, while the verifier is a zero-shot generalist that needs no training. Option D invents a dependency: the verifier reads the drafts as ordinary prompt text and has no access to, or need for, the drafter's KV cache. The real trade-off is that an API verifier without logprobs forces generative selection instead of cheap scoring (Q3).
+
+</details>
+
+---
+
+## Q25. Which three signals multiply into a draft's final score in the original Speculative RAG verifier? `[Intermediate]` `[MCQ]`
+
+- A. Retriever similarity, drafter confidence, and self-reflection
+- B. Drafter confidence, self-consistency, and a cross-encoder relevance score
+- C. Retriever similarity, self-consistency, and answer length
+- D. Drafter confidence, self-consistency, and self-reflection
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The paper's score is the product of drafter confidence (the drafter's own probability of its answer and rationale), self-consistency (the verifier's probability of the draft given just the question), and self-reflection (the verifier's probability of "Yes" when asked whether the rationale supports the answer), as laid out in Q3. Options A and C bring in retriever similarity, which is an upstream signal not used to score drafts. Option B swaps in a cross-encoder relevance score; a reranker operates on evidence rather than answers (Q5), so it is not part of the draft score. Option C also adds answer length, which says nothing about faithfulness.
+
+</details>
+
+---
+
+## Q26. A bank's compliance assistant built on Speculative RAG confidently returns a wrong policy answer after a vendor memo was ingested as five slightly reworded copies, and four of five drafts now agree. Which fix targets the root cause? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Raise m from 5 to 10 so additional subsets dilute the copies
+- B. Deduplicate near-identical chunks before partitioning so agreement reflects independent sources
+- C. Swap in a larger verifier that can spot the false claim
+- D. Set the drafter temperature to 0 so drafts become more consistent
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Near-duplicates land in several subsets, so the drafts agree and the verifier reads that agreement as consensus; deduplicating before partitioning means agreement can only come from independent sources (Q2, Q12). Option A does not help: the copies still occupy multiple subsets, and cost grows linearly in m (Q8). Option C leaves the root cause in place, because the verifier sees only the drafts and their coherent rationales, not the raw chunks, and cannot detect a planted claim it was never shown. Option D makes the drafts even more alike, which strengthens the false consensus instead of breaking it.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Speculative RAG Fits |

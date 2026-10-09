@@ -617,6 +617,78 @@ Monitor: per-hop confidence and source-strength scores, time-to-answer against t
 
 ---
 
+## Q23. In IRCoT, what serves as the retrieval query for each hop after the initial retrieval? `[Basic]` `[MCQ]`
+
+- A. The original question, repeated with a larger top-k
+- B. The most recently generated chain-of-thought sentence
+- C. The complete answer drafted in the previous round
+- D. A fixed sub-question list written before any retrieval
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** IRCoT generates one reasoning sentence at a time and uses that fresh sentence as the next query, because it names the current intermediate entity that the original question never mentions (Q2, Q3). Repeating the original question (A) would keep retrieving the same first-hop passages. Using the full previous answer (C) describes ITER-RETGEN, which runs a fixed number of rounds. A plan written up front (D) describes decompose-then-retrieve, which cannot adapt to what each hop actually finds.
+
+</details>
+
+---
+
+## Q24. Which question is best served by decompose-then-retrieve with sub-queries run in parallel, rather than an interleaved loop? `[Intermediate]` `[MCQ]`
+
+- A. What is the capital of the country where the Eiffel Tower's designer was born?
+- B. Which of Acme's suppliers has the worst debt ratio, and how exposed is Acme?
+- C. Who directed the film adapted from the novel written by this author?
+- D. How do the GDPs of France and Japan compare?
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The two GDP lookups are independent, so the plan can be written blind and both sub-queries retrieved concurrently (Q9). Options A, B and C are dependent bridge chains where the next hop's query cannot be formed until the previous answer is known, which is exactly where interleaved retrieve-then-reason is required. Running those in parallel would force hop two to be guessed without hop one's result, and the sequential cost Q6 describes is unavoidable for them.
+
+</details>
+
+---
+
+## Q25. In a 3-hop chain where each hop is 90% reliable, which mitigation directly targets the compounding error that drops end-to-end reliability to about 73%? `[Intermediate]` `[MCQ]`
+
+- A. Check each hop's evidence supports its step before continuing
+- B. Raise the max-hops cap so the chain can recover later
+- C. Raise per-hop k so a wrong passage is diluted by others
+- D. Reserve the frontier model for the final synthesis call only
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Error accumulation happens because each hop conditions on the previous hop's output, so a bad early hop poisons everything after it (Q4). A Corrective-RAG-style check after each retrieval catches the bad hop and allows re-retrieval or backtracking. A higher hop cap (B) only lets a wrong chain run longer. A larger per-hop k (C) adds context but does not stop the reasoner from committing to the wrong intermediate entity. Using a frontier model only at the end (D) saves cost (Q6) but leaves early hops unchecked.
+
+</details>
+
+---
+
+## Q26. A multi-tenant insurance claims assistant uses iterative RAG with a tenant ACL filter applied only on hop 1, and an audit finds hop 3 pulled another client's file. What is the right fix? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Cap the loop at two hops so fewer retrievals can leak
+- B. Rerank the accumulated evidence pool before each new hop
+- C. Enforce the tenant filter on every hop's retrieval call
+- D. Scan the final answer text for other clients' names
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Each hop issues its own retrieval whose query is generated from earlier evidence, so a filter applied only once leaves later hops unconstrained (Q12). Enforcing the ACL or metadata filter on every retrieval call closes the leak at its source, the same per-hop metadata discipline used in Q10. Capping hops (A) reduces exposure but does not remove it and harms legitimate multi-hop questions. Reranking (B) reorders candidates that were already fetched across tenants. Output scanning (D) is a weak last line of defense, since leaked content may already have shaped the reasoning chain.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Iterative / Multi-hop RAG Fits |

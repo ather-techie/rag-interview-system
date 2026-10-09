@@ -615,6 +615,78 @@ Given specs run to thousands of pages and requirements cross-reference each othe
 
 ---
 
+## Q23. In LongRAG, what is the main effect of grouping passages into ~4K-token units on the retrieval pool? `[Basic]` `[MCQ]`
+
+- A. It enlarges the pool of units, so the retriever needs higher recall
+- B. It removes the retriever, since the reader can see everything
+- C. It removes the need for a long-context reader model
+- D. It shrinks the pool of units, e.g. about 22M to 600K on Wikipedia
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Making units roughly 30x larger leaves far fewer, more distinguishable items to search, shrinking Wikipedia from about 22M passages to about 600K units, which is an easier retrieval problem (Q2, Q7). The pool does not grow (A). LongRAG is still a retrieve-then-read system, so the retriever remains (B); dropping retrieval is closer to Long-Context RAG (Q1). The reader must be long-context capable (C) because it now absorbs a 4K-token unit and extracts the answer from it.
+
+</details>
+
+---
+
+## Q24. What does Self-Route ask the LLM to judge before falling back to full long-context stuffing? `[Intermediate]` `[MCQ]`
+
+- A. Whether the query is longer than the model's context window
+- B. Whether the top-k retrieved passages are sufficient to answer the query
+- C. Whether the retrieved units exceed the 4K-token target size
+- D. Whether the retriever's top similarity score passes a threshold
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Self-Route uses the same LLM to reply ANSWERABLE or UNANSWERABLE given the query and top-k passages; only unanswerable queries escalate to the expensive fallback (Q3). Query length (A) is irrelevant to whether retrieval succeeded. Unit size (C) is fixed at build time by the grouper, not judged per query. A similarity threshold (D) is a retriever-side score, whereas Self-Route is an LLM self-assessment, and its strictness is the key knob to calibrate (Q10).
+
+</details>
+
+---
+
+## Q25. In a LongRAG system, which symptom best indicates semantic dilution rather than fragmentation? `[Intermediate]` `[MCQ]`
+
+- A. Answers are cut off at unit boundaries, leaving partial facts
+- B. Nearly every query is routed to the full-context fallback
+- C. The correct unit exists but ranks below topically narrower units
+- D. Prompt cost rises in proportion to k and unit size
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** A pooled embedding of a multi-topic 4K-token unit blurs its sub-topics, so the right unit is retrieved late or not at all while narrower units outrank it (Q12). Boundary cut-offs (A) are the fragmentation problem that large units mostly solve (Q5). Constant fallback routing (B) points at an overly strict Self-Route verdict prompt (Q10). Rising prompt cost (D) is the known per-unit expense of large units, not a ranking or embedding-quality symptom.
+
+</details>
+
+---
+
+## Q26. A support team's knowledge base is 40,000 short, independent FAQ entries of two or three sentences each. An engineer proposes LongRAG with ~4K-token units to reduce fragmentation. Which assessment is best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Keep small chunks, since grouping independent facts only adds padding
+- B. Adopt LongRAG, since bigger units always improve recall on any corpus
+- C. Adopt LongRAG and raise k to 20 to offset the added padding
+- D. Adopt Self-Route alone, since FAQs call for stuffing the whole corpus
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Q5 names this exact case: when a corpus is many short, independent facts, there is little fragmentation to fix, so forcing 4K-token grouping just buries each answer in irrelevant text and blurs embeddings, and small chunks stay the better fit. The claim that bigger always helps (B) ignores that benefit depends on document-level coherence. Raising k to 20 (C) multiplies the already-large per-unit token cost to compensate for a problem the change created. Whole-corpus stuffing by default (D) is the costly fallback Self-Route exists to avoid.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Open-domain QA over Wikipedia-scale corpora**: LongRAG's own benchmark — grouping Wikipedia into document-level units instead of DPR's 100-word passages, evaluated on NQ and full-wiki HotpotQA

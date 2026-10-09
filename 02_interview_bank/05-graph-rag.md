@@ -1190,6 +1190,78 @@ What to monitor: whether the incremental nightly update actually completes befor
 
 ---
 
+## Q23. In Microsoft's GraphRAG pipeline, what is the Leiden algorithm used for? `[Basic]` `[MCQ]`
+
+- A. Merging duplicate entity names such as Apple and Apple Inc.
+- B. Embedding each text chunk into a dense vector
+- C. Scoring edges by traversal cost for Cypher queries
+- D. Clustering graph entities into communities that are then summarized
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Leiden is a community-detection algorithm: it groups densely connected entities in the extracted graph into communities, and an LLM then writes a summary for each one (Q3). Those summaries are what let Graph RAG answer corpus-wide thematic questions. Merging duplicate names (A) is entity resolution, an earlier and separate step (Q9). Embedding chunks (B) is the vector-index side, which Leiden does not touch. Edge traversal costs for Cypher queries (C) are a graph-database concern at query time, not part of community detection.
+
+</details>
+
+---
+
+## Q24. Which kind of question is a pre-built community summary in Graph RAG best suited to answer? `[Intermediate]` `[MCQ]`
+
+- A. On what date a specific contract was signed
+- B. What phone number a named employee has
+- C. What the main themes are across the whole corpus
+- D. Which single chunk mentions a given product code
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Community summaries pre-compute a synthesis across many documents, so they are what makes global, theme-level questions answerable when no single chunk contains the pattern (Q3, Q13). A specific signing date (A), an employee's phone number (B), and the chunk mentioning a product code (D) are all narrow, single-fact or exact-lookup questions that local entity-anchored retrieval or plain vector or keyword search handles more cheaply and more precisely; reading a broad summary for them would add cost and risk burying the exact detail.
+
+</details>
+
+---
+
+## Q25. Raising the Leiden resolution parameter in a Graph RAG index will most likely have which effect? `[Intermediate]` `[MCQ]`
+
+- A. Fewer, larger communities with coarser summaries
+- B. More, smaller communities with finer but more numerous summaries
+- C. Faster entity extraction for each document
+- D. Automatic merging of duplicate entity nodes
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Higher resolution splits the graph into more, smaller communities, which gives finer-grained summaries but multiplies the number of summaries to generate and store; lower resolution does the reverse (Q17). Its best value depends on how naturally a corpus's entities cluster. Fewer, larger communities (A) is the effect of lowering the parameter. Extraction (C) happens before community detection and is unaffected by it. Merging duplicates (D) is the job of entity resolution (Q9), which operates on node identity rather than on cluster granularity.
+
+</details>
+
+---
+
+## Q26. A pharma-supply-chain team finds Pfizer, Pfizer Inc., and PFE as three separate graph nodes, and multi-hop supplier queries miss known relationships. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Strengthen entity resolution with alias matching, re-merge the nodes, and audit high-degree entities
+- B. Increase the community hierarchy depth so more summary levels are available
+- C. Raise the vector search top-k so more supporting chunks are passed along
+- D. Lower the Leiden resolution so fewer communities are produced
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Three nodes for one company is over-fragmentation: each node holds only a fraction of the relationships, so traversal from one variant misses edges attached to the others (Q19). The fix targets the cause with better entity resolution, such as alias and canonical-ID matching, re-merging existing nodes, and systematically auditing high-degree entities (Q9). Deeper hierarchies (B) add summarization cost on top of a broken graph. A larger top-k (C) enlarges the text context but cannot restore missing edges. Changing Leiden resolution (D) alters cluster size, not node identity.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Graph RAG Fits |

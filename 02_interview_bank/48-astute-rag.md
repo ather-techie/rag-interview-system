@@ -658,6 +658,78 @@ Given the live-audit pressure, mandatory abstention and escalation to a human co
 
 ---
 
+## Q23. In Astute RAG, how is the model's own parametric knowledge obtained before consolidation begins? `[Basic]` `[MCQ]`
+
+- A. By fine-tuning the retriever on the model's pretraining corpus
+- B. By querying the model's embedding space with the query vector
+- C. By prompting the LLM to answer from memory with no retrieved documents in context
+- D. By regenerating the answer after the retrieved passages are appended
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** The internal source comes from a zero-context prompt: the same generator LLM is asked to write what it already knows, without seeing any retrieved text, and the output is tagged "internal" like any other passage (Q2). Option A confuses retrieval with generation; the retriever never touches parametric memory. Option B describes nearest-neighbor lookup, which returns stored documents rather than recalled facts. Option D would contaminate the recollection with the retrieved passages, destroying the independence that lets internal and external sources cross-check each other during consolidation (Q3).
+
+</details>
+
+---
+
+## Q24. In Astute RAG's consolidation, which situation earns a claim the highest confidence? `[Intermediate]` `[MCQ]`
+
+- A. The internal source and an independent external passage support the same claim
+- B. One external passage states the claim in unusually specific, confident wording
+- C. The internal source asserts the claim and no external passage addresses it
+- D. Three retrieved chunks repeat the claim, all copied from one outdated page
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Corroboration across independent origins is the strongest signal in Q3's heuristics table: when internal and external sources agree, the claim reaches the high-confidence tier. Option B is a single source, and specificity is only a weak cue. Option C is lower confidence because retrieval may simply be irrelevant, though the claim is not discarded. Option D is exactly the trap Q3 gives as the reason consolidation is iterative: near-duplicate chunks from one origin look like agreement but count as one source, so they should not outvote better-corroborated evidence.
+
+</details>
+
+---
+
+## Q25. Which adjustment most directly reduces fabricated internal-source passages when queries concern a company's private documents? `[Intermediate]` `[MCQ]`
+
+- A. Raise max_rounds so consolidation re-examines each group more times
+- B. Increase the retriever's k so more external passages are returned
+- C. Add a hedging instruction to the final answer prompt only
+- D. Turn off internal-knowledge elicitation for queries classified as internal-specific
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** For private material the model has no genuine recall, so the "best recollection" prompt yields plausible fabrication (Q5, failure mode 2), and the cleanest fix is to skip elicitation for those queries (Q18). Option A only repeats consolidation over a source that is already fabricated. Option B adds external passages, but the fabricated internal passage can still vote in consolidation. Option C acts too late: Q4's hedging triggers on unresolved conflicts, and an attributed fabrication can even look independently verified (Q17).
+
+</details>
+
+---
+
+## Q26. A pharmacy chain's Astute RAG assistant retrieves two current formulary passages that agree on a revised dosage limit, while the model's internal source recalls an older, higher limit. What should the final answer do? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Give the internal figure, since parametric recall is more dependable than retrieval
+- B. Give the retrieved limit and note the older recalled figure appears outdated
+- C. Abstain and escalate, because the internal and external sources disagree
+- D. Report the average of the two limits to reflect both sources
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Q3's table says that when multiple external passages agree and internal disagrees, the external majority wins, since retrieval likely reflects newer facts than the model's training; Q4's CEO example shows the answer naming the outdated alternative. Option A inverts that and risks a stale dosage. Option C is reserved for conflicts with no majority or recency signal (Q4); here both are present, so abstaining wastes a resolvable case. Option D invents a number no source supports, which is dangerous for dosage.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Enterprise Q&A over frequently-changing knowledge bases**: guards against the LLM over-trusting stale cached/retrieved documentation when its own training data (or a more recent passage) actually has the current answer

@@ -617,6 +617,78 @@ Given how fast market conditions and relevant document types shift, the RL polic
 
 ---
 
+## Q23. In REFRAG, what does the chunk encoder produce for each fixed-size token block of a retrieved passage? `[Basic]` `[MCQ]`
+
+- A. A short natural-language summary of the block
+- B. A single dense embedding aligned with the decoder's input space
+- C. A keep-or-drop label for every token in the block
+- D. A sparse keyword vector used to score expansion
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** A lightweight RoBERTa-style encoder maps each block (for example 16 tokens) to one dense embedding in the decoder's embedding space, which the decoder consumes in place of the raw tokens (Q2). Option A describes summarization-style compression; REFRAG passes embeddings, not rewritten text. Option C describes LLMLingua-style token dropping, which is irreversible, whereas REFRAG keeps every chunk available in compressed form (Q1). Option D confuses compression with the selection policy, which scores chunk embeddings, not keyword vectors (Q3).
+
+</details>
+
+---
+
+## Q24. What reward signal trains REFRAG's chunk-selection policy? `[Intermediate]` `[MCQ]`
+
+- A. The negative log-perplexity of the decoder's output under the chosen expansion
+- B. Human preference ratings of the final answer's helpfulness
+- C. Recall of the expanded chunks against gold supporting passages
+- D. The reduction in total token count achieved by the selection
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** No labels say which chunks matter, so importance is defined by downstream effect: expansions that make the correct answer more predictable earn higher reward (Q3). Option B would need costly human labeling that the setup avoids. Option C needs gold passage labels, a hand-labeled proxy the RL formulation is meant to bypass. Option D rewards compression alone and would push the policy to expand nothing; the expansion budget already controls token count, while quality comes from the perplexity signal.
+
+</details>
+
+---
+
+## Q25. Which statement about caching in a REFRAG pipeline is correct? `[Intermediate]` `[MCQ]`
+
+- A. Selection can be cached per chunk, while compression must run for each query
+- B. Compression and selection can both be cached per chunk at ingestion
+- C. Compression can be cached per chunk, while selection must run for each query
+- D. Neither can be cached, since the decoder rewrites the embeddings per query
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Base chunk embeddings do not depend on the query, so compression can run at ingestion and be cached; only the query-conditioned selection step runs per request, and it is cheap (Q4). Option A reverses the two. Option B fails because expansion decisions depend on the current query, so selection cannot be frozen per chunk. Option D is wrong because the decoder consumes the embeddings unchanged. This amortization is part of why the ~30x time-to-first-token gain holds at serving time (Q2).
+
+</details>
+
+---
+
+## Q26. A law firm's REFRAG assistant paraphrases, rather than quotes, a contract's termination clause because that chunk stayed compressed. Which fix fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Increase the block size so each chunk compresses further
+- B. Retrain the chunk encoder with a different embedding dimension
+- C. Lower the retrieval k so fewer chunks compete for expansion
+- D. Raise the expansion budget for queries that request verbatim text
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Chunks the policy leaves compressed reach the decoder as embeddings only, so exact wording can be lost; Q5 gives this contract-clause case, and Q13 shows too small an expansion budget starves queries that need detail. Raising or forcing expansion for verbatim-text queries targets it directly. Option A compresses more aggressively and loses more detail. Option B changes representation size, not which chunks are expanded. Option C may help slightly, but nothing guarantees the clause is selected, and it risks dropping the clause from retrieval altogether.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Meta's production RAG inference stack**: REFRAG is presented as a Meta Superintelligence Labs approach to cutting inference cost for RAG-based assistants operating at scale, where time-to-first-token directly impacts perceived responsiveness

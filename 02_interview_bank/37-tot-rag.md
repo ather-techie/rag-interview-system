@@ -643,6 +643,78 @@ The "same-shift decision deadline" is effectively a hard latency SLO layered on 
 
 ---
 
+## Q23. In ToT-RAG, what is the retrieval query for a given branch derived from? `[Basic]` `[MCQ]`
+
+- A. The original user query, shared unchanged by every branch
+- B. The single previous observation in one linear reasoning chain
+- C. That branch's own hypothesis text
+- D. The evaluator's score for the parent node
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Each branch gets its own conditional retrieval query built from its specific hypothesis, so the evidence fetched can support or refute that one hypothesis (Q2, Q7). A single shared query (A) is flat retrieval, which cannot target competing explanations separately. Deriving the query from one previous observation (B) describes ReAct's linear chain, where only one line of reasoning is active at a time. The evaluator's score (D) comes after retrieval: it judges the branch using the evidence already fetched and decides pruning, not what to search for.
+
+</details>
+
+---
+
+## Q24. Logs show many pruned branches scored just below prune_threshold, and later analysis finds that a large share of them were correct. What does this indicate? `[Intermediate]` `[MCQ]`
+
+- A. The threshold is too lenient, so weak branches consume beam slots
+- B. The threshold is too aggressive, so correct branches are pruned before evidence accumulates
+- C. The beam is too wide, so too many branches survive each depth
+- D. The max_depth is too high, so the tree explores past the answer
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Pruned branches clustering just under the threshold and later proving correct is the signature of an over-aggressive threshold: the evaluator scored them conservatively before enough evidence had accumulated (Q13). A lenient threshold (A) shows the opposite pattern, with weak branches surviving and inflating cost. A beam that is too wide (C) keeps more branches alive, which reduces false pruning rather than causing it. A depth that is too high (D) raises cost, but it does not remove correct branches early. If scores are systematically skewed, check evaluator calibration (Q14).
+
+</details>
+
+---
+
+## Q25. With branching_factor=3, beam_width=2 and max_depth=3, about how many thought-generation calls does ToT-RAG make before final synthesis? `[Intermediate]` `[MCQ]`
+
+- A. About 3
+- B. About 6
+- C. About 9
+- D. About 18
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The rough bound multiplies all three knobs: beam_width x branching_factor x max_depth = 2 x 3 x 3 = 18 generation calls, with evaluation and retrieval each adding a similar count (Q10, Q15). The smaller figures each drop a factor. Three (A) counts one call per depth. Six (B) multiplies only beam width and depth. Nine (C) multiplies only branching factor and depth, forgetting that every surviving beam path generates its own thoughts. This multiplicative growth is why ToT-RAG costs 10-50x a standard pipeline.
+
+</details>
+
+---
+
+## Q26. A clinical differential-diagnosis assistant often falls back to "unable to find a confident answer" because every candidate scores below the threshold, but dashboards track only final-answer quality. What is the best response? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Alert on early tree collapse and check evaluator scores against labeled cases
+- B. Raise max_depth so the tree has more chances to find an answer
+- C. Raise branching_factor to 5 so more candidates are generated
+- D. Remove prune_threshold so no branch is ever discarded
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** When every candidate scores below the threshold, the candidate list empties and the search breaks early. This can come from the evaluator under-scoring everything, which final-answer metrics hide. Tracking early collapse as its own metric and sampling evaluator scores against human-labeled (path, evidence, correct) triples finds the cause (Q14). Greater depth (B) does nothing when the tree collapses before reaching it. A larger branching factor (C) multiplies cost (Q15) without fixing miscalibration. Removing pruning (D) discards the cost control the threshold provides (Q13).
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why ToT-RAG Fits |
