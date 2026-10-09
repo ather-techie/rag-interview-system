@@ -573,6 +573,78 @@ At 200 million documents with a strict re-indexing cadence, DPR's original desig
 
 ---
 
+## Q23. Which BERT output does each DPR encoder use as the dense vector for a question or a passage? `[Basic]` `[MCQ]`
+
+- A. The mean of all final-layer token vectors
+- B. The final-layer hidden state of the [SEP] token
+- C. The final-layer hidden state of the [CLS] token
+- D. A concatenation of the question vector and passage vector
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Each encoder takes the final-layer hidden state at the [CLS] position as its d-dimensional vector (768 for BERT-base), exactly as the training code in Q5 does with `last_hidden_state[:, 0, :]`. Mean pooling (A) is how some later embedding models work, but it is not DPR's recipe. The [SEP] token (B) is only a boundary marker with no special aggregating role. A concatenation of question and passage vectors (D) would need both inputs at once, which contradicts the independent-encoder design that makes offline passage indexing possible (Q2).
+
+</details>
+
+---
+
+## Q24. In DPR training with in-batch negatives, what happens to the negatives available per question when the batch size grows from 32 to 128? `[Intermediate]` `[MCQ]`
+
+- A. They rise from 31 to 127 with no extra encoding passes
+- B. They stay at 31 unless more negatives are mined separately
+- C. They become harder because larger batches hold related passages
+- D. They rise to 127 but each needs its own extra encoder pass
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Every other passage in the batch is the positive for some other question, so negatives per question equal batch size minus one: 31 at batch 32, 127 at batch 128, all from vectors already computed for the positives (Q4, Q8). B is wrong because no separate mining step is needed for in-batch negatives. C is wrong because in-batch negatives are mostly easy, random passages; larger batches do not make them harder (Q13). D is wrong because the single similarity matrix reuses the same passage vectors, so the extra negatives are free.
+
+</details>
+
+---
+
+## Q25. A DPR-style retriever returns many topically adjacent passages that do not actually answer the question. Which training-data change targets this most directly? `[Intermediate]` `[MCQ]`
+
+- A. Raise the passage max length from 512 to 1024 tokens
+- B. Switch the inference similarity from inner product to Euclidean
+- C. Share one set of weights between the two encoders
+- D. Add BM25-retrieved passages that lack the answer as negatives
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Topically adjacent but non-answering passages are exactly what in-batch negatives fail to teach against, so the fix is hard negatives: BM25's top results that share keywords with the question but do not contain the answer (Q13). Longer passages (A) change what the encoder sees but give no new contrastive signal. Swapping the distance metric (B) alters scoring at inference without teaching the model any new distinction. Sharing weights (C) reduces parameters, and Q6 notes separate encoders actually perform better, so it would not fix this failure.
+
+</details>
+
+---
+
+## Q26. A pharma company's DPR-style retriever over clinical-trial records keeps missing queries built around exact identifiers such as protocol codes and adverse-event IDs. Which change fixes this most directly? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Raise top-k from 20 to 200 on the dense retriever alone
+- B. Run BM25 beside the dense retriever and merge results with Reciprocal Rank Fusion
+- C. Retrain the encoders with a larger in-batch negative count
+- D. Replace the exact flat index with an HNSW approximate index
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Rare identifiers are the exact-match case where a learned bi-encoder generalizes poorly, so the standard fix is hybrid retrieval: BM25 catches the literal token matches and RRF merges both rankings (Q14, Q18). Raising top-k (A) only helps if the dense model ranks the right record somewhere in range, and for unseen codes it often does not. A larger batch (C) improves general contrastive training but does not teach the model rare strings. HNSW (D) speeds up search and, if anything, adds approximation error; it does nothing for identifier matching.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why DPR's Architecture Fits |

@@ -1008,6 +1008,78 @@ What to monitor: the pre-filter's exclusion rate against that planted-document v
 
 ---
 
+## Q23. What does the coarse document selector do in a Long-context RAG pipeline? `[Basic]` `[MCQ]`
+
+- A. Selects individual passages so the model never sees whole documents
+- B. Compresses each document into a short query-aware summary
+- C. Caches the KV state of document prefixes for follow-up queries
+- D. Narrows a large corpus to the documents worth stuffing into the window
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The coarse selector is a BM25 or vector pre-filter that narrows the corpus to the top-N whole documents worth placing in the context window (Q13); it stays deliberately cheap and imprecise because the model does the fine-grained work. Option A describes chunked retrieval, which Long-context RAG minimizes in favor of full documents. Option B describes prompt compression such as LLMLingua or Recomp (Q4), which happens after selection. Option C describes prompt caching (Q6), a separate cost optimization that reuses a stable prefix rather than choosing which documents enter the prompt.
+
+</details>
+
+---
+
+## Q24. For a follow-up query to benefit from prompt caching on a stuffed document, which condition must hold? `[Intermediate]` `[MCQ]`
+
+- A. The follow-up must be semantically similar to the first query
+- B. The cached document block must remain an identical prefix, with the new question placed after it
+- C. The follow-up must ask about a different section of the document
+- D. The document must be compressed before it is cached
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Prompt caching reuses the KV state of an exact prefix, so the cached document block has to be byte-identical and come first, with the changing question appended after it (Q6). Cached entries are also short-lived, roughly five minutes for the ephemeral type, so reuse depends on timely follow-ups. Option A describes a semantic answer cache, not prompt caching: the prefix is matched exactly, not by meaning. Option C is irrelevant, since the section asked about does not matter once the whole document prefix is cached. Option D is unnecessary; compression (Q4) is optional and would not be a prerequisite for caching.
+
+</details>
+
+---
+
+## Q25. Which prompt layout does the bookend strategy use to counter lost-in-the-middle? `[Intermediate]` `[MCQ]`
+
+- A. Most relevant documents in the center, weaker ones at both edges
+- B. Documents sorted strictly by retrieval rank, best first and worst last
+- C. Most relevant documents at the start and end, weaker ones in the middle
+- D. Documents in random order, reshuffled for each query
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Models recall best from the start and end of a long context and worst from the middle, so the bookend strategy places the most relevant material at both edges and pushes weaker material into the middle (Q7, Q14). Option A inverts this and puts the best content in the weakest region. Option B is the naive ordering Q7 improves on: it protects only the first slot, and the second-best material drifts into the middle. Option D adds variance without any positional logic, so relevant content lands in the middle as often as at the edges.
+
+</details>
+
+---
+
+## Q26. A pharma regulatory team's Long-context RAG assistant worked at 200 filings, but at 20,000 the pre-filter keeps dropping documents to fit the window and answers miss relevant filings. Which design change is best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Add a precision retrieval stage that picks passages from the filtered documents rather than stuffing whole ones
+- B. Move to the largest available context window and loosen the pre-filter
+- C. Compress every document aggressively so the full corpus fits in the window
+- D. Raise top-N and rely on bookend ordering to compensate
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** This is the corpus-growth ceiling in Q19: once the pre-filter must exclude documents purely to fit the budget, its recall erodes, and the remedy is fine-grained retrieval so the window holds relevant passages rather than whole documents (Q20). Option B only delays the problem, since the corpus keeps growing and a looser filter pushes more content into the lost-in-the-middle zone. Option C relies on extreme compression, which risks discarding the detail regulators care about (Q4). Option D stuffs in more documents and increases cost, and reordering cannot help content that does not fit in the window at all.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Long-Context RAG Fits |

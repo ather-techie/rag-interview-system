@@ -622,6 +622,78 @@ Given the corpus includes decades of legacy scans, rendering-quality validation 
 
 ---
 
+## Q23. In VisRAG, what does the retriever's VLM encoder embed for each document? `[Basic]` `[MCQ]`
+
+- A. The rendered image of each document page
+- B. The OCR text extracted from each page
+- C. Separate text, table, and figure crops of each page
+- D. The layout-parsed Markdown chunks of each page
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** VisRAG renders each page as an image and embeds that whole image, so text, tables, figures, and layout are captured jointly with no extraction step (Q1, Q6). OCR text (B) and layout-parsed Markdown (D) are exactly the parsing outputs VisRAG removes from the pipeline. Per-modality crops (C) describe the separate-encoder approach of Multi-modal RAG (file 09), which VisRAG contrasts itself with by treating the page as the sole unit.
+
+</details>
+
+---
+
+## Q24. Which statement correctly distinguishes VisRAG from ColPali? `[Intermediate]` `[MCQ]`
+
+- A. VisRAG uses patch-level late interaction, while ColPali embeds one vector per page
+- B. VisRAG needs OCR text to generate answers, while ColPali needs none
+- C. VisRAG also generates answers with a VLM reading page images, while ColPali only retrieves
+- D. VisRAG indexes extracted text with BM25, while ColPali indexes page images
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** ColPali is retrieval-only: it scores image patches with ColBERT-style late interaction and hands back top-k pages, while VisRAG covers the full loop, retrieving page images and having a VLM read them to answer (Q3). Option A reverses the two methods' scoring schemes. Option B is wrong because VisRAG generation is image-conditioned and uses no OCR (Q1). Option D is wrong because VisRAG builds no text index at all, which is its citation weakness (Q5).
+
+</details>
+
+---
+
+## Q25. Which capability does a pure VisRAG index lack that an OCR-based text pipeline gets almost for free? `[Intermediate]` `[MCQ]`
+
+- A. Faithful handling of merged-cell tables and multi-column layouts
+- B. Keyword (BM25) search and exact quoted-span citation highlighting
+- C. Reading scanned or handwritten pages where OCR output is garbage
+- D. Joint use of layout, text, and figure content on a single page
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** With no extracted text there is nothing for BM25 to index and no span to highlight, so citations are whole page images unless a secondary grounding step is added (Q5, Q13). The other three are VisRAG strengths: pixels preserve complex tables and layouts (A), a VLM can often read scans where OCR fails outright (C), and the page embedding captures text, figures, and layout jointly (D), which is the core reason to use it on visually dense documents.
+
+</details>
+
+---
+
+## Q26. A bank wants to analyze 10-K filings with dense nested tables and charts, but its auditors require exact quoted spans as citations. Which design best fits? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Pure VisRAG, citing the whole retrieved page image as the source
+- B. Pure OCR text RAG, accepting whatever table parsing losses occur
+- C. Pure VisRAG at a higher render DPI so each page image counts as a span
+- D. Hybrid: VisRAG for retrieval and reading, plus a text index for quoted spans
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Q5 and Q18 point to the dual-index hybrid: page-image retrieval and VLM reading catch table and chart structure that parsing would lose, while the text index supplies the exact quoted span auditors need. Pure VisRAG (A) cannot produce a span-level citation without a grounding step. Pure OCR (B) risks silent structural loss on exactly the nested tables that matter. Raising DPI (C) improves legibility and cost (Q10) but does not turn a page image into a quotable text span.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Financial report / 10-K analysis**: tables of quarterly figures and charts retrieved and read without risking a broken table-to-text conversion

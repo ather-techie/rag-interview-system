@@ -613,6 +613,78 @@ At this volume, cost and latency (Q15) become a real constraint — batched NLI 
 
 ---
 
+## Q23. In SURGE's per-field NLI check, what serves as the premise and what as the hypothesis? `[Basic]` `[MCQ]`
+
+- A. Premise: the user query; hypothesis: the extracted field value
+- B. Premise: the extracted field value; hypothesis: the cited source passage
+- C. Premise: the full output schema; hypothesis: the cited source passage
+- D. Premise: the cited source passage; hypothesis: a statement of the field value
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The cited passage is the evidence, so it is the premise; the claim being tested is a constructed sentence such as "The annual_revenue is $4.2B", which is the hypothesis, and the NLI model reports entailment, neutral, or contradiction (Q5). Using the query as premise (A) tests relevance rather than support. Reversing the roles (B) asks whether the passage follows from the value, which is not what grounding means. The schema (C) describes structure only and contains no evidence about any particular value.
+
+</details>
+
+---
+
+## Q24. A SURGE extractor returns a non-null value for a field whose entry in `field_sources` is empty. What should the validation stage do? `[Intermediate]` `[MCQ]`
+
+- A. Keep the value but flag it as low confidence
+- B. Null the value, since nothing exists to check it against
+- C. Keep the value if the NLI model entails it from the other fields
+- D. Keep the value while a wider retrieval is run in the background
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** A value with no cited passage cannot be verified, so SURGE stays fail-closed and nulls it programmatically regardless of what the model claimed (Q14). Flagging and keeping it (A) conflates this with the NEUTRAL-with-low-confidence case in Q5, where a source does exist. Entailment from other fields' text (C) is not how the validator works; it needs the field's own cited source. Serving the value while a retry runs (D) delivers a possible hallucination downstream, which defeats the point of the gate.
+
+</details>
+
+---
+
+## Q25. A SURGE pipeline hallucinates values for a field that the corpus rarely mentions. Which schema change most directly removes the pressure to guess? `[Intermediate]` `[MCQ]`
+
+- A. Mark the field required so the model always attempts it
+- B. Add a description telling the model to be accurate
+- C. Make the field nullable so absence is a valid answer
+- D. Raise the ENTAILMENT threshold to 0.9 for that field
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** When a field is required but the evidence is absent, the schema itself pushes the model to invent something; making it nullable gives the model a legitimate way to say "not found" (Q13, Q14). Marking it required (A) increases exactly that pressure. An accuracy hint in the description (B) is a prompt-level request with no structural effect. A higher threshold (D) can null a bad value afterward, but it is a downstream filter and does not change the incentive that caused the guess.
+
+</details>
+
+---
+
+## Q26. A hospital uses SURGE to extract medication dosages from clinical notes, where a wrong but confident dosage is far costlier than a missing one. Which configuration fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Raise the ENTAILMENT threshold to about 0.8 and send nulled fields to human review
+- B. Lower the ENTAILMENT threshold to 0.5 to keep more fields populated
+- C. Drop NLI and rely on the model's self-reported confidence field
+- D. Make the dosage field required so it is always populated
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** When wrong answers cost more than missing ones, trade recall for precision: a stricter entailment threshold nulls borderline values, and routing them to a person recovers completeness safely (Q10). Lowering the threshold (B) does the opposite and keeps more unverified values. Self-reported confidence (C) is a model's view of itself, which is what the independent NLI gate exists to double-check (Q13). Making the field required (D) is the schema over-fit mistake that invites guessing (Q13).
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why SURGE Fits |

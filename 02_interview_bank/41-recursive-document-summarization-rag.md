@@ -661,6 +661,78 @@ The deadline forces a real trade-off: full corpus-wide (Level 3) summarization i
 
 ---
 
+## Q23. In this architecture, what decides which chunks are grouped under a single section summary? `[Basic]` `[MCQ]`
+
+- A. The document's own section boundaries
+- B. Semantic clustering of chunk embeddings
+- C. A fixed token window that ignores document boundaries
+- D. The level router's decisions at query time
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** The tree follows the document's natural structure, so each section summary covers the chunks that belong to that section, and every node keeps a single source document (Q2, Q10). Clustering chunk embeddings (B) is RAPTOR's bottom-up approach, which mixes content across documents and loses document identity (Q6). A fixed window (C) would cut across section boundaries and blur provenance. The router (D) runs at query time to pick a level; it plays no part in how the tree is built offline (Q3).
+
+</details>
+
+---
+
+## Q24. Why does the index partition nodes by tree level before running similarity search? `[Intermediate]` `[MCQ]`
+
+- A. It lets query embeddings be computed separately for each level
+- B. It guarantees every retrieved node's parent is also retrieved
+- C. It stops summaries and raw chunks from competing for the same top-k slots
+- D. It removes the need for a level router
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Retrieval searches only the level(s) the router chose, so a section summary and a raw chunk, which differ greatly in granularity, never compete for the same top-k slots (Q9). Query embeddings (A) are computed once, independent of levels. Parent retrieval (B) is a separate drill-down step, not a side effect of partitioning (Q8). The router (D) is still required; partitioning simply makes its decision effective, since the router is what picks which partition to search (Q5).
+
+</details>
+
+---
+
+## Q25. Which design makes this architecture tolerant of a router that mislabels an exact-figure query as a 'section' query? `[Intermediate]` `[MCQ]`
+
+- A. Search only Level 3 first and fall back to chunks if it fails
+- B. Always retrieve section summaries first, then drill down into their chunks
+- C. Swap in a larger router model and trust its labels
+- D. Merge summaries and raw chunks into one index ranked together
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Unconditional coarse-to-fine retrieval finds the best section summaries and then re-ranks the chunks inside them, so even a query mislabeled as 'section' still ends at the passage with the exact figure (Q8, Q11). Starting at Level 3 (A) gives one generic node, the null-retrieval problem of Q13. A larger router (C) lowers the error rate but does not remove the dependency on it. A merged index (D) reintroduces the cross-level competition for top-k that level partitioning avoids (Q9).
+
+</details>
+
+---
+
+## Q26. A bank's due-diligence team finds that the Level 3 corpus summary states a covenant that appears in no source contract. What is the most effective fix to the quality gate? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Check each Level 3 sentence only against the Level 2 summaries it came from
+- B. Lower the temperature and regenerate only the corpus summary
+- C. Route every query to Level 0 so summaries are never shown to users
+- D. Check every level against original Level 0 text, gating rebuilds on Level 1 first
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Errors compound in a summary of summaries, so each level must be verified against the original source text, and Level 1 is checked first because drift there propagates upward and is cheapest to catch (Q12). Checking only against Level 2 (A) can pass a claim that a faulty parent faithfully repeats. Regenerating only Level 3 at a lower temperature (B) leaves the flawed lower levels in place. Sending everything to Level 0 (C) abandons the architecture's reason for existing, and the summaries remain in the tree.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why This Architecture Fits |

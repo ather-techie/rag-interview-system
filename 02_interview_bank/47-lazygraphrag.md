@@ -638,6 +638,78 @@ The security risk this scenario adds beyond Q17's general treatment is sharper: 
 
 ---
 
+## Q23. What does LazyGraphRAG build at index time? `[Basic]` `[MCQ]`
+
+- A. An LLM-extracted entity graph with typed relationship edges
+- B. A noun-phrase co-occurrence graph from NLP tagging, with no LLM calls
+- C. Leiden community summaries for every detected community
+- D. Pre-computed subgraph summaries for the most likely queries
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** The index is a graph of noun phrases linked by co-occurrence, built with cheap deterministic NLP such as spaCy and no LLM, which is why indexing cost is about 0.1% of full GraphRAG's (Q4, Q1). Typed relationship edges from LLM extraction (A) are GraphRAG, LightRAG, and KAG behavior. Community summaries (C) are the eager index-time work LazyGraphRAG defers. Pre-computed query summaries (D) would also be index-time summarization, which the design avoids entirely.
+
+</details>
+
+---
+
+## Q24. Which workload most favors LazyGraphRAG over full GraphRAG? `[Intermediate]` `[MCQ]`
+
+- A. High-volume repeat queries over a stable corpus
+- B. Sub-second latency requirements on every query
+- C. A rapidly changing corpus queried only occasionally
+- D. Downstream logic that needs typed ACQUIRED edges
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Near-zero NLP-only indexing makes frequent corpus updates cheap, and low query volume means the per-query relevance testing is rarely paid (Q5). Heavy repeat traffic (A) favors GraphRAG or LightRAG, whose pre-built summaries amortize the index cost. Strict latency (B) also favors pre-computed summaries, since LazyGraphRAG's iterative loop adds per-query delay. Typed edges (D) are impossible here because the co-occurrence graph carries no relationship labels.
+
+</details>
+
+---
+
+## Q25. What happens to LazyGraphRAG when you lower the relevance test budget? `[Intermediate]` `[MCQ]`
+
+- A. Queries get cheaper but may miss relevant, harder-to-reach graph regions
+- B. Indexing gets cheaper because fewer noun phrases are extracted
+- C. Community summaries get coarser, blurring broad global themes
+- D. Entity resolution gets stricter, which reduces duplicate nodes
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** The relevance test budget is the query-time cost/quality dial (Q2, Q10): fewer iterative LLM tests mean lower latency and spend but a higher chance of never reaching a relevant region, hurting recall on broad questions. It does not touch indexing (B), which has no LLM calls and already runs before any query. There are no community summaries to coarsen (C), because summarization happens only on the discovered subgraph. There is no entity resolution pass at all (D), as Q4 notes.
+
+</details>
+
+---
+
+## Q26. A pharma R&D team's LazyGraphRAG spends most of its relevance budget on candidates linked only by generic terms like "results" and "study" that co-occur across the whole corpus. Which fix is best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Add an LLM entity-resolution pass at index time
+- B. Raise relevance_budget until the generic candidates are exhausted
+- C. Widen window_size so more topical phrases get linked
+- D. Down-weight very high-frequency co-occurrence edges before they become frontier candidates
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Q12 identifies this false-positive failure and its mitigation: filter or down-weight edges whose phrase pairs co-occur across a large fraction of the corpus, like stop-word filtering, so they stop dominating best-first expansion. Entity resolution (A) merges aliases but does not address generic co-occurrence. A bigger budget (B) just spends more on the same low-value candidates. A wider window (C) adds more distant, false-positive-prone edges (Q10), making the problem worse.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Microsoft's GraphRAG open-source library**: LazyGraphRAG ships as a lower-cost mode within [microsoft/graphrag](https://github.com/microsoft/graphrag), positioned as the cost-sensitive alternative to full GraphRAG indexing

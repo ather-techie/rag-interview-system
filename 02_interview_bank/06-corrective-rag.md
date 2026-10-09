@@ -1141,6 +1141,78 @@ What to monitor: the rate of stale-but-topically-correct verdicts over time as a
 
 ---
 
+## Q23. In CRAG, what happens to retrieved documents that the evaluator labels INCORRECT? `[Basic]` `[MCQ]`
+
+- A. They are discarded and web search becomes the sole source of context
+- B. They are used as-is because the generator can ignore noise
+- C. They are refined sentence by sentence and merged with web results
+- D. They are reranked and passed to the generator with a warning label
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** For an INCORRECT verdict, CRAG throws the retrieved content away entirely and falls back to web search as the only context source (Q13, Q17). Using them as-is (B) is exactly the blind trust CRAG was designed to remove, since a strong generator still gets misled by irrelevant context. Sentence-level refinement merged with web results (C) describes the AMBIGUOUS branch, where partial local content is still worth keeping. Reranking with a warning (D) is not a CRAG action; the architecture's corrective actions are refine, supplement, or replace.
+
+</details>
+
+---
+
+## Q24. What is the purpose of CRAG's decompose-recompose knowledge refinement step? `[Intermediate]` `[MCQ]`
+
+- A. Split the user query into sub-questions for parallel retrieval
+- B. Keep only the relevant sentence-level strips and drop the surrounding noise
+- C. Translate retrieved documents into a canonical schema before indexing
+- D. Fine-tune the evaluator on each retrieved document as it arrives
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Knowledge refinement breaks a retrieved document into sentence-level strips, scores each for relevance, and recomposes only the high-scoring ones, so the generator sees signal without surrounding filler (Q7). Splitting the query into sub-questions (A) is query decomposition, which acts on the question and not on retrieved text. Translating documents into a schema (C) is an ingestion concern that CRAG does not perform at query time. Per-document fine-tuning (D) is not how the evaluator works; it is trained beforehand (Q3) and only scores at inference.
+
+</details>
+
+---
+
+## Q25. CRAG's evaluator runs on every query. Which optimization from the cost discussion reduces that overhead? `[Intermediate]` `[MCQ]`
+
+- A. Disable the web search fallback for all queries
+- B. Run the evaluator only on the final generated answer
+- C. Increase top-k so each evaluator call covers more documents
+- D. Use a small model or rule-based pre-filter, calling the evaluator only when confidence is uncertain
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The evaluator is the one cost CRAG always pays, so the practical fix is to skip or cheapen it where it adds little: a lightweight pre-filter or small model, with the full evaluator reserved for queries whose retrieval confidence is uncertain (Q5). Disabling web search (A) removes the corrective capability rather than the always-on overhead. Evaluating only the final answer (B) moves the check after generation, which defeats CRAG's purpose of catching bad context before it reaches the generator. A larger top-k (C) gives the evaluator more to score and typically increases cost.
+
+</details>
+
+---
+
+## Q26. A mortgage lender's CRAG assistant keeps rating long, keyword-heavy old fee schedules as CORRECT and quotes outdated rates. What is the best next step? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Lower the threshold so more documents are labeled INCORRECT across the board
+- B. Replace web search with a larger internal vector index
+- C. Segment verdict accuracy by length and keyword density, then rebalance the evaluator's training or prompt examples
+- D. Switch to a larger generator model to compensate for bad context
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** This is a systematic evaluator blind spot: surface features like length and literal keyword overlap are being mistaken for relevance, and aggregate accuracy can hide it (Q19). Compare verdicts against human labels segmented by those features, as in Q18, then retrain or reprompt with examples balanced against the biased feature. A global threshold cut (A) would also reject genuinely good documents and does not fix the feature confusion. A bigger vector index (B) cannot repair a mis-scoring evaluator and removes the fresh-data fallback. A larger generator (D) still conditions on the wrong context.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Corrective RAG Fits |

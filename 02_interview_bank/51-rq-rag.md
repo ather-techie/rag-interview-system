@@ -680,6 +680,78 @@ Retraining cadence (Q12, Q18) needs to track organizational reality, not just ca
 
 ---
 
+## Q23. In RQ-RAG, which control token does the fine-tuned model emit for the query "Compare Tokyo's population and its average rent"? `[Basic]` `[MCQ]`
+
+- A. `<decompose>`, producing several independent sub-queries
+- B. `<rewrite>`, producing one reformulated query
+- C. `<disambiguate>`, producing one clarified query
+- D. `<no-op>`, passing the query through unchanged
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** The query bundles two independent questions, which is the case the decompose operation exists for: it splits a compound query into sub-queries that are each retrieved separately (Q2). Rewrite (B) fits a poorly worded but single-intent query. Disambiguate (C) fits an underspecified query, such as one needing conversation context to resolve a reference. The no-op path (D) is for queries already ready for retrieval, which this compound query is not, and passing it through would dilute a single retrieval call across both parts (Q4).
+
+</details>
+
+---
+
+## Q24. Which signal does RQ-RAG's path selector use to choose among candidate refinement paths? `[Intermediate]` `[MCQ]`
+
+- A. A separate LLM judge that grades each drafted answer
+- B. The retriever's top similarity score for each refined query
+- C. The perplexity of each path's drafted answer, as average token log-probability
+- D. Agreement among the drafted answers across a majority of paths
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Each branch retrieves, drafts an answer, and is scored by the answer's perplexity or confidence; the lowest-perplexity path wins, at almost no extra cost because token log-probabilities are already computed (Q4). Option A adds a model call per branch, which the design avoids. Option B scores retrieval rather than the final answer and ignores how well the evidence supports it. Option D describes self-consistency voting, a CoRAG-style approach (#50), not RQ-RAG. Perplexity measures predictability, not truth, hence the failure mode in Q5.
+
+</details>
+
+---
+
+## Q25. What is the purpose of the retrieval-and-answer feedback filter when building RQ-RAG training data? `[Intermediate]` `[MCQ]`
+
+- A. To drop refinements the teacher LLM was unsure about
+- B. To keep only refinements that improve downstream answer correctness over the raw query
+- C. To deduplicate near-identical refined queries across the dataset
+- D. To balance the number of examples for each refinement operation
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** After a teacher LLM synthesizes (query, action, refined query) triples, a refinement is kept only if retrieving with it actually improves answer correctness compared with the raw query, so the data teaches empirically useful refinements rather than merely plausible ones (Q3). Option A relies on teacher uncertainty, which the pipeline does not use. Option C is hygiene, not the filter's purpose. Option D concerns class balance; the filter is based on outcomes, and an unhelpful refinement is dropped whatever its type.
+
+</details>
+
+---
+
+## Q26. A telecom's RQ-RAG search tool runs tree decoding on long, rambling customer emails, and decompose spawns a retrieval call per sub-query per branch, breaking the latency budget. Which mitigation fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Replace perplexity selection with an LLM judge to prune branches
+- B. Re-fine-tune the model on more rewrite examples only
+- C. Answer decomposed sub-queries from model memory without retrieval
+- D. Cap the number of sub-queries and branches explored per query
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Q5 names compounding retrieval calls as a failure mode: without a cap, overly compound queries multiply retrieval cost, and Q16 shows tree decoding scales with branches times sub-queries, so an explicit cap bounds the worst case directly. Option A adds model calls rather than removing retrieval and does not address the fan-out. Option B skews the policy away from decomposition, hurting multi-hop quality while long emails may still trigger many branches. Option C drops evidence and invites parametric errors on the sub-questions that most need retrieval.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Multi-hop QA assistants**: Decomposing compound questions (e.g. "How does X compare to Y over time?") into independently retrievable sub-queries, similar in spirit to file 19's Iterative Multi-Hop RAG but driven by a fine-tuned action rather than an iterative loop

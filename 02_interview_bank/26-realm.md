@@ -619,6 +619,78 @@ Monitor: compute spend against the quarterly budget (with re-embedding cost brok
 
 ---
 
+## Q23. In REALM, what signal teaches the retriever which documents are useful? `[Basic]` `[MCQ]`
+
+- A. The masked-token loss, backpropagated through marginalization over retrieved documents
+- B. Human relevance labels on query and passage pairs
+- C. Click-through logs from a search deployment
+- D. A separate contrastive loss on BM25 hard negatives
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** REALM treats the retrieved document as a latent variable and marginalizes over it, so when a document helps predict the masked token, the gradient raises its retrieval probability and unhelpful ones are down-weighted (Q2). No human relevance labels are needed (B), which is part of why the objective scales on unlabeled text. Click logs (C) are a supervised external signal that REALM never uses. A BM25 contrastive loss (D) is a separate training recipe; REALM's only contrastive step is the optional ICT warm-start, not the training signal itself.
+
+</details>
+
+---
+
+## Q24. Why does REALM mask salient spans such as named entities and dates rather than random tokens? `[Intermediate]` `[MCQ]`
+
+- A. They are shorter, which makes marginalization over documents cheaper
+- B. They remove the need for an asynchronous index refresh
+- C. They are fact-like tokens that retrieval helps recover, giving a stronger signal
+- D. They let the reader generate free-form answers instead of extracting them
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Entities and dates are knowledge-bearing, so predicting them is much easier with the right retrieved passage, and the loss reduction directly rewards a retriever that fetches facts (Q5). Random tokens are often predictable function words that retrieval cannot improve, giving a weak gradient. Span length (A) does not change the cost of marginalizing over top-k documents. The index refresh (B) is driven by the changing document encoder (Q3), not by the masking choice. REALM stays encoder-based and extractive (D) regardless of how it masks.
+
+</details>
+
+---
+
+## Q25. Which change removes REALM's need for asynchronous re-indexing, at some cost in task-aligned retrieval? `[Intermediate]` `[MCQ]`
+
+- A. Increasing top-k during marginalization
+- B. Freezing the document encoder and training only the query encoder
+- C. Replacing salient-span masking with random masking
+- D. Skipping the ICT warm-start of the retriever
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** The index goes stale because the document encoder keeps changing, which forces a concurrent job to re-encode the corpus (Q3). If document embeddings are frozen, the index is built once and only the query side learns, which is a common modern compromise with a small accuracy cost (Q11). A larger top-k (A) improves the marginal approximation but adds reader compute and leaves staleness untouched. Random masking (C) changes the learning signal, not indexing. Skipping ICT (D) worsens the cold-start problem and does nothing about re-indexing.
+
+</details>
+
+---
+
+## Q26. A biotech trains a REALM-style model on 3M domain abstracts, but early in training the retriever returns near-random abstracts and the reader loss barely improves. Which action best addresses this? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Increase top-k to 1,000 so the right abstract is eventually included
+- B. Switch from salient-span masking to random-token masking
+- C. Rebuild the entire index after every gradient step
+- D. Warm-start the retriever with ICT or a strong pretrained encoder first
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** This is REALM's cold-start problem: a random retriever supplies useless documents, so the reader gives it no useful gradient and neither component improves. Warm-starting with ICT contrastive pretraining or a strong encoder breaks the loop (Q7, Q9). Raising top-k to 1,000 (A) multiplies reader cost while the extra documents are still mostly noise. Random masking (B) weakens the fact-focused signal further. Rebuilding the index every step (C) is the prohibitively expensive extreme of the staleness problem (Q3) and does not fix the poor starting point.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why REALM (training-time learned retrieval) Fits |

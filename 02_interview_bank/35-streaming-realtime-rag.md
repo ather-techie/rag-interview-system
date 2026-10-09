@@ -652,6 +652,78 @@ Given the active-emergency context, there is no time for a human review gate on 
 
 ---
 
+## Q23. Which property makes Debezium-style CDC more complete than an application-level publish call as a streaming event source? `[Basic]` `[MCQ]`
+
+- A. It filters out unapproved documents before any event is published
+- B. It embeds the changed rows inside the database before streaming them
+- C. It subscribes to webhooks exposed by third-party SaaS tools
+- D. It reads the database write-ahead log, so every committed mutation is captured
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Debezium reads the same replication log the database itself relies on, so scripts, migrations and admin tools are captured along with application writes. A "remember to call publish()" path can be silently bypassed (Q5, Q7). Approval filtering (A) is the reverse: CDC emits raw row changes with no business context, so that needs application-level publishing. Embedding (B) happens downstream in the incremental embedder, not in the database. Webhooks from SaaS tools (C) are the application-level alternative used when there is no WAL to tap.
+
+</details>
+
+---
+
+## Q24. An older update event is redelivered from the dead-letter queue after a newer version of the same document was already indexed. Which safeguard prevents the index from silently reverting? `[Intermediate]` `[MCQ]`
+
+- A. Compare the event timestamp with the last indexed version and drop older events
+- B. Lengthen flush_interval so more events share each micro-batch
+- C. Commit the Kafka offset before the vector DB write completes
+- D. Add more consumer processes to the same consumer group
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Out-of-order delivery from retries, rebalancing or DLQ replays can apply an old version after a new one with no error raised. Checking the event timestamp against the last successfully indexed version, ideally in a shared store, makes ordering effectively idempotent (Q13). A longer flush window (B) only adds latency and does not order events. Committing offsets early (C) is a crash-safety mistake that can lose events permanently (Q14). More consumers (D) increase parallelism, but without a version check they can race and make reordering more likely.
+
+</details>
+
+---
+
+## Q25. A consumer crashes after deleting a document's old vectors but before writing the new ones, and the offset was already committed. Which design change removes this window? `[Intermediate]` `[MCQ]`
+
+- A. Shorten the micro-batch flush_interval
+- B. Raise the dead-letter queue's maximum retry count
+- C. Write new vectors as pending, flip an active pointer, then delete the old ones
+- D. Partition the topic by a random hash instead of by doc_id
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** The two-phase swap never lets "old data deleted" and "new data present" be separate non-atomic steps: the old vectors stay active until the new ones are confirmed and a single pointer flip switches over (Q9, Q14). A shorter flush interval (A) lowers latency but does not change the order of delete and write. More DLQ retries (B) help only if the event is redelivered, and an already committed offset means it may never be. Random partitioning (D) breaks per-document ordering, since events for one doc_id would land on different partitions (Q16).
+
+</details>
+
+---
+
+## Q26. A flash-sale pricing assistant meets its freshness SLO at steady state, but during bursts lag climbs to minutes. Embedding GPUs sit idle while the vector DB's upsert queue depth keeps growing. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Add consumer processes beyond the topic's partition count
+- B. Batch upserts into larger calls and pause consumption past a queue-depth threshold
+- C. Add GPU replicas behind the embedding endpoint
+- D. Switch the event source from CDC to application-level publishing
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** The pipeline has three stages (consume, embed, write), and the idle GPUs plus the growing upsert queue show the write path is saturated. Larger batched upserts raise write throughput, and backpressure stops the consumer building an unbounded in-memory backlog (Q16). Extra consumers beyond the partition count (A) add no parallelism, since partitions are the ceiling. More GPU replicas (C) scale a stage that is not the bottleneck. Changing the event source (D) alters completeness guarantees (Q7), not write throughput.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Streaming RAG Fits |

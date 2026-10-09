@@ -743,6 +743,78 @@ Monitor: citation accuracy specifically on newly-added equipment content each qu
 
 ---
 
+## Q23. Which input and target combination makes up a typical RAFT training example? `[Basic]` `[MCQ]`
+
+- A. A question, an oracle document mixed with shuffled distractors, and a chain-of-thought answer citing the oracle
+- B. A question paired with only its oracle document and a short final answer
+- C. A question and a gold answer, with no documents in the input
+- D. A question, reranked chunks from the live retriever, and a relevance label
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** RAFT trains on (question, oracle plus distractors in shuffled positions, chain-of-thought answer) triples, so the model learns both domain content and how to find and cite the relevant document amid noise (Q2). Option B is the clean-context setup that never practices ignoring irrelevant material, which is the gap RAFT targets. Option C is standard closed-book SFT: it teaches facts but not how to read retrieved context, and it has no citations (Q3). Option D resembles training a relevance classifier rather than a generator, and RAFT's target is a reasoned, cited answer, not a label.
+
+</details>
+
+---
+
+## Q24. What does the oracle-absent portion of RAFT's training mixture mainly teach the model? `[Intermediate]` `[MCQ]`
+
+- A. To rank the distractor documents by how close they are to the question
+- B. To memorize domain facts directly into its weights without any context
+- C. To say the answer is not in the provided documents instead of guessing
+- D. To cite several documents per answer so that no source is left out
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Examples with only distractors, typically 20-30% of the mixture, are paired with an "I cannot find the answer" target, so the model learns to recognize failed retrieval instead of confidently answering from irrelevant text (Q5). Option A is not trained: distractors are meant to be ignored, not ranked. Option B describes closed-book fine-tuning, and oracle-absent examples contain no answer-bearing text to memorize. Option D is backwards, because RAFT's chain-of-thought targets cite the one relevant document and explicitly reject the rest. Omitting this slice is what produces the reduced refusal rate risk noted in the security discussion (Q12).
+
+</details>
+
+---
+
+## Q25. A RAFT model was trained with one oracle and three distractors per example. Which serving setup best matches that training distribution? `[Intermediate]` `[MCQ]`
+
+- A. Pass the top 20 retrieved chunks to the model to maximize recall
+- B. Pass the top 10 chunks ordered by length to reduce prompt variance
+- C. Pass only the single top-ranked chunk to keep the prompt minimal
+- D. Rerank the retrieved chunks and pass the top four to the model
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The model learned to find one relevant document among four, so reranking a wider candidate set down to four documents matches both the context size and the oracle-to-distractor ratio it was trained on, while the reranker also lifts the chance that the oracle is present (Q9). Option A multiplies the distractor count far beyond the training K, and performance degrades when K at inference differs widely from training (Q10). Option B has the same mismatch and adds an arbitrary ordering that has nothing to do with relevance. Option C removes distractors entirely, a setting the model was not trained on, and loses the safety margin if the top hit is wrong.
+
+</details>
+
+---
+
+## Q26. A hospital pharmacy runs a RAFT-tuned drug-information model. About 2% of its monographs are added or revised each month, using the same format and terminology as existing ones. Which approach fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Retrain the RAFT model from scratch on the full monograph set every month
+- B. Fold the new facts into the system prompt and freeze the retriever index
+- C. Train a new LoRA adapter on the new monographs before indexing them
+- D. Index the new monographs only, and track citation accuracy on the new content
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** For small updates with unchanged vocabulary and question patterns, the retriever index absorbs the new facts, and RAFT's learned distractor rejection and citation skills generalize to unseen documents; retraining is triggered only if citation accuracy on new content drops (Q11). Option A is the heavy full-retrain path meant for overhauls above roughly 30% of content, and it adds monthly cost and regression risk (Q10). Option B stops the model from seeing new monographs through retrieval and cannot hold the volume of updates. Option C is the right tool for a new subdomain with new vocabulary, which this is not, so it is unnecessary operational burden.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RAFT Fits |

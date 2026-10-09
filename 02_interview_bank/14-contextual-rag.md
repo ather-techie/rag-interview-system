@@ -772,6 +772,78 @@ Monitor per-jurisdiction: refresh completion time against the nightly SLA (with 
 
 ---
 
+## Q23. In Contextual Retrieval, which text is embedded for the dense index and also added to the BM25 index for each chunk? `[Basic]` `[MCQ]`
+
+- A. The raw chunk text alone, with the generated prefix stored only as display metadata
+- B. The generated prefix alone, so the index stays small and document-level
+- C. The generated prefix concatenated with the chunk text, in both indexes
+- D. The prefix plus the chunk text for embedding, but only the raw chunk for BM25
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Both indexes receive the contextualized text, so the prefix contributes semantic signal to the embedding and exact-match keywords (company names, dates, product names) to BM25, which is why the two gains are additive (Q3). Option A is the standard-chunking baseline the technique exists to improve; the prefix would never influence retrieval. Option B discards the chunk's own content, so specific facts could no longer be matched. Option D is plausible but wrong: leaving BM25 on the raw chunk forfeits the keyword enrichment that makes the hybrid combination stronger than either contextual embeddings or BM25 alone.
+
+</details>
+
+---
+
+## Q24. In the context-generation prompt, which part is cached across calls so that per-chunk cost stays low? `[Intermediate]` `[MCQ]`
+
+- A. The full document text shared by every chunk-generation call for that document
+- B. The chunk-specific suffix, reused across the chunks of every document
+- C. The generated prefix, reused for any later chunk with similar wording
+- D. The embedding of each contextualized chunk, reused at query time
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Every chunk of a document is prompted with the same long document, so that shared prefix is written to the cache once and read cheaply by the remaining chunk calls, leaving only the small chunk-specific suffix to pay for each time (Q2). Option B reverses this: the chunk text differs on every call, so it cannot be a reusable cache prefix. Option C describes caching outputs, but a prefix is generated freshly per chunk, since a reused one would give the identical generic context that Q6 flags as useless. Option D is a different stage: embeddings are stored in the vector index and are unrelated to the prompt cache used while generating prefixes.
+
+</details>
+
+---
+
+## Q25. After contextual hybrid retrieval, which text is generally recommended as the document input to a cross-encoder reranker? `[Intermediate]` `[MCQ]`
+
+- A. The contextualized chunk, so the reranker sees exactly what the embedder saw
+- B. The generated context prefix alone, since it summarizes the chunk
+- C. The contextualized chunk plus its BM25 and dense scores as extra tokens
+- D. The original chunk text, since retrieval already used the context
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The retrieval stage already benefited from the prefix when choosing candidates, so the reranker can judge relevance on the content the user will actually see, giving a cleaner signal; the context can ride along as metadata for citations (Q7). Option A is the tempting alternative, but it risks the reranker over-weighting the prefix rather than the chunk's content. Option B would score a short, generated summary and ignore the evidence itself. Option C leaks upstream retrieval scores into a model that is meant to produce an independent relevance judgment, which defeats the second-stage check. The same original-text choice applies when passing chunks to the generator (Q10).
+
+</details>
+
+---
+
+## Q26. A pharma company wants Contextual Retrieval over clinical-trial protocols of roughly 400K tokens each, longer than the context window of the model that writes the prefixes. Which approach works best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Truncate each protocol to the first window and generate every chunk's prefix from that text
+- B. Split each protocol at heading boundaries and generate each chunk's prefix from its own section
+- C. Skip prefixes for these protocols and rely on larger chunk sizes to preserve context
+- D. Generate each prefix from the chunk alone, without any surrounding document text
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Section-level generation keeps each prompt within the window while giving the model the surrounding text that actually situates a chunk, and it can be combined with a short cached document summary for document-wide context (Q8). Option A would give chunks from late sections prefixes written without ever seeing their section, producing misleading context of the kind Q19 warns about. Option C abandons the technique for exactly the long documents where isolated chunks are most ambiguous. Option D removes the document-awareness that defines the method, yielding generic prefixes that add little retrieval benefit (Q6).
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Contextual RAG Fits |

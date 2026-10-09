@@ -1259,6 +1259,78 @@ What to monitor: iteration count and cost per due-diligence run (Q11, Q18), audi
 
 ---
 
+## Q23. In an Agentic RAG think-act-observe loop, what does the Observation step contain? `[Basic]` `[MCQ]`
+
+- A. The model's private reasoning about which tool to call next
+- B. The result returned by the tool the agent just invoked
+- C. The final grounded answer that is shown to the user
+- D. The tool schemas defined in the tool registry
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** In the ReAct-style loop (Q2), the Thought is the model's reasoning, the Action is the tool call it issues, and the Observation is whatever that tool returns, such as retrieved chunks, SQL rows, or search results, which is fed back so the next Thought can decide whether to continue. The reasoning text (A) is the Thought, not the Observation. The final answer (C) is produced only once the loop decides it has enough evidence. Tool schemas (D) are static definitions supplied up front in the registry, not something produced during the loop.
+
+</details>
+
+---
+
+## Q24. Which trigger does FLARE use to decide that retrieval is needed in the middle of generation? `[Intermediate]` `[MCQ]`
+
+- A. A fixed schedule that retrieves after every generated sentence
+- B. A thumbs-down signal on the previous answer from the user
+- C. A routing classifier that runs once before generation begins
+- D. The model's confidence in upcoming tokens dropping below a threshold
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** FLARE retrieves proactively when the model's own token-level confidence in the sentence it is about to generate falls below a threshold, so retrieval happens exactly when the model seems unsure (Q3). A fixed per-sentence schedule (A) would retrieve regardless of need and waste cost. User feedback (B) arrives after the answer, too late to influence it. A single upfront classifier (C) describes Adaptive RAG's one-time decision, which cannot react to uncertainty that appears mid-generation, the contrast drawn in Q17.
+
+</details>
+
+---
+
+## Q25. An agent keeps re-querying a corpus that genuinely lacks the answer. Which safeguard most directly bounds the cost? `[Intermediate]` `[MCQ]`
+
+- A. A hard iteration ceiling that returns the best partial answer with a caveat
+- B. A larger top-k on every retrieval tool call
+- C. A stronger embedding model behind the retrieval tool
+- D. A longer system prompt that describes each tool schema in detail
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** When the evidence simply is not in the corpus, no amount of retrying will find it, so the loop needs a hard max_iterations cap as a safety net, plus a policy to return the best partial answer with an explicit caveat instead of looping or failing silently (Q18, Q19). A larger top-k (B) adds tokens per call without changing whether the answer exists. A better embedding model (C) cannot retrieve content that is absent. A longer tool-schema prompt (D) may improve tool selection but does nothing to stop repeated, fruitless iterations.
+
+</details>
+
+---
+
+## Q26. A health insurer's claims agent retrieves a policy PDF containing a hidden line telling the model to approve the claim. Which defense is most structural? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Add a firmer line to the system prompt telling the model to ignore documents
+- B. Raise the iteration cap so the agent can cross-check the claim more often
+- C. Treat retrieved text as untrusted data and require human approval for claim approvals
+- D. Switch to a larger model that is less likely to follow embedded instructions
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Every tool output is a fresh injection surface, so the durable defense is architectural: keep retrieved content in a data role, never let it carry authority, and gate consequential actions such as approving a claim behind human sign-off or strictly scoped permissions (Q9, Q12). A stronger prompt instruction (A) is a soft constraint that sophisticated injections routinely bypass. More iterations (B) just gives the injected text more chances to influence reasoning. A larger model (D) may resist some attacks but offers no guarantee, which an approval-gated action does.
+
+</details>
+
+---
+
 ## Terminology Note: "A-RAG" vs. "Adaptive RAG"
 
 Some sources (including common workshop material) use **"A-RAG" / "Adaptive-Hierarchical RAG"** to mean *progressive disclosure*: the agent first reviews a brief summary or keyword snippet, and only retrieves the full, token-heavy chunk if the summary turns out to be insufficient. For example, asked "What's our incident response process for a P1 outage?", the agent first pulls a one-paragraph summary of the runbook; only if that summary is ambiguous or incomplete does it fetch the full runbook document.

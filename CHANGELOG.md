@@ -18,15 +18,17 @@ tooling, **patch** for fixes and wording.
   difficulty and `[Scenario]`.
 - Added format validation for `[MCQ]` questions (`E-MCQ-OPTS` for a missing
   or malformed option list, `E-MCQ-KEY` for a missing or invalid
-  correct-answer line), a separate per-file `[MCQ]` target (`W-MCQ`,
-  disabled during the pilot phase), and a `<!-- questions:mcq -->`
-  README total.
+  correct-answer line), a separate per-file `[MCQ]` target (`W-MCQ`), and a
+  `<!-- questions:mcq -->` README total.
 - Added an auto-graded multiple-choice card type to the quiz site: a "Type"
   filter (All / Flashcards only / MCQ only), clickable options that reveal
   correct/incorrect immediately, and keyboard shortcuts (A–F) to answer.
 - Added pilot `[MCQ]` questions to `02_interview_bank/01-naive-rag.md`,
   `02_interview_bank/02-advanced-rag.md`, and
-  `03_failure_modes/02-retrieval_failure.md` ahead of a full bank rollout.
+  `03_failure_modes/02-retrieval_failure.md` as a pilot.
+- Rolled `[MCQ]` out to every architecture file in `02_interview_bank/`:
+  four new multiple-choice questions (Q23–Q26) per file, 200 in total, and
+  raised the per-file `W-MCQ` target to 4.
 
 ## [2.0.0] - 2026-09-15
 

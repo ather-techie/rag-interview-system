@@ -653,6 +653,78 @@ Monitor: citation coverage of every numeric/material claim (should approach 100%
 
 ---
 
+## Q23. In FLARE, which signal decides whether a drafted sentence triggers a retrieval call? `[Basic]` `[MCQ]`
+
+- A. Whether the sentence contains a named entity or number
+- B. Whether the sentence exceeds a fixed token-length budget
+- C. Whether any token in the draft has probability below the threshold θ
+- D. Whether the previous retrieval returned fewer than k passages
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** FLARE drafts the next tentative sentence, inspects the per-token probabilities, and retrieves only if a token falls below θ, so the model's own uncertainty gates retrieval (Q2). Entity or number presence (A) is not the trigger; at most it motivates a higher θ for fact-dense sentences (Q8), but the signal is still confidence. A length budget (B) has nothing to do with whether the model knows the content, so it would retrieve on confident sentences and miss short uncertain ones. Retrieval-result counts (D) are a retriever property that cannot be known before the draft exists, and FLARE's decision is made before any new retrieval runs.
+
+</details>
+
+---
+
+## Q24. In FLARE-direct, why are low-confidence tokens masked before the tentative sentence is used as the query? `[Intermediate]` `[MCQ]`
+
+- A. So the query is not anchored on the model's own uncertain guesses
+- B. So the query fits within the retriever's maximum input length
+- C. So the retriever skips passages that were already retrieved earlier
+- D. So the regeneration step can be skipped after retrieval
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** The drafted sentence supplies useful context and structure, but its low-probability tokens are exactly the facts the model is guessing. Leaving them in would pull retrieval toward the guess, such as an unverified "Delaware" or "1965", so they are masked or turned into a question (Q3). Query length (B) is not the motivation, since a single sentence is short anyway. Deduplicating against earlier retrievals (C) is not what masking does. Skipping regeneration (D) is wrong because FLARE still regenerates the sentence with the retrieved passages before committing it (Q4).
+
+</details>
+
+---
+
+## Q25. Which kind of error is FLARE's confidence gate structurally unable to catch? `[Intermediate]` `[MCQ]`
+
+- A. A rare-entity fact the model is visibly unsure about
+- B. A claim phrased with several equally valid wordings
+- C. A numeric detail the model generates with low probability
+- D. A hallucinated claim the model generates with high probability
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** FLARE assumes low token probability signals a knowledge gap, so a confidently wrong, high-probability hallucination never trips θ and is committed unverified (Q7). The other options do trigger retrieval. A rare-entity fact the model is unsure about (A) and a low-probability number (C) are the intended cases. Several valid wordings (B) produce low probabilities that cause needless retrievals, which is a cost problem rather than a blind spot. Mitigations include adding entropy or self-consistency signals and a post-hoc faithfulness check.
+
+</details>
+
+---
+
+## Q26. A medical-education publisher uses FLARE to draft long study guides, and p95 latency has doubled because nearly every sentence triggers retrieval, including connective prose. Which change best restores latency without removing grounding for clinical facts? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Raise θ uniformly so that more sentences count as uncertain
+- B. Gate on sentence-level confidence, with higher θ for facts, lower θ for prose, and a retrieval cap
+- C. Retrieve before every sentence regardless of confidence
+- D. Replace FLARE with a single up-front retrieval using a much larger k
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** The retrieval storm comes from a threshold and trigger rule that are too sensitive. A sentence-level minimum smooths spurious per-token triggers, dynamic θ keeps strict grounding on fact-dense clinical sentences while letting transitions pass, and a cap bounds worst-case cost (Q8). Raising θ uniformly (A) makes retrieval fire more often, the opposite of what is needed (Q2). Retrieving before every sentence (C) is the expensive baseline FLARE's selectivity avoids. One up-front retrieval (D) cannot anticipate evolving information needs in a long guide (Q6) and gives up grounding for later sections.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why FLARE Fits |

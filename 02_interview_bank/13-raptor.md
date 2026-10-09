@@ -759,6 +759,78 @@ What to monitor: provenance-manifest completeness as an automated build-time che
 
 ---
 
+## Q23. In RAPTOR, which statement describes how collapsed-tree retrieval picks the nodes handed to the generator? `[Basic]` `[MCQ]`
+
+- A. It starts at the root and descends into the children of the best-matching nodes, level by level
+- B. It runs one similarity search over the nodes from every tree level and returns the top-k overall
+- C. It searches only the leaf chunks and then attaches each hit's ancestor summaries afterward
+- D. It classifies the query's scope first and then searches only the matching tree level
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Collapsed retrieval flattens the whole tree into a single index, so one ANN search ranks leaf chunks and summary nodes of every level together and the top-k may mix levels freely (Q3). Option A describes tree traversal, the other strategy, which narrows scope top-down and can miss nodes if an early level routes badly. Option C is not how either strategy works: summary nodes are searched directly, not bolted on after a leaf-only search. Option D invents a query-time level router; RAPTOR's two strategies both search across levels without committing to one up front, which is why every node carries level metadata in one collection (Q7).
+
+</details>
+
+---
+
+## Q24. In RAPTOR's GMM clustering step, what happens if the soft-membership threshold is set very high? `[Intermediate]` `[MCQ]`
+
+- A. Each node joins more clusters, so neighboring cluster summaries overlap heavily
+- B. The BIC criterion is forced to pick fewer clusters at every level of the tree
+- C. Summaries become more faithful because only strongly related chunks are grouped
+- D. Clustering behaves more like hard assignment, with each node landing in about one cluster
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** A node joins every cluster whose membership probability exceeds the threshold, so raising the threshold toward 1 leaves most nodes in just their single best cluster, and the soft-membership property that lets a chunk serve several themes (Q16) largely disappears. Option A is the opposite direction: overlap grows when the threshold is lowered. Option B confuses two separate choices, because BIC selects the cluster count from the model fit before any membership threshold is applied (Q17). Option C conflates clustering with generation: a stricter threshold does not make the LLM summarizer more faithful, since hallucination is a separate generation-quality risk (Q6, Q18).
+
+</details>
+
+---
+
+## Q25. Which build-time safeguard directly catches a RAPTOR summary node that states a figure absent from its source chunks? `[Intermediate]` `[MCQ]`
+
+- A. Scoring each summary against its source chunks with an NLI model or LLM judge
+- B. Retrieving with tree traversal instead of the collapsed index at query time
+- C. Raising the UMAP dimensionality used before the GMM clustering step
+- D. Capping the tree at two levels to shorten the chain of summarization passes
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** A faithfulness gate compares every (summary, source chunks) pair at build time and flags summaries whose claims are not entailed by the sources, which is exactly the check for an invented or altered figure (Q6). Option B changes only how nodes are fetched at query time, so a hallucinated summary node is still stored and still served. Option C affects cluster geometry rather than summary wording, so it targets the separate boundary-misalignment problem (Q18), not generation errors. Option D can limit how far an error propagates upward, but a level-1 summary can still hallucinate, and nothing in a shallower tree verifies it against its sources.
+
+</details>
+
+---
+
+## Q26. A pharma regulatory-affairs team runs a RAPTOR assistant over about 40,000 pages of drug submissions, and roughly 1% of the documents change each week. Which update strategy fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Rebuild the entire tree from the leaves every weekend so all summaries stay consistent
+- B. Re-chunk the changed documents and replace only their leaf nodes, leaving summaries untouched
+- C. Re-cluster and re-summarize only the affected clusters, then propagate upward through their ancestors
+- D. Keep the existing tree and add a new standalone tree for the changed documents each week
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** With 1% of content changing, only the Level-1 clusters containing changed leaves, and then their ancestors, have invalid summaries, so a targeted re-cluster and re-summarize costs a handful of LLM calls instead of a full build (Q11). Option A pays the full O(N log N) summarization bill (Q5) every week for a tiny delta. Option B leaves stale summaries standing, so high-level queries would keep returning superseded submission content that never reaches the updated leaves. Option D fragments the corpus into disconnected trees, losing the cross-document clustering that justifies RAPTOR and growing the number of trees to search every week.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RAPTOR Fits |

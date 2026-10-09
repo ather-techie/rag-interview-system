@@ -1039,6 +1039,78 @@ What to monitor: the `[IsRel]`/`[IsSup]` disagreement rate (Q19) as an ongoing g
 
 ---
 
+## Q23. In Self-RAG, which reflection token judges whether a generated segment is factually grounded in the retrieved passage? `[Basic]` `[MCQ]`
+
+- A. [Retrieve]
+- B. [IsSup]
+- C. [IsRel]
+- D. [IsUse]
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** [IsSup] scores support after a segment is generated, using Fully supported, Partially supported, or No support, which measures factual grounding in the retrieved passage (Q2). [Retrieve] (A) is emitted before a segment and only decides whether retrieval is needed at all. [IsRel] (C) judges whether a retrieved passage is relevant to the query, a check on retrieval rather than on the generated text. [IsUse] (D) rates the overall utility of the response on a 1-5 scale, which can be high even when claims are only partly supported.
+
+</details>
+
+---
+
+## Q24. What does raising alpha do in Self-RAG's inference-time scoring of candidate segments? `[Intermediate]` `[MCQ]`
+
+- A. Weights factual support more heavily relative to overall utility
+- B. Samples more candidate continuations for every segment
+- C. Makes the model trigger retrieval on a larger share of queries
+- D. Increases how many passages are filtered out by relevance
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** The simplified selection score is alpha times P(IsSup=Fully supported) plus (1-alpha) times P(IsUse=5), so a higher alpha tilts candidate selection toward factual grounding and a lower alpha toward usefulness (Q4, Q17). It is a controllable, retraining-free knob. Sampling more candidates (B) is the separate beam-width setting. How often retrieval fires (C) is governed by the [Retrieve] token's confidence threshold (Q18). Passage filtering (D) is driven by [IsRel] judgments, not by the weighting between [IsSup] and [IsUse].
+
+</details>
+
+---
+
+## Q25. Which statement about how Self-RAG produces its critique signals is accurate? `[Intermediate]` `[MCQ]`
+
+- A. A separate evaluator model scores each passage before the generator runs
+- B. A frozen GPT-4 critic is called at every inference step
+- C. The same fine-tuned model emits the reflection tokens alongside its text
+- D. A rule-based post-processor computes the tokens from the finished output
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Self-RAG fine-tunes one model so that [Retrieve], [IsRel], [IsSup], and [IsUse] are part of its own output vocabulary, so critique comes out during generation with no extra model call (Q13). A separate pre-generation evaluator (A) describes Corrective RAG (#06), the contrast drawn in Q15. A critic LLM like GPT-4 is used only offline to annotate training data (B), not at inference. A rule-based post-processor (D) could not produce learned judgments of relevance or support, which come from fine-tuning.
+
+</details>
+
+---
+
+## Q26. A legal-research startup's Self-RAG model confidently answers from memory about a recently amended statute and never retrieves. Which diagnosis fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. The [IsRel] threshold is too strict, so relevant passages are filtered out
+- B. The segment beam is too narrow, so better candidates are never sampled
+- C. The [IsUse] weighting is too low, so useful answers are being penalized
+- D. The [Retrieve] token is under-triggering, so lower its threshold and monitor labeled cases
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** No retrieval at all means the gating decision is the failure: an under-triggering [Retrieve] token lets the model answer from stale parametric knowledge, with no retrieved evidence for [IsSup] to check, a silent and dangerous failure mode (Q18). The remedy is to bias the threshold toward retrieving and monitor it against a labeled set of retrieval-necessary queries. A strict [IsRel] threshold (A) only matters after retrieval has happened. Beam width (B) and [IsUse] weighting (C) affect how candidates are selected, not whether retrieval is attempted.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why Self-RAG Fits |

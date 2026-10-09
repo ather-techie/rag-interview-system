@@ -775,6 +775,78 @@ Monitor: end-to-end P95 latency against the sub-second target, each strategy's i
 
 ---
 
+## Q23. Which property of Reciprocal Rank Fusion lets it merge BM25 and dense result lists without calibrating their raw scores? `[Basic]` `[MCQ]`
+
+- A. It averages each retriever's raw scores after min-max scaling
+- B. It weights each list by its retriever's measured recall
+- C. It uses only each document's rank position within each list
+- D. It re-embeds fused documents to produce comparable scores
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** RRF scores a document as the sum of 1/(k + rank) across lists, so only rank positions matter and the score scale of each retriever never enters the computation (Q2). That is why BM25 scores and cosine similarities, which live on different scales, can be fused directly. Min-max averaging (A) is a different fusion method that does need scale handling and is sensitive to score distributions. Recall-based list weights (B) are not part of RRF, which treats every query variant's list equally. Re-embedding documents (D) adds a needless step and has nothing to do with how RRF computes its fused scores.
+
+</details>
+
+---
+
+## Q24. In RRF's 1/(k + rank) scoring, what happens to the fused ordering when k is lowered from 60 to 1? `[Intermediate]` `[MCQ]`
+
+- A. Top-ranked results dominate the fused score far more strongly
+- B. Rank differences flatten so all positions score almost equally
+- C. Documents found by several query variants lose their advantage
+- D. Retrieval latency falls because fewer candidates are scored
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** With k=1, rank 1 scores 1/2 while rank 2 scores 1/3, so a first-place finish in a single list can outweigh several mid-ranked appearances elsewhere (Q11). Lower k suits retrievers whose top result you trust. Option B describes the opposite direction: large k such as 200 flattens differences until ranks barely matter. Option C is wrong because summing across lists still rewards documents that appear in several of them; k only changes how steeply each list's contribution decays. Option D confuses a scoring constant with candidate count; k changes arithmetic on already-retrieved lists and has no effect on retrieval latency.
+
+</details>
+
+---
+
+## Q25. Which reason best justifies keeping the original query in the fusion set alongside its LLM-generated reformulations? `[Intermediate]` `[MCQ]`
+
+- A. It lets the generator skip reading the reformulations
+- B. It keeps every fused RRF score strictly above zero
+- C. It reduces the reformulations needed to fewer than three
+- D. It hedges against reformulations drifting from the user's intent
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Reformulations generated for diversity can subtly change the question's meaning (Q19), and if retrieval depended only on them a drifted variant could steer the fused list off-target. Fusing the original query as one of the lists guarantees its own rank evidence always contributes (Q17). Option A is unrelated, since the generator still receives all variants. Option B is false, because RRF scores are already positive for any document appearing in any list. Option C has no mechanism behind it; the original query is just one more list and does not reduce how many reformulations the diversity prompt needs.
+
+</details>
+
+---
+
+## Q26. A legal-research firm's RAG-Fusion tool (N=4) shows reformulations with average pairwise cosine similarity near 0.96, and fused recall barely beats single-query retrieval. Which change most directly addresses this? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Raise N to 12 while keeping the same reformulation prompt
+- B. Raise temperature and prompt for varied vocabulary, specificity and angle
+- C. Lower RRF's k to 1 so the top-ranked results dominate
+- D. Replace RRF with averaged raw scores across the variants
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Similarity that high means the variants are near-duplicates, so fusion mostly re-counts the same documents (Q9, Q18). The fix is upstream, in the reformulation prompt and temperature, which Q17 calls the highest-leverage knob: explicitly demand different vocabulary, specificity and angle, then re-measure diversity. More variants from the same prompt (A) just add near-duplicates and cost. Lowering k (C) changes how ranks are weighted but cannot create new candidates. Score averaging (D) is a worse fusion method and still has nothing new to fuse.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RAG Fusion Fits |

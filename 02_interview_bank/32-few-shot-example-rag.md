@@ -743,6 +743,78 @@ The hard constraint is that "correct" output differs by jurisdiction — a termi
 
 ---
 
+## Q23. In a PEARL-style example library, which part of each stored demonstration is embedded to find examples for a new query? `[Basic]` `[MCQ]`
+
+- A. The answer text only
+- B. An LLM-written summary of the full pair
+- C. The question and answer concatenated together
+- D. The query text only
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The library indexes the query side of each (query, answer) pair, because the goal is to find examples whose questions resemble the new one and therefore demonstrate a similar pattern (Q2). Option A would match on answer content and find examples that look alike in output rather than in task. Option B adds an extra generation step and drift without helping match the new question. Option C blends in answer text, which dilutes similarity to the incoming question.
+
+</details>
+
+---
+
+## Q24. What does lowering lambda in MMR-based example selection do? `[Intermediate]` `[MCQ]`
+
+- A. Retrieves more near-duplicate examples that closely paraphrase the query
+- B. Increases the number of demonstrations placed in the prompt
+- C. Penalizes redundancy more, so the chosen demonstrations are more diverse
+- D. Moves the most similar demonstration to the end of the prompt
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** MMR scores each candidate as lambda times relevance minus (1 minus lambda) times redundancy with already-chosen examples, so a lower lambda weights the redundancy penalty more and yields more varied demonstrations (Q3). Option A is the opposite, and is the near-duplicate failure that a higher lambda risks (Q12). Option B confuses selection weighting with k. Option D is about ordering at prompt assembly (Q14), which MMR's lambda does not control.
+
+</details>
+
+---
+
+## Q25. Where should the highest-similarity retrieved demonstration be placed when assembling the few-shot prompt? `[Intermediate]` `[MCQ]`
+
+- A. Last, immediately before the new query
+- B. First, at the very start of the examples
+- C. In a random position, reshuffled on every call
+- D. In the system prompt, away from the user query
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Research on in-context learning finds that putting the most similar example last, right before the new query, works best, because recent context is weighed more heavily (Q14, Q3). Option B puts the strongest demonstration where positional influence decays most. Option C discards that ordering signal and makes outputs less reproducible. Option D separates the demonstration from the query it is meant to guide, weakening the pattern the model imitates.
+
+</details>
+
+---
+
+## Q26. A fintech's text-to-SQL assistant automatically adds thumbs-up outputs to its example library. Months later, generated queries increasingly build SQL by string concatenation. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Raise k so that more good examples outvote the flawed ones
+- B. Require human review before examples enter the library, and audit existing entries
+- C. Embed the answer side so retrieval favors well-formed SQL
+- D. Lower MMR lambda so retrieved examples are more varied
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Retrieved demonstrations shape the output pattern directly, so a flawed example gets imitated in every generation that retrieves it, and unreviewed auto-ingestion compounds this over time (Q17, Q13). Human review gates new entries, and auditing the library removes the existing bad ones. Option A dilutes but does not remove the flawed pattern and costs more tokens. Option C changes matching, not library quality. Option D adds diversity, which may even surface bad examples more often.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **GitHub Copilot**: Retrieves similar code snippets from the open codebase as few-shot context for code completion

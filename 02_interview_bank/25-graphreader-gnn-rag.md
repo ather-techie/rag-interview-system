@@ -644,6 +644,78 @@ Monitor: per-compartment path-retrieval recall, authorization-filter audit logs 
 
 ---
 
+## Q23. Which GraphReader component carries findings across exploration hops so the full document never has to sit in context? `[Basic]` `[MCQ]`
+
+- A. The path verbalizer that turns graph paths into sentences
+- B. The message-passing layer that scores candidate nodes
+- C. The community summary index built over the graph
+- D. The agent's notebook of recorded findings
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** As the agent moves between note nodes, it records relevant findings in a notebook that works as running memory, so only a few atomic-fact nodes plus the notebook are in context at any step (Q2, Q6). The verbalizer (A) and the message-passing scorer (B) belong to GNN-RAG, which retrieves paths with a trained network rather than an exploring agent. Community summaries (C) are a Graph RAG construct for global sense-making and play no role in GraphReader's step-by-step reading.
+
+</details>
+
+---
+
+## Q24. In GNN-RAG, what does the GNN hand off for verbalization before the LLM generates the answer? `[Intermediate]` `[MCQ]`
+
+- A. Reasoning paths from question entities to the top-scored candidate answer nodes
+- B. The full k-hop subgraph exactly as extracted, with no filtering
+- C. Embedding vectors for every node in the subgraph
+- D. A ranked list of source document chunks
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** The GNN message-passes over the extracted subgraph, scores nodes by how likely they answer the question, and the reasoning paths linking question entities to the best candidates are pulled out and verbalized as text (Q3). The unfiltered subgraph (B) would defeat the point of using the GNN to select what matters. Raw embeddings (C) are internal representations an LLM cannot read. Ranked document chunks (D) describe similarity-based RAG, whereas GNN-RAG works over a knowledge graph and retrieves structure.
+
+</details>
+
+---
+
+## Q25. Which limitation applies to GNN-RAG but not to GraphReader? `[Intermediate]` `[MCQ]`
+
+- A. Every exploration step costs a separate LLM call
+- B. Accumulated notes can drift or become noisy
+- C. It requires a pre-existing KG and KGQA training data
+- D. The agent may stop exploring before gathering enough evidence
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** GNN-RAG is tied to an existing knowledge graph and needs supervised KGQA data to train the GNN, so it generalizes poorly to new schemas or relations without retraining (Q5, Q7). GraphReader builds its own note graph from raw text and works zero-shot. Per-step LLM cost (A), notebook drift (B), and premature stopping (D) are all consequences of GraphReader's agentic exploration loop; GNN-RAG's retrieval is a single cheap forward pass with no agent that can stop early.
+
+</details>
+
+---
+
+## Q26. A logistics company must answer multi-hop questions across 2,000-page carrier contracts, such as "Which carrier with a late-delivery penalty above 5% also holds the Rotterdam route?" It has no knowledge graph and no labeled QA data. Which approach fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. GNN-RAG, trained on the contracts to score reasoning paths
+- B. GraphReader, building a note graph and letting an agent explore it with a step cap
+- C. Placing all contracts into one long-context prompt
+- D. A single dense retrieval over contract chunks with a larger top-k
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** The corpus is long raw text with no KG and no training data, which is GraphReader's setting. It builds atomic-fact nodes and explores them adaptively with a notebook, zero-shot, and a step cap bounds LLM cost (Q10, Q11). GNN-RAG (A) assumes a pre-existing KG and supervised KGQA data, neither of which exists. Stuffing everything into context (C) exceeds or degrades the window and loses information in the middle. A single similarity pass (D) tends to miss the second hop, since the Rotterdam route may not resemble the penalty clause text.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why GraphReader / GNN-RAG Fits |

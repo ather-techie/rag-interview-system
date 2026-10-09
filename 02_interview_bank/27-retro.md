@@ -651,6 +651,78 @@ At trillion-token scale, the datastore and its ANN index are the dominant cost d
 
 ---
 
+## Q23. Which RETRO component injects retrieved neighbors into the transformer during generation? `[Basic]` `[MCQ]`
+
+- A. Concatenating the retrieved text to the front of the prompt
+- B. A fine-tuned cross-encoder that reranks the final answer
+- C. A learned retriever updated end-to-end through the LM loss
+- D. Chunked cross-attention layers interleaved with self-attention
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** RETRO encodes retrieved neighbor chunks with a bidirectional encoder and lets the decoder attend to them through chunked cross-attention layers that sit alongside standard self-attention (Q2). Prompt concatenation (A) is how inference-time RAG works, and RETRO deliberately differs by integrating retrieval at the architecture level (Q10). A reranker (B) is not part of RETRO. An end-to-end learned retriever (C) describes REALM; RETRO keeps its BERT-embedding retriever frozen (Q3).
+
+</details>
+
+---
+
+## Q24. In RETRO's chunked cross-attention, whose retrieved neighbors condition the generation of the next chunk? `[Intermediate]` `[MCQ]`
+
+- A. Neighbors retrieved using the next chunk itself
+- B. Neighbors retrieved using the immediately preceding chunk
+- C. Neighbors retrieved once for the first chunk only
+- D. Neighbors retrieved once for the whole prompt
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Tokens in chunk i+1 may only depend on information available up to chunk i, so the neighbors fetched for chunk i inform the next chunk, which preserves autoregressive causality (Q2, Q6). Retrieving with the next chunk itself (A) would leak not-yet-generated content into the query. Reusing only the first chunk's neighbors (C) or a single prompt-level retrieval (D) would make retrieval stale as generation moves on, and neither matches RETRO's per-chunk retrieval during generation.
+
+</details>
+
+---
+
+## Q25. Which safeguard is most important when evaluating a RETRO model that retrieves from a trillion-token datastore? `[Intermediate]` `[MCQ]`
+
+- A. Removing datastore chunks that overlap evaluation documents, and reporting both ways
+- B. Re-embedding the datastore with the model's own encoder before every evaluation run
+- C. Lowering the number of neighbors K to one
+- D. Restricting evaluation to tasks shorter than a single retrieval chunk
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** With a trillion-token datastore, near-copies of test documents can sit in the store and let the model retrieve answers verbatim, inflating scores, so overlap must be removed (for example by n-gram or Jaccard thresholds) and results reported with and without dedup (Q8, Q9). Re-embedding the datastore (B) is unnecessary because the retriever is frozen and the index is static (Q3). Lowering K to one (C) reduces retrieval breadth but does not address leakage. Short-task evaluation (D) avoids the issue only by ignoring what RETRO is designed to do.
+
+</details>
+
+---
+
+## Q26. A legal-research team has a pre-trained 7B LM and wants it to retrieve from a 500B-token case-law datastore, but cannot afford pre-training a new model. Which approach fits best? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Pre-train a new RETRO model from scratch over the case-law corpus
+- B. Train the retriever end-to-end REALM-style, rebuilding the index as it updates
+- C. RETRO-fit it, training only new cross-attention layers and a neighbor encoder
+- D. Fine-tune all weights on the case law so the model memorizes it
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** RETRO-fitting grafts chunked cross-attention and a retrieval encoder onto a frozen pre-trained LM and trains only the new parameters, recovering most of the benefit at a small fraction of pre-training cost (Q5). Pre-training from scratch (A) discards the existing model and the budget constraint rules it out. End-to-end retriever training (B) would force continual re-encoding of a 500B-token corpus, the cost RETRO avoids by freezing BERT embeddings and building the index once (Q3). Memorizing case law in weights (D) is the parametric approach retrieval is meant to replace, and it cannot be updated by editing the datastore.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why RETRO (architectural, scaled retrieval) Fits |

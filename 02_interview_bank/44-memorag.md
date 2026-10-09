@@ -613,6 +613,78 @@ Because surfacing cross-ticket patterns for account management is inherently a c
 
 ---
 
+## Q23. In MemoRAG, what grounds the generator's final answer? `[Basic]` `[MCQ]`
+
+- A. The draft answer written by the memory model
+- B. The compressed global memory placed directly in context
+- C. Evidence passages retrieved from the raw corpus
+- D. The clues produced by the memory model
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** The memory model only produces a draft or clues; the final generator is grounded in real passages that the precise retriever pulls from the raw corpus (Q6, Q3). The draft answer (A) is a hint about what evidence would support an answer and can be wrong if compression lost detail, so it is not treated as truth. The global memory (B) is consumed by the memory model, not fed to the generator as context. The clues (D) are converted into retrieval queries, not used as the evidence itself.
+
+</details>
+
+---
+
+## Q24. Which query would gain the least from MemoRAG's clue generation compared with standard dense retrieval? `[Intermediate]` `[MCQ]`
+
+- A. "What is the capital of France mentioned in doc 3?"
+- B. "Summarize the overall risk profile across all 12 filings"
+- C. "What contradictions exist between the 2022 and 2023 reports?"
+- D. "What long-term risks does this 400-page report identify?"
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** Q4's table shows that an explicit, narrow lookup shares its vocabulary with the target passage, so dense retrieval already works and the extra clue-generation call is pure latency. The risk-profile summary (B) has no single matching passage and needs aggregation, where clues earn their cost. The cross-report contradiction query (C) depends on the global memory having noticed the difference across the corpus. The long-term-risks query (D) is the implicit, scattered case that motivates the whole architecture (Q3).
+
+</details>
+
+---
+
+## Q25. In MemoRAG, why is adding one new document to the corpus more costly than in a standard dense-retrieval index? `[Intermediate]` `[MCQ]`
+
+- A. Every cached clue must be regenerated for all earlier queries
+- B. The precise retriever must be retrained on the new document
+- C. The generator must be fine-tuned on the changed evidence
+- D. The single global memory has no easy patch and needs recompression
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** The global memory is one compressed representation of the whole corpus built by a process designed to read it as a unit (Q2), so there is no obvious way to patch it for one document; teams recompress periodically or tag staleness (Q13). Clue regeneration (A) is not a stored artifact that must be rebuilt. The precise retriever (B) is a standard dense or sparse index over raw text, so adding a document is the usual cheap upsert. The generator (C) is not trained on the corpus at all.
+
+</details>
+
+---
+
+## Q26. A legal-tech MemoRAG deployment over 2,000 contracts yields clues such as a "$5M termination fee" that no contract contains, and clue-guided retrieval returns off-topic passages while raw-query retrieval finds the right clauses. What is the best diagnosis and fix? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Retriever fine-tuning gap: train the dense retriever on contract text
+- B. Lossy compression: lower the ratio and validate against retrieval accuracy
+- C. Weak generator: swap in a larger final answer model
+- D. Too few clues: raise the clue count k from 5 to 20
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Misleading clues that diverge from raw-query results are the signature of a compression-fidelity problem (Q12, Q4): the memory model lost or distorted detail and then confidently hallucinated it, so the fix is a gentler compression ratio validated on this corpus (Q10). Retriever training (A) is irrelevant because the retriever faithfully searched for the bad clue. A larger generator (C) cannot repair evidence retrieved for the wrong reason. More clues (D) adds more steering from the same flawed memory, increasing off-topic retrieval rather than fixing it.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Enterprise document QA over very long reports** (financial filings, legal contracts, technical manuals) where key answers require synthesizing scattered, implicit signals rather than a single explicit passage

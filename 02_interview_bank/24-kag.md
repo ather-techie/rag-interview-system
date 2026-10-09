@@ -632,6 +632,78 @@ Monitor: logical-form parse accuracy on a clinician/policy-reviewed sample, the 
 
 ---
 
+## Q23. Which capability does KAG's mutual index give a reasoning step when the knowledge graph holds only a lossy or partial fact? `[Basic]` `[MCQ]`
+
+- A. Re-running community detection to regenerate the missing summary
+- B. Falling back to the linked source text for the missing nuance and evidence
+- C. Replacing the step with a similarity search over the whole graph
+- D. Dropping the step and answering from the remaining steps
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** Mutual indexing links each KG element to the chunk it came from, so when extraction dropped a caveat or the fact is missing, the step can pull the linked passage for completeness and provenance (Q2, Q7). Community detection (A) is Graph RAG's mechanism, not KAG's, and does not recover a specific fact. A graph-wide similarity search (C) would discard the typed, executable structure KAG exists to preserve. Silently dropping the step (D) would break the logical chain and produce an unlabeled, unsupported answer, whereas KAG degrades per step and labels the source.
+
+</details>
+
+---
+
+## Q24. In KAG, which operations are executed deterministically instead of being left to LLM generation? `[Intermediate]` `[MCQ]`
+
+- A. Parsing the user question into a logical form
+- B. Writing the final natural-language answer
+- C. Aligning synonymous entities during extraction
+- D. Operators such as count, compare, and sort over resolved facts
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** After the LLM produces the logical form, computational and logical operators run as explicit steps over resolved facts, so counts, comparisons, and rankings do not hallucinate (Q3). Parsing (A) is the LLM acting as a semantic parser, which is why mis-decomposition is the dominant failure. Answer writing (B) is also LLM language generation, composing from the resolved steps. Synonym alignment (C) is an offline build step that uses LLM and domain models (Q5), not a query-time deterministic operator.
+
+</details>
+
+---
+
+## Q25. Which failure in a KAG deployment is most likely to yield a confidently wrong answer that still looks fully auditable? `[Intermediate]` `[MCQ]`
+
+- A. A false fact extracted into the KG and then used by deterministic operators
+- B. A text-fallback step returning a loosely related chunk
+- C. A cached logical form that is slightly slower than a fresh parse
+- D. An operator that times out and returns an empty result
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** KAG's reasoning is rigorous but only as sound as its facts, so a poisoned or mis-extracted edge yields a clean, traceable chain to a wrong conclusion that looks more authoritative (Q5, Q10). A loosely related fallback chunk (B) is labeled as text-derived and lower confidence, so it is visible. A slow cached logical form (C) is a latency concern, not a correctness one. A timeout with an empty result (D) surfaces as an unresolved step that can be flagged for review, rather than as a silent wrong answer.
+
+</details>
+
+---
+
+## Q26. An e-government agency runs KAG for benefit-eligibility rules, but most traffic is simple lookups such as "What is the deadline for Form 12?", and average latency is high. Which change best fixes this while keeping rule rigor where it matters? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Replace the knowledge graph with dense retrieval for every incoming query
+- B. Run full logical-form decomposition on every query using a larger parser model
+- C. Route simple lookups to direct KG or text retrieval, keeping logical forms for multi-step questions
+- D. Let the LLM answer eligibility questions directly, skipping operator execution
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** Adaptive routing lets lookups skip parsing and operator execution, while genuinely multi-step, rule-based eligibility questions still get deterministic, auditable reasoning (Q11, Q12). Dropping the KG for dense retrieval (A) throws away the rule-following and provenance that justify KAG for eligibility. A larger parser (B) adds latency to every query and still decomposes questions that never needed it. Letting the LLM answer eligibility directly (D) trades away exact rule application and the audit trail, the very properties the agency needs.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 | Application | Domain | Why KAG Fits |

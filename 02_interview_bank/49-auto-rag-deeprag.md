@@ -631,6 +631,78 @@ Given the query volume across hundreds of engagements plausibly clears Q15's dec
 
 ---
 
+## Q23. Which output does DeepRAG's policy attach to each atomic subquery before that subquery is answered? `[Basic]` `[MCQ]`
+
+- A. A relevance score used to rerank the retrieved passages
+- B. A RETRIEVE or PARAMETRIC action label
+- C. A fixed hop count for the rest of the chain
+- D. A reformulated query rewritten for the retriever
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: B.** DeepRAG treats each atomic subquery as an MDP step whose action is either RETRIEVE (call the retriever) or PARAMETRIC (answer from memory), recorded in the reasoning state (Q3, Q4). Option A describes reranking, which is not the policy's decision. Option C is wrong because DeepRAG has no preset hop count; only a max_steps cap bounds the loop. Option D belongs to query-rewriting architectures such as RQ-RAG (#51); DeepRAG decomposes into subqueries but its distinctive decision is whether to retrieve at all.
+
+</details>
+
+---
+
+## Q24. Which property distinguishes Auto-RAG's inference loop from a fixed-hop iterative pipeline? `[Intermediate]` `[MCQ]`
+
+- A. It reuses a hand-written Thought/Action/Observation prompt template
+- B. It runs exactly one retrieval turn for every question
+- C. It relies on a separate classifier that routes each question once
+- D. It chooses its own number of turns and stops when evidence suffices
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: D.** Auto-RAG's fine-tuned model decides in natural language whether to retrieve again or answer, so easy questions end in one or two turns and multi-hop ones take more, with no human-set hop count (Q2, Q1). Option A is wrong: the policy is learned from synthesized traces rather than imposed by a ReAct-style template. Option B describes single-shot RAG. Option C describes Adaptive RAG's one-time complexity routing, which Q1 contrasts with Auto-RAG's per-step decisions.
+
+</details>
+
+---
+
+## Q25. What does DeepRAG's binary tree search over RETRIEVE and PARAMETRIC branches provide that final-answer labels alone cannot? `[Intermediate]` `[MCQ]`
+
+- A. Labels for the minimal retrieval sequence that still reaches the correct answer
+- B. Gold supporting passages for every atomic subquery
+- C. A reward model that scores the fluency of each sub-answer
+- D. Negative examples of questions that cannot be decomposed
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: A.** No dataset labels whether retrieval was necessary for a given subquery, so the tree search tries both branches and keeps the cheapest sequence that still gets the right final answer; policy fine-tuning then imitates it (Q12, Q3). Option B is wrong because the search discovers decisions, not gold passages. Option C confuses it with a learned reward model; the signal is final-answer correctness shaped to penalize redundant retrieval. Option D is unrelated: the search operates on already-decomposed subqueries.
+
+</details>
+
+---
+
+## Q26. A bank's DeepRAG assistant is asked for a partner bank's current overdraft fee and how it compares with the national average. The policy confidently answers the fee subquery PARAMETRIC. What change best prevents a stale answer? `[Advanced]` `[Scenario]` `[MCQ]`
+
+- A. Fine-tune longer so the policy grows even more confident on fee subqueries
+- B. Lower max_steps so fewer subqueries are answered per chain
+- C. Add a time-sensitivity rule that forces RETRIEVE for subqueries about current fees
+- D. Switch to Auto-RAG so the free-form dialogue handles the fee
+
+<details>
+<summary>💡 Show Answer</summary>
+
+**Answer:**
+
+**Correct: C.** A false PARAMETRIC on a volatile fact silently corrupts every dependent step and leaves no retrieved artifact to audit (Q5), so a volatility override forcing RETRIEVE for "current" cues is the standard guard (Q10, Q18). Option A makes the miscalibration worse, since confidence is exactly what fails here. Option B shortens chains but does not stop the bad fee answer. Option D keeps the same learned parametric-versus-retrieve judgment inside a less auditable dialogue (Q13), so the risk remains.
+
+</details>
+
+---
+
 ## Real-World Applications
 
 - **Open-domain multi-hop QA assistants** (HotpotQA/2WikiMultiHopQA-style deployments): variable-depth reasoning chains where retrieval depth should track question difficulty, not a fixed hop budget
