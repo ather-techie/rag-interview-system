@@ -11,6 +11,11 @@ tooling, **patch** for fixes and wording.
 
 ### Added
 
+- Added a self-assessment page (`assessment.html`): exam-style sets of
+  10/25/50/all `[MCQ]` questions sampled across sections, an optional
+  30 s or 60 s per-question timer, answers revealed only on submit, a
+  readiness level, breakdowns by difficulty and section, a review of missed
+  questions, and attempt history kept in the browser's localStorage.
 - Added the `[MCQ]` (multiple-choice, single-correct) question tag: a
   lettered option list between the heading and `<details>`, and a
   `**Correct: X.**` key line as the first line of the answer so the correct

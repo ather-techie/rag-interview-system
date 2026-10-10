@@ -85,6 +85,8 @@ small set of options — a good fit for metrics, hyperparameter choices, "which
 of these is true" style facts, or a scenario with one clearly-best option. The
 quiz auto-grades these: the candidate clicks an option and sees immediately
 whether they were right, instead of self-reporting "Got it" / "Review again".
+The self-assessment page (`assessment.html`) also draws its exam sets only from
+`[MCQ]` questions, so every new MCQ widens that pool.
 
 Format rules, enforced by `npm run check`:
 - The option list goes directly after the heading, as plain `- A. ...` /

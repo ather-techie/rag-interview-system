@@ -27,6 +27,7 @@ marked.setOptions({ gfm: true });
 
 const SITE_CSS = readFileSync(path.join(ROOT, 'scripts', 'site.css'), 'utf8');
 const QUIZ_JS = readFileSync(path.join(ROOT, 'scripts', 'quiz.js'), 'utf8');
+const ASSESSMENT_JS = readFileSync(path.join(ROOT, 'scripts', 'assessment.js'), 'utf8');
 
 const QUIZ_DIRS = new Set(['02_interview_bank', '03_failure_modes']);
 const QUIZ_GROUP_LABELS = { '02_interview_bank': 'Architectures', '03_failure_modes': 'Failure Modes' };
@@ -385,6 +386,7 @@ ${sectionOptions}
     .map(([n, label]) => `  <div class="stat"><span class="stat-num">${n.toLocaleString('en-US')}</span><span class="stat-label">${label}</span></div>`)
     .join('\n');
   const body = `<h1>RAG Interview Quiz</h1>
+<p class="page-nav"><a href="index.html">← Back to Index</a> · <a href="assessment.html">Take a timed self-assessment →</a></p>
 <div class="quiz-stats">
 ${statTiles}
 </div>
@@ -402,6 +404,92 @@ ${QUIZ_JS}
 </script>`;
 
   return wrapPage({ title: 'RAG Interview Quiz', bodyHtml: body, depth: 0, quiz: false });
+}
+
+/** Segmented control for the assessment setup card (buttons call setAssessOption in assessment.js). */
+function assessSegmentedHtml({ legend, name, options, active }) {
+  const buttons = options
+    .map((o) => {
+      const on = o.value === active;
+      const dot = o.dotClass ? `<span class="dot ${o.dotClass}"></span>` : '';
+      return `<button class="assess-btn${on ? ' active' : ''}" data-opt="${name}" aria-pressed="${on}" onclick='setAssessOption("${name}", ${JSON.stringify(o.value)}, this)'>${dot}${o.label}</button>`;
+    })
+    .join('\n        ');
+  return `    <fieldset class="filter-group">
+      <legend>${legend}</legend>
+      <div class="segmented" role="group" aria-label="${legend}">
+        ${buttons}
+      </div>
+    </fieldset>`;
+}
+
+/** An MCQ item the assessment can use (mirrors isMcqItem in scripts/assessment.js). */
+function isAssessmentItem(it) {
+  return it.tags.includes('MCQ') && Array.isArray(it.options) && it.options.length > 0 && !!it.correct;
+}
+
+/** Builds the exam-style self-assessment page at the site root. */
+function buildAssessmentPage(items, sections) {
+  const mcqItems = items.filter(isAssessmentItem);
+  const dataJson = JSON.stringify(mcqItems).replace(/</g, '\\u003c');
+  const sectionsWithMcq = (dir) => (sections.get(dir) ?? []).filter((s) => s.mcqCount > 0).length;
+  const stats = [
+    [mcqItems.length, 'Multiple-choice'],
+    [new Set(mcqItems.map((it) => it.section)).size, 'Sections covered'],
+    [sectionsWithMcq('02_interview_bank'), 'Architectures'],
+    [sectionsWithMcq('03_failure_modes'), 'Failure modes'],
+  ];
+  const statTiles = stats
+    .map(([n, label]) => `  <div class="stat"><span class="stat-num">${n.toLocaleString('en-US')}</span><span class="stat-label">${label}</span></div>`)
+    .join('\n');
+
+  const setupCard = mcqItems.length === 0
+    ? '<p class="match-count empty">No multiple-choice questions are available yet.</p>'
+    : `<div class="quiz-bar">
+  <div class="quiz-filters">
+${assessSegmentedHtml({ legend: 'Questions', name: 'count', active: 25, options: [
+  { value: 10, label: '10' }, { value: 25, label: '25' }, { value: 50, label: '50' }, { value: 'All', label: 'All' },
+] })}
+${assessSegmentedHtml({ legend: 'Difficulty', name: 'difficulty', active: 'All', options: [
+  { value: 'All', label: 'All' },
+  { value: 'Basic', label: 'Basic', dotClass: 'basic' },
+  { value: 'Intermediate', label: 'Intermediate', dotClass: 'intermediate' },
+  { value: 'Advanced', label: 'Advanced', dotClass: 'advanced' },
+] })}
+${assessSegmentedHtml({ legend: 'Section group', name: 'group', active: 'All', options: [
+  { value: 'All', label: 'All' }, { value: 'Architectures', label: 'Architectures' }, { value: 'Failure Modes', label: 'Failure modes' },
+] })}
+${assessSegmentedHtml({ legend: 'Timer', name: 'secondsPerQuestion', active: 0, options: [
+  { value: 0, label: 'Off' }, { value: 30, label: '30 s / question' }, { value: 60, label: '60 s / question' },
+] })}
+  </div>
+  <div class="quiz-bar-actions">
+    <button id="assess-start-btn" class="primary" onclick="startAssessment()">▶ Start assessment</button>
+    <span id="assess-match-count" class="match-count" aria-live="polite"></span>
+  </div>
+</div>`;
+
+  const body = `<h1>RAG Interview Self-Assessment</h1>
+<p class="page-nav"><a href="index.html">← Back to Index</a> · <a href="quiz.html">Interactive Quiz (flashcards)</a></p>
+<div class="quiz-stats">
+${statTiles}
+</div>
+<p class="lead">Pick a set size and optional focus, answer every question, then submit for a readiness score. Answers are not revealed until you submit.</p>
+<div id="main-content">
+${setupCard}
+<section id="assessment-history"></section>
+</div>
+<section id="assessment-results" class="is-hidden"></section>
+<div class="quiz-panel-overlay" id="quiz-overlay"></div>
+<div id="quiz-panel"></div>
+<script type="application/json" id="assessment-data">
+${dataJson}
+</script>
+<script>
+${ASSESSMENT_JS}
+</script>`;
+
+  return wrapPage({ title: 'RAG Interview Self-Assessment', bodyHtml: body, depth: 0, quiz: false });
 }
 
 function main() {
@@ -499,10 +587,12 @@ function main() {
 
   const quizPage = buildQuizPage(quizItems, quizSections);
   writeFileSync(path.join(OUT, 'quiz.html'), quizPage, 'utf8');
+  writeFileSync(path.join(OUT, 'assessment.html'), buildAssessmentPage(quizItems, quizSections), 'utf8');
+  const assessmentMcqs = quizItems.filter(isAssessmentItem).length;
 
   console.log(
     `Built ${pageCount} pages, ${indexCount} generated indexes, ${staticCount} static files, ` +
-      `quiz page with ${quizItems.length} questions ` +
+      `quiz page with ${quizItems.length} questions, assessment page with ${assessmentMcqs} MCQs ` +
       `(${warnings} warnings, ${brokenLinks} broken .md links, ${extractionErrors} extraction errors)`
   );
 
