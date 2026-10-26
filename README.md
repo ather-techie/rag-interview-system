@@ -41,6 +41,59 @@ jupyter lab 01_naive_rag.ipynb
 
 Prefer zero setup? Every lab notebook has an **Open in Colab** badge — see [Labs & Patterns](#-labs--patterns) below.
 
+### 🕹️ How to Use the Practice Quiz
+
+The [Practice Quiz][quiz-url] is the place to learn and drill. It turns every Q&A into a flashcard and every `[MCQ]` into an auto-graded question, all in your browser.
+
+**1. Choose what to practise**
+
+<p align="center">
+  <img src="assets/screenshots/practice-setup.png" alt="Practice Quiz setup screen with filters for difficulty, type, section, scenario-only, and shuffle" width="700" />
+</p>
+
+- **Difficulty** — Basic, Intermediate, Advanced, or All.
+- **Type** — Flashcards, MCQ, or All.
+- **Options** — *Scenario only* for situational questions, *Shuffle* for random order.
+- **Section** — focus on a single architecture or failure mode.
+- The live count shows how many questions match. Click **Start Practice**, or **Reset filters** to start over.
+
+**2. Work through the questions**
+
+<p align="center">
+  <img src="assets/screenshots/practice-question.png" alt="Practice Quiz flashcard showing a question with Show Answer and Skip buttons" width="700" />
+</p>
+
+- Think of your answer first, then click **Show Answer** to check it. Answers are revealed as you go.
+- Click **Skip** to move on, or ✕ to exit.
+
+### 🎯 How to Use the Self-Assessment
+
+The [Self-Assessment][assessment-url] is an exam-style multiple-choice test that runs entirely in your browser — no install or sign-up.
+
+**1. Configure your test**
+
+<p align="center">
+  <img src="assets/screenshots/assessment-setup.png" alt="Self-Assessment setup screen with options for number of questions, difficulty, section group, and timer" width="700" />
+</p>
+
+- **Questions** — choose 10, 25, 50, or All.
+- **Difficulty** — Basic, Intermediate, Advanced, or All.
+- **Section group** — Architectures, Failure modes, or All.
+- **Timer** — Off, 30 s / question, or 60 s / question.
+- Click **Start assessment**.
+
+**2. Answer the questions**
+
+<p align="center">
+  <img src="assets/screenshots/assessment-question.png" alt="Self-Assessment question screen showing a multiple-choice question, progress tracker, and countdown timer" width="700" />
+</p>
+
+- Use the numbered bubbles to jump to any question, or **Previous** / **Next** to step through.
+- Answers are not revealed until you click **Submit**.
+- If the timer is on, the countdown shows at the top right. Use ✕ to exit.
+
+**3. Review your results** — you get a readiness level, a per-section breakdown to show where to study next, and saved attempt history so you can track progress.
+
 ## What is RAG?
 
 **Retrieval-Augmented Generation (RAG)** is an LLM architecture that grounds model responses in external knowledge: documents are chunked, embedded, and stored in a vector database; at query time the most relevant chunks are retrieved via vector search and passed to the LLM as context for generation. RAG reduces hallucination, keeps answers current without retraining, and is the most common production pattern for enterprise LLM applications — which is why it dominates AI engineer and GenAI system design interviews.
