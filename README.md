@@ -365,6 +365,24 @@ Hands-on Jupyter notebooks and composition pattern guides:
 | 08 | [Evaluation](./08_evaluation/README.md) | Golden dataset construction guide + RAGAS CI harness |
 | 09 | [Tools](./09_tools/README.md) | Eval & observability tool comparison (Ragas, TruLens, DeepEval, LlamaIndex eval, LangChain eval); vector DB & framework comparisons still planned |
 
+### 🪟 Microsoft Technology in This Repo
+
+Microsoft Research and the Azure AI platform shape much of modern RAG. Where they show up here:
+
+| Topic | Where | What you get |
+|---|---|---|
+| Microsoft GraphRAG | [05 — Graph RAG](./02_interview_bank/05-graph-rag.md) | Leiden community detection, global vs local queries |
+| LightRAG vs GraphRAG | [15 — LightRAG](./02_interview_bank/15-lightrag.md) | Build-cost and quality trade-offs |
+| LazyGraphRAG | [47 — LazyGraphRAG](./02_interview_bank/47-lazygraphrag.md) | Defers LLM summarization to query time |
+| CoRAG (Microsoft Research) | [50 — CoRAG](./02_interview_bank/50-corag.md) | Chain-of-retrieval training |
+| LLMLingua prompt compression | [10 — Long-Context RAG](./02_interview_bank/10-long-context-rag.md) | Compressing context to cut cost |
+| Microsoft Presidio | [34 — Privacy-Preserving RAG](./02_interview_bank/34-privacy-preserving-rag.md) | PII detection and anonymization |
+| DiskANN, Azure Cosmos DB, PostgreSQL `pg_diskann` | [Vector Databases](./01_concepts/vector_databases.md) | Billion-scale ANN on SSD |
+| Azure AI Document Intelligence | [Document Ingestion](./01_concepts/document_ingestion_and_parsing.md) | Managed OCR and layout extraction |
+| Microsoft Agent Framework, Semantic Kernel, AutoGen | [Agentic Orchestration](./01_concepts/agentic_orchestration.md) | Framework selection |
+| Azure AI groundedness | [Evaluation Metrics](./01_concepts/evaluation_metrics.md) | Groundedness vs faithfulness |
+| Azure OpenAI in the labs | [Labs setup](./06_labs_py/README.md) | Set `AI_PROVIDER=azure` |
+
 ### 🔄 Coming Soon
 
 | # | Section | Status |

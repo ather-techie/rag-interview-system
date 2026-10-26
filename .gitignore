@@ -9,6 +9,9 @@ __pycache__/
 # Jupyter
 .ipynb_checkpoints/
 
+# Claude Code local state / agent worktrees
+.claude/
+
 # Node / site build
 node_modules/
 _site/
