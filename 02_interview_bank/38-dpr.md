@@ -46,6 +46,7 @@ Key design decision: **two separate encoders** (not a single cross-encoder). Thi
 | Vector index | FAISS (`IndexFlatIP` for exact inner-product search) |
 | Model library | HuggingFace `transformers` — `DPRQuestionEncoder`, `DPRContextEncoder` |
 | Base checkpoints | BERT-base (uncased) checkpoints for both encoders |
+| Microsoft Stack | Azure Machine Learning for encoder training; Azure AI Search or Azure Cosmos DB (DiskANN vector index) as the production vector index; DiskANN for very large corpora |
 
 ---
 

@@ -41,10 +41,11 @@ Synthesizer (LLM generates the final answer with inline citations)
 
 | Category | Example Tools & Frameworks |
 |---|---|
-| Search API | Tavily, Bing Search API, Google Custom Search, SerpAPI, Brave Search |
+| Search API | Tavily, Google Custom Search, SerpAPI, Brave Search |
 | Page-to-text extraction | trafilatura, readability, BeautifulSoup |
 | Orchestration | LangChain / LlamaIndex web search tool wrappers |
 | Agent loop | Anthropic tool-use (function calling) for iterative, multi-step search |
+| Microsoft Stack | Grounding with Bing Search (Azure AI Foundry Agent Service); Semantic Kernel / Microsoft Agent Framework web search plugins; Microsoft Agent Framework for the iterative search loop |
 
 ---
 
@@ -509,7 +510,7 @@ The multi-step research loop in Q5 is the bridge between the two — it's Agenti
 
 **Answer:**
 
-Unlike architectures with a single originating research paper, Agentic Web RAG is best understood as a product pattern that emerged once two prerequisites matured simultaneously: (1) LLMs became reliable enough at tool-use/function-calling to be trusted with an open-ended "search when needed" decision without the expensive fine-tuning WebGPT (#39) required, and (2) affordable, LLM-friendly web search APIs (Bing Search API, Brave Search, Tavily, Exa) emerged that return structured results rather than requiring an agent to scrape raw search-engine HTML.
+Unlike architectures with a single originating research paper, Agentic Web RAG is best understood as a product pattern that emerged once two prerequisites matured simultaneously: (1) LLMs became reliable enough at tool-use/function-calling to be trusted with an open-ended "search when needed" decision without the expensive fine-tuning WebGPT (#39) required, and (2) affordable, LLM-friendly web search APIs (Bing Search API, since retired in August 2025 in favor of Grounding with Bing Search; Brave Search, Tavily, Exa) emerged that return structured results rather than requiring an agent to scrape raw search-engine HTML.
 
 Perplexity.ai is generally credited as the product that popularized this exact pattern — live web search plus streaming synthesis with inline citations — at consumer scale, which is why the architecture is informally referred to as "Perplexity-style" (as this file's title reflects). Microsoft's Bing Copilot and OpenAI's browsing-enabled ChatGPT modes followed the same underlying pattern shortly after, all converging on the same architecture independently once the prerequisite tool-use reliability existed, rather than one paper or product inventing the idea from scratch.
 

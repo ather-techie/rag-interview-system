@@ -87,6 +87,13 @@ test('filterPool filters by MCQ, difficulty and group', () => {
   assert.equal(filterPool(pool, { difficulty: 'Advanced', group: 'Failure Modes' }).length, 0);
 });
 
+test('filterPool and configFromSearch support the Microsoft Stack group', () => {
+  const pool = [...makePool(2), mcq('m', 'M', 'Basic', { sectionGroup: 'Microsoft Stack' })];
+  assert.equal(filterPool(pool, { group: 'Microsoft Stack' }).length, 1);
+  assert.equal(filterPool(pool, { group: 'Architectures' }).length, 12);
+  assert.equal(configFromSearch('?group=Microsoft%20Stack', { group: 'All' }).group, 'Microsoft Stack');
+});
+
 test('sampleQuestions spreads across sections and difficulties', () => {
   const pool = makePool(3);
   const three = sampleQuestions(pool, 3, mulberry32(1));

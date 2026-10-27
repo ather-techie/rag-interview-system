@@ -62,6 +62,7 @@ LLM Cluster Summarization ──► Summary Nodes (Level 1)
 | Summarization LLM | GPT-4o-mini (or another low-cost model) |
 | Vector store | Qdrant/Pinecone with level + parent_id metadata for collapsed retrieval |
 | Framework | LlamaIndex `RaptorPack` |
+| Microsoft Stack | Azure OpenAI (summarization and embeddings); Azure AI Search or Azure Cosmos DB (DiskANN vector index) with level and parent-id fields; Semantic Kernel / Microsoft Agent Framework |
 
 ---
 

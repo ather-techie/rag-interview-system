@@ -9,6 +9,20 @@ tooling, **patch** for fixes and wording.
 
 ## [Unreleased]
 
+### Added (Microsoft Stack)
+
+- Added a Microsoft Stack question section, `11_microsoft_stack/` (104
+  questions in four files: Azure AI Search, Azure OpenAI and Foundry, Microsoft
+  Agent Framework and Semantic Kernel, and an Azure RAG reference
+  architecture). It appears as its own group in the Practice Quiz and
+  Self-Assessment and is counted in the README totals.
+- Added the concept doc `01_concepts/microsoft_azure_ai_stack.md` (pipeline
+  stage to Microsoft service map, free ways to practise, service selection).
+- Added a `Microsoft Stack` row to the Tools & Frameworks table of all 52
+  architecture files.
+- `scripts/check_questions.mjs` and `scripts/build_site.mjs` now treat the new
+  directory as a quiz group with the same per-file targets as the bank.
+
 ### Changed
 
 - Relabelled the quiz as the "Practice Quiz" (URL unchanged) to separate it

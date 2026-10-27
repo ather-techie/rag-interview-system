@@ -51,6 +51,7 @@
 | Prompt caching | Anthropic prompt caching, OpenAI prompt caching |
 | Coarse retrieval | BM25 (Elasticsearch/Lucene), vector DB (Pinecone, Qdrant) |
 | Compression (optional) | LLMLingua/LongLLMLingua, Selective Context, Recomp |
+| Microsoft Stack | Azure OpenAI long-context models (e.g. GPT-4.1) with prompt caching; LLMLingua (Microsoft Research) for prompt compression; Azure AI Search for coarse retrieval |
 
 ---
 

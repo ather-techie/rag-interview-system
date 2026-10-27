@@ -51,6 +51,7 @@ Answer
 | Database access | SQLAlchemy, database-specific drivers |
 | SQL validation | sqlglot / sqlparse AST parsing |
 | Databases | PostgreSQL, MySQL, SQLite, Snowflake |
+| Microsoft Stack | Azure SQL Database, Azure Database for PostgreSQL, Microsoft Fabric; Azure OpenAI for text-to-SQL with Structured Outputs; Semantic Kernel / Microsoft Agent Framework |
 
 ---
 

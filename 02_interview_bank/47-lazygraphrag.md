@@ -68,6 +68,7 @@ Generator ──► Answer
 | NLP extraction (index time) | spaCy / standard noun-phrase chunkers — no LLM calls required at index time |
 | Query-time LLM | Any chat LLM (GPT-4o, Claude, Gemini) used only for relevance testing and final subgraph summarization |
 | Source | [Microsoft Research Blog, Nov 2024 — "LazyGraphRAG: Setting a new standard for quality and cost"](https://www.microsoft.com/en-us/research/blog/lazygraphrag-setting-a-new-standard-for-quality-and-cost/) (Darren Edge, Ha Trinh, Jonathan Larson) — this is a blog post, not an arXiv paper |
+| Microsoft Stack | `microsoft/graphrag` (LazyGraphRAG originates from Microsoft Research); Azure OpenAI for query-time relevance tests; Azure Blob Storage for the index artifacts |
 
 ---
 

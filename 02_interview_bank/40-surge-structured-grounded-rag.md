@@ -63,6 +63,7 @@ Query + Schema
 | Schema-constrained generation | OpenAI/Claude `tool_use`/function-calling with JSON schema |
 | Schema validation | Pydantic |
 | Grounding validation | NLI models (e.g. `bart-large-mnli`, `cross-encoder/nli-deberta-v3-base`) |
+| Microsoft Stack | Azure OpenAI Structured Outputs (JSON schema); Azure AI Content Safety (groundedness detection); Semantic Kernel / Microsoft Agent Framework function calling |
 
 ---
 

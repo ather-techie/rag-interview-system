@@ -61,6 +61,7 @@ Memory Update (working memory + long-term store)
 | Session state store | Redis, in-memory session cache |
 | Vector database | Pinecone, Weaviate, FAISS, pgvector |
 | Query rewriting | LLM prompting (GPT-4o-mini, Claude Haiku) for condensation |
+| Microsoft Stack | Azure Cosmos DB (chat history and session state), Azure Managed Redis; Agent Framework threads / Semantic Kernel / Microsoft Agent Framework memory abstractions; Azure AI Search |
 
 ---
 

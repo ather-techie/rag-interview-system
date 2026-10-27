@@ -68,6 +68,7 @@ Final Answer Generator (synthesizes from the full learned retrieval chain)
 | Base models fine-tuned | Open-source LLMs (e.g. Llama-family) fine-tuned end-to-end on chain data |
 | Retriever | Standard dense retriever (E5/Contriever-style) over the KILT corpus |
 | Decoding strategies | Greedy chain decoding, best-of-N sampled chains with reranking, dynamic chain-length budgets |
+| Microsoft Stack | CoRAG is from Microsoft Research; Azure Machine Learning for chain-data training; Azure AI Search as the retriever; Semantic Kernel / Microsoft Agent Framework for a chain-of-retrieval loop |
 
 ---
 

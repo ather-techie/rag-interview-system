@@ -20,7 +20,7 @@
 //   renumber <file>                      rewrite Qn sequentially outside fences
 //
 // Usage: node scripts/check_questions.mjs <command> [options]
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -38,11 +38,15 @@ import {
 const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const BANK_DIR = '02_interview_bank';
 const FAILURE_DIR = '03_failure_modes';
-const QUIZ_DIRS = [BANK_DIR, FAILURE_DIR];
-const TARGET_COUNT = 22; // per-file target for 02_interview_bank only, excluding [MCQ] questions
+const MS_DIR = '11_microsoft_stack';
+const QUIZ_DIRS = [BANK_DIR, FAILURE_DIR, MS_DIR];
+// Dirs held to the per-file question-count / mix / Scenario / MCQ targets below.
+const TARGETED_DIRS = [BANK_DIR, MS_DIR];
+const isTargeted = (relPath) => TARGETED_DIRS.some((d) => relPath.startsWith(d));
+const TARGET_COUNT = 22; // per-file target for TARGETED_DIRS, excluding [MCQ] questions
 const TARGET_MIX = { Basic: 6, Intermediate: 8, Advanced: 8 };
-const TARGET_SCENARIOS = 2; // per-file target count of [Scenario]-tagged questions, 02_interview_bank only
-// Per-file target count of [MCQ]-tagged questions, 02_interview_bank only.
+const TARGET_SCENARIOS = 2; // per-file target count of [Scenario]-tagged questions, TARGETED_DIRS only
+// Per-file target count of [MCQ]-tagged questions, TARGETED_DIRS only.
 // Set to 0 to silence W-MCQ (e.g. while rolling MCQs out to a new batch of
 // files); see CONTRIBUTING.md's "The [MCQ] tag" section.
 const TARGET_MCQ = 4;
@@ -69,6 +73,7 @@ const RUBRIC = [
 
 function listMdFiles(dir) {
   const abs = path.join(ROOT, dir);
+  if (!existsSync(abs)) return [];
   return readdirSync(abs)
     .filter((f) => f.toLowerCase().endsWith('.md'))
     .sort()
@@ -106,7 +111,7 @@ function runCheck({ strict, dir }) {
 
   // Bank-wide exact-duplicate check (across files, not just within one).
   const allBankQs = files
-    .filter((f) => f.relPath.startsWith(BANK_DIR) || f.relPath.startsWith(FAILURE_DIR))
+    .filter((f) => QUIZ_DIRS.some((d) => f.relPath.startsWith(d)))
     .flatMap((f) => f.questions.map((q) => ({ fileRel: f.relPath, title: q.title, n: q.n })));
   const seenAcrossFiles = new Map();
   for (const q of allBankQs) {
@@ -143,7 +148,7 @@ function runCheck({ strict, dir }) {
   // over non-MCQ questions only -- see TARGET_MCQ/W-MCQ below for the
   // separate [MCQ] target, so a file growing MCQs doesn't trip W-COUNT.
   for (const f of files) {
-    if (!f.relPath.startsWith(BANK_DIR)) continue;
+    if (!isTargeted(f.relPath)) continue;
     const { flashcards, mcqs } = partitionMcq(f.questions);
     const count = flashcards.length;
     if (count !== TARGET_COUNT) {
@@ -163,7 +168,7 @@ function runCheck({ strict, dir }) {
 
   // Per-file bank Scenario-tag target (warning, or error under --strict).
   for (const f of files) {
-    if (!f.relPath.startsWith(BANK_DIR)) continue;
+    if (!isTargeted(f.relPath)) continue;
     const scenarioCount = tagCounts(f.questions).Scenario;
     if (scenarioCount < TARGET_SCENARIOS) {
       const level = strict ? 'error' : 'warn';
@@ -183,7 +188,7 @@ function runCheck({ strict, dir }) {
   // while TARGET_MCQ is 0 -- see the constant's comment.
   if (TARGET_MCQ > 0) {
     for (const f of files) {
-      if (!f.relPath.startsWith(BANK_DIR)) continue;
+      if (!isTargeted(f.relPath)) continue;
       const mcqCount = tagCounts(f.questions).MCQ;
       if (mcqCount < TARGET_MCQ) {
         const level = strict ? 'error' : 'warn';
@@ -272,7 +277,8 @@ function runGaps({ file, dir, all, json }) {
     files = files.filter((f) => path.posix.basename(f.relPath).startsWith(prefix + '-'));
   }
   const results = files.map(gapsForFile);
-  const filtered = all || file ? results : results.filter((r) => r.count < TARGET_COUNT || targetDir !== BANK_DIR);
+  const targeted = TARGETED_DIRS.includes(targetDir);
+  const filtered = all || file ? results : results.filter((r) => r.count < TARGET_COUNT || !targeted);
 
   if (json) {
     console.log(JSON.stringify(filtered, null, 2));
@@ -280,9 +286,9 @@ function runGaps({ file, dir, all, json }) {
   }
 
   for (const r of filtered) {
-    console.log(`\n${r.file}  ${r.count}/${targetDir === BANK_DIR ? TARGET_COUNT : '-'}  B${r.mix.Basic} I${r.mix.Intermediate} A${r.mix.Advanced} S${r.scenarios} M${r.mcqs}`);
+    console.log(`\n${r.file}  ${r.count}/${targeted ? TARGET_COUNT : '-'}  B${r.mix.Basic} I${r.mix.Intermediate} A${r.mix.Advanced} S${r.scenarios} M${r.mcqs}`);
     if (r.title) console.log(`  title: ${r.title}`);
-    if (targetDir === BANK_DIR) {
+    if (targeted) {
       const needParts = [];
       if (r.deltas.Basic > 0) needParts.push(`+${r.deltas.Basic} B`);
       if (r.deltas.Intermediate > 0) needParts.push(`+${r.deltas.Intermediate} I`);
@@ -306,7 +312,7 @@ function runGaps({ file, dir, all, json }) {
 
   const totalCount = results.reduce((s, r) => s + r.count, 0);
   const totalMcq = results.reduce((s, r) => s + r.mcqs, 0);
-  const totalTarget = targetDir === BANK_DIR ? results.length * TARGET_COUNT : null;
+  const totalTarget = targeted ? results.length * TARGET_COUNT : null;
   console.log(
     `\n${targetDir}: ${results.length} files, ${totalCount} questions` +
       (totalMcq > 0 ? ` (${totalMcq} MCQ)` : '') +
@@ -320,16 +326,18 @@ function runGaps({ file, dir, all, json }) {
 function computeCounts() {
   const bankFiles = loadDir(BANK_DIR);
   const failureFiles = loadDir(FAILURE_DIR);
+  const msFiles = loadDir(MS_DIR);
   const byPath = new Map();
-  for (const f of [...bankFiles, ...failureFiles]) {
+  for (const f of [...bankFiles, ...failureFiles, ...msFiles]) {
     byPath.set(f.relPath.replace(/\\/g, '/'), f.questions.length);
   }
   const bankTotal = bankFiles.reduce((s, f) => s + f.questions.length, 0);
   const failureTotal = failureFiles.reduce((s, f) => s + f.questions.length, 0);
+  const msTotal = msFiles.reduce((s, f) => s + f.questions.length, 0);
   const mix = { Basic: 0, Intermediate: 0, Advanced: 0 };
   let scenarioTotal = 0;
   let mcqTotal = 0;
-  for (const f of [...bankFiles, ...failureFiles]) {
+  for (const f of [...bankFiles, ...failureFiles, ...msFiles]) {
     const m = difficultyMix(f.questions);
     mix.Basic += m.Basic;
     mix.Intermediate += m.Intermediate;
@@ -342,6 +350,7 @@ function computeCounts() {
     byPath,
     bankTotal,
     failureTotal,
+    msTotal,
     mix,
     scenarioTotal,
     mcqTotal,
@@ -382,6 +391,10 @@ function regenerateReadme(text, counts) {
     /(<!-- questions:total 03_failure_modes -->\*\*Failure Modes Total: )\d+( questions\*\*<!-- \/questions:total -->)/,
     `$1${counts.failureTotal}$2`
   );
+  out = out.replace(
+    /(<!-- questions:total 11_microsoft_stack -->\*\*Microsoft Stack Total: )\d+( questions\*\*<!-- \/questions:total -->)/,
+    `$1${counts.msTotal}$2`
+  );
 
   // --- Concepts total: read back, not recomputed ---
   const conceptsMatch = out.match(/\*\*Core Concepts Total: (\d+) questions across \d+ files\*\*/);
@@ -389,7 +402,7 @@ function regenerateReadme(text, counts) {
     errors.push('Could not find "Core Concepts Total" line to read back concepts count');
   }
   const conceptsTotal = conceptsMatch ? Number(conceptsMatch[1]) : 0;
-  const grandTotal = counts.bankTotal + counts.failureTotal + conceptsTotal;
+  const grandTotal = counts.bankTotal + counts.failureTotal + counts.msTotal + conceptsTotal;
 
   // --- Grand total ---
   out = out.replace(
@@ -397,10 +410,10 @@ function regenerateReadme(text, counts) {
     `$1${grandTotal}$2`
   );
 
-  // --- Difficulty mix (architectures + failure modes only; concepts aren't tagged) ---
+  // --- Difficulty mix (architectures + failure modes + Microsoft stack; concepts aren't tagged) ---
   out = out.replace(
     /<!-- questions:mix -->\*\*Difficulty distribution[^*]*\*\*<!-- \/questions:mix -->/,
-    `<!-- questions:mix -->**Difficulty distribution across the interview bank and failure modes: ${counts.mix.Basic} Basic, ${counts.mix.Intermediate} Intermediate, ${counts.mix.Advanced} Advanced**<!-- /questions:mix -->`
+    `<!-- questions:mix -->**Difficulty distribution across the interview bank, failure modes, and Microsoft stack: ${counts.mix.Basic} Basic, ${counts.mix.Intermediate} Intermediate, ${counts.mix.Advanced} Advanced**<!-- /questions:mix -->`
   );
 
   // --- Scenario-tagged total (architectures + failure modes only) ---
@@ -447,7 +460,7 @@ function regenerateReadme(text, counts) {
     errors.push('Could not find hero paragraph "N RAG ... interview questions and answers" to update');
   }
 
-  // --- Missing/dangling rows: every file in the two dirs must have a row ---
+  // --- Missing/dangling rows: every file in the quiz dirs must have a row ---
   for (const [key] of counts.byPath) {
     if (!out.includes(`./${key})`)) {
       errors.push(`No README table row links to "${key}" — add one (npm run gaps -- --all can help produce the count)`);

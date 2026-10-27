@@ -9,10 +9,10 @@
 [![PRs Welcome][prs-shield]][prs-url]
 
 <p align="center">
-  <img src="assets/logos/banner.webp" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 1509 Q&A covering 52 architectures and production failure modes" width="800" />
+  <img src="assets/logos/banner.webp" alt="RAG (Retrieval-Augmented Generation) Interview Questions and Answers — 1619 Q&A covering 52 architectures and production failure modes" width="800" />
 </p>
 
-**1509 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 52 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
+**1619 RAG (Retrieval-Augmented Generation) interview questions and answers** for AI engineers, ML engineers, and GenAI/LLM developers. Covers all 52 RAG architectures, system design scenarios, vector databases, embeddings, chunking, reranking, evaluation, and the production failure modes that come up in real LLM engineering interviews.
 
 ⭐ **Star this repo** if it helps your interview prep — it keeps the project growing.
 
@@ -151,8 +151,9 @@ The [Self-Assessment][assessment-url] is an exam-style multiple-choice test that
 | 01o | [Agentic Orchestration](./01_concepts/agentic_orchestration.md) | Tool-call loops, stopping criteria, ReAct vs. plan-and-execute, full pipeline architecture | 7 |
 | 01p | [Multimodal Embeddings](./01_concepts/multimodal_embeddings.md) | CLIP, ImageBind, cross-modal alignment, vision-language models | 3 |
 | 01q | [Conversational Memory Architecture](./01_concepts/conversational_memory_architecture.md) | Working/episodic/long-term memory, MemGPT paging, session detection | 3 |
+| 01r | [Microsoft / Azure AI Stack](./01_concepts/microsoft_azure_ai_stack.md) | Pipeline stage to Microsoft service mapping, free-to-run options, Azure AI Search vs Cosmos DB vs PostgreSQL | 6 |
 
-**Core Concepts Total: 74 questions across 17 files**
+**Core Concepts Total: 80 questions across 18 files**
 
 ### 🧭 RAG Architecture Map (52 Types)
 
@@ -344,13 +345,28 @@ REFRAG                             — Compresses chunks into embeddings, RL pol
 
 <!-- questions:total 03_failure_modes -->**Failure Modes Total: 83 questions**<!-- /questions:total -->
 
-<!-- questions:grand -->**Grand Total: 1509 questions**<!-- /questions:grand -->
+### 🪟 Microsoft Stack
 
-<!-- questions:mix -->**Difficulty distribution across the interview bank and failure modes: 380 Basic, 554 Intermediate, 501 Advanced**<!-- /questions:mix -->
+RAG on Azure and the Microsoft AI platform, as interview questions. These appear in the Practice Quiz and Self-Assessment as the **Microsoft Stack** section. For a pipeline-stage-to-service map and free ways to practise without an Azure subscription, see [Microsoft / Azure AI Stack](./01_concepts/microsoft_azure_ai_stack.md).
 
-<!-- questions:scenarios -->**Scenario-based questions (tagged `[Scenario]`): 201**<!-- /questions:scenarios -->
+<!-- questions:table -->
+| # | Topic | Questions |
+|---|-------|-----------|
+| 11.01 | [Azure AI Search for RAG](./11_microsoft_stack/01-azure-ai-search-rag.md) | 26 |
+| 11.02 | [Azure OpenAI and Foundry for RAG](./11_microsoft_stack/02-azure-openai-and-foundry.md) | 26 |
+| 11.03 | [Microsoft Agent Framework and Semantic Kernel](./11_microsoft_stack/03-agent-framework-and-semantic-kernel.md) | 26 |
+| 11.04 | [RAG Reference Architecture on Azure](./11_microsoft_stack/04-azure-rag-reference-architecture.md) | 26 |
+<!-- /questions:table -->
 
-<!-- questions:mcq -->**Multiple-choice questions (tagged `[MCQ]`): 212**<!-- /questions:mcq -->
+<!-- questions:total 11_microsoft_stack -->**Microsoft Stack Total: 104 questions**<!-- /questions:total -->
+
+<!-- questions:grand -->**Grand Total: 1619 questions**<!-- /questions:grand -->
+
+<!-- questions:mix -->**Difficulty distribution across the interview bank, failure modes, and Microsoft stack: 408 Basic, 595 Intermediate, 536 Advanced**<!-- /questions:mix -->
+
+<!-- questions:scenarios -->**Scenario-based questions (tagged `[Scenario]`): 218**<!-- /questions:scenarios -->
+
+<!-- questions:mcq -->**Multiple-choice questions (tagged `[MCQ]`): 228**<!-- /questions:mcq -->
 
 All cited papers with arXiv/DOI links: [REFERENCES.md](./REFERENCES.md)
 
@@ -371,6 +387,9 @@ Microsoft Research and the Azure AI platform shape much of modern RAG. Where the
 
 | Topic | Where | What you get |
 |---|---|---|
+| **Microsoft Stack question section** (104 questions, in the quiz and assessment) | [11 — Microsoft Stack](./11_microsoft_stack/01-azure-ai-search-rag.md) | Azure AI Search, Azure OpenAI and Foundry, Agent Framework and Semantic Kernel, Azure reference architecture |
+| Pipeline stage to Microsoft service map | [Microsoft / Azure AI Stack](./01_concepts/microsoft_azure_ai_stack.md) | What to use at each stage, free ways to practise, Azure AI Search vs Cosmos DB vs PostgreSQL |
+| "Microsoft Stack" row on every architecture | [RAG Architecture Map](#-rag-architecture-map-52-types) | Each architecture file's Tools & Frameworks table lists the Azure service and Microsoft open-source option |
 | Microsoft GraphRAG | [05 — Graph RAG](./02_interview_bank/05-graph-rag.md) | Leiden community detection, global vs local queries |
 | LightRAG vs GraphRAG | [15 — LightRAG](./02_interview_bank/15-lightrag.md) | Build-cost and quality trade-offs |
 | LazyGraphRAG | [47 — LazyGraphRAG](./02_interview_bank/47-lazygraphrag.md) | Defers LLM summarization to query time |
@@ -504,7 +523,7 @@ For issues, questions, or general feedback:
 [license-shield]: https://img.shields.io/github/license/ather-techie/rag-interview-system
 [license-url]: LICENSE
 [commits-shield]: https://img.shields.io/github/last-commit/ather-techie/rag-interview-system
-[questions-shield]: https://img.shields.io/badge/questions-1509-blue
+[questions-shield]: https://img.shields.io/badge/questions-1619-blue
 [release-shield]: https://img.shields.io/github/v/release/ather-techie/rag-interview-system
 [release-url]: https://github.com/ather-techie/rag-interview-system/releases
 [prs-shield]: https://img.shields.io/badge/PRs-welcome-brightgreen

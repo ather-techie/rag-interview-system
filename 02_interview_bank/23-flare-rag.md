@@ -55,6 +55,7 @@ Loop until answer complete
 | Custom decoding loop | Hand-rolled draft/check/retrieve/regenerate controller |
 | Retriever | Standard dense/hybrid vector search (FAISS, Elasticsearch) |
 | Reference implementation | Official FLARE repo (Jiang et al., 2023) |
+| Microsoft Stack | Azure OpenAI chat completions with `logprobs`; a custom draft-check-retrieve loop in Semantic Kernel / Microsoft Agent Framework; Azure AI Search |
 
 ---
 

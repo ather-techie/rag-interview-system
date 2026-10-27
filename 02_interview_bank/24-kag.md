@@ -49,6 +49,7 @@ Answer + Provenance
 | Graph store | Neo4j, other property-graph databases |
 | Text retriever | Dense embedding retriever (for the text-fallback path) |
 | Extraction / alignment | LLM-based schema-constrained extraction, entity-linking tools |
+| Microsoft Stack | `microsoft/graphrag` (alternative); Azure Cosmos DB for Apache Gremlin; Azure OpenAI for schema-constrained extraction |
 
 ---
 

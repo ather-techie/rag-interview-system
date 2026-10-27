@@ -63,6 +63,7 @@ Streaming RAG:
 | Event streaming | Kafka, AWS Kinesis, Google Pub/Sub, Redis Streams (lighter-weight alternative) |
 | Stream processing | Kafka Streams, Apache Flink, Spark Structured Streaming, Faust/Bytewax |
 | Vector index (incremental upsert) | Qdrant, Weaviate, Pinecone |
+| Microsoft Stack | Azure Event Hubs (Kafka-compatible endpoint), Azure Stream Analytics, Microsoft Fabric Real-Time Intelligence; Azure Cosmos DB change feed; Azure AI Search indexers or push API for incremental upserts |
 
 ---
 

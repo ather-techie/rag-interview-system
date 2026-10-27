@@ -51,6 +51,7 @@ Final Answer (from the highest-scoring path in the decoding tree)
 | Fine-tuning framework | Hugging Face `transformers` + `trl` / `peft` (LoRA) for supervised fine-tuning on refinement traces |
 | Retriever | Any dense retriever (FAISS, Elasticsearch BM25, ColBERT) — RQ-RAG is retriever-agnostic |
 | Reference implementation | [chanchimin/RQ-RAG on GitHub](https://github.com/chanchimin/RQ-RAG) |
+| Microsoft Stack | Azure Machine Learning and Azure OpenAI fine-tuning for query-refinement models; Azure AI Search; Semantic Kernel / Microsoft Agent Framework |
 
 ---
 

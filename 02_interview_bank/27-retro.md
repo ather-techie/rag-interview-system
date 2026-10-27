@@ -56,6 +56,7 @@ FROZEN DATASTORE (trillion-token corpus, chunked ~64 tokens)
 | Datastore infra | Large-scale distributed storage/sharding for a trillion-token chunk store |
 | Dedup / leakage control | n-gram / Jaccard deduplication tooling between datastore and evaluation sets |
 | Embedding model | Frozen BERT-style encoder for chunk embeddings |
+| Microsoft Stack | Azure Machine Learning (GPU training and managed endpoints), DeepSpeed; DiskANN for large-scale chunk-store ANN; Azure Blob Storage for the token datastore |
 
 ---
 

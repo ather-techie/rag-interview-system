@@ -49,6 +49,7 @@ Subgraph / Notebook Extractor        Path Verbalizer
 | Agentic traversal (GraphReader) | LLM agent frameworks (LangChain agents, custom ReAct loop) |
 | Graph store | Neo4j, other KG stores |
 | KGQA benchmarks/data | WebQSP, ComplexWebQuestions for GNN-RAG training/eval |
+| Microsoft Stack | Azure Machine Learning (GPU training and managed endpoints), DeepSpeed for GNN training; Azure Cosmos DB for Apache Gremlin as the graph store; Semantic Kernel / Microsoft Agent Framework for the agentic traversal loop |
 
 ---
 

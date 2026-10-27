@@ -52,6 +52,7 @@ Grounded Answer
 | Embedding model | OpenAI text-embedding-3, BGE, E5 |
 | Vector database | FAISS, Pinecone, Weaviate, pgvector |
 | Orchestration | LangChain HypotheticalDocumentEmbedder, LlamaIndex query transforms |
+| Microsoft Stack | Azure OpenAI GPT-4o-mini for the hypothetical document; Azure OpenAI `text-embedding-3`; Azure AI Search vector queries; Semantic Kernel / Microsoft Agent Framework |
 
 ---
 

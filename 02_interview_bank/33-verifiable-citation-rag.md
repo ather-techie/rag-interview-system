@@ -42,6 +42,7 @@ Citation Renderer (formats verified citations; flags or removes unsupported clai
 | LLM-as-judge verification | Cheap model (e.g. Claude Haiku) prompted for SUPPORTED / NOT_SUPPORTED verdicts |
 | Evaluation benchmark | ALCE (attribution scoring benchmark, Gao et al., 2023) |
 | Post-processing | Citation-formatting and unsupported-claim flagging post-processor |
+| Microsoft Stack | Azure AI Content Safety (groundedness detection); Azure AI Foundry evaluators (groundedness); Azure OpenAI `On Your Data` citations; Azure AI Search |
 
 ---
 

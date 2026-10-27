@@ -55,6 +55,7 @@ Generator ──► Answer
 | Community detection | Leiden algorithm (optional) |
 | Embedding model | BGE, OpenAI text-embedding-3-small |
 | Extraction LLM | GPT-4o-mini with structured-output entity/relationship extraction |
+| Microsoft Stack | `microsoft/graphrag` (for comparison); Azure Cosmos DB for Apache Gremlin; Azure OpenAI for entity and relation extraction |
 
 ---
 

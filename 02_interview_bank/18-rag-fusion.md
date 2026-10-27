@@ -45,6 +45,7 @@ User Query
 | Vector stores | Pinecone, Weaviate, Chroma, Qdrant |
 | Hybrid retrieval | Elasticsearch/OpenSearch (BM25) combined with dense vector search |
 | Reranking (optional) | Cross-encoders (ms-marco-MiniLM) applied after RRF fusion |
+| Microsoft Stack | Azure AI Search (native hybrid queries fuse BM25 and vector rankings with RRF); Azure OpenAI for multi-query generation; Semantic Kernel / Microsoft Agent Framework |
 
 ---
 

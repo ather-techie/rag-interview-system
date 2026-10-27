@@ -45,6 +45,7 @@ User Query
 | Retrieval | Standard vector DB (Qdrant, Pinecone, Weaviate) + BM25 hybrid |
 | Verification (optional) | Corrective-RAG-style per-hop evidence checks |
 | Evaluation | HotpotQA, 2WikiMultiHopQA, MuSiQue harnesses for per-hop recall |
+| Microsoft Stack | Semantic Kernel / Microsoft Agent Framework loops or Agent Framework workflows for retrieve-reason-repeat; Azure AI Search agentic retrieval (query decomposition into subqueries); Azure OpenAI |
 
 ---
 

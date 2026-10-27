@@ -146,7 +146,7 @@ function bestScore(history) {
 const CONFIG_CHOICES = {
   count: [10, 25, 50, 'All'],
   difficulty: ['All', ...DIFFICULTIES],
-  group: ['All', 'Architectures', 'Failure Modes'],
+  group: ['All', 'Architectures', 'Failure Modes', 'Microsoft Stack'],
   secondsPerQuestion: [0, 30, 60],
 };
 const QUERY_KEYS = { count: 'count', difficulty: 'difficulty', group: 'group', timer: 'secondsPerQuestion' };

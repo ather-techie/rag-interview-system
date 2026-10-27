@@ -43,6 +43,7 @@ User Query
 | Provider-side caching | Anthropic prompt caching, OpenAI prompt caching |
 | Long-context models | Claude 3.5 Sonnet, Gemini 1.5 Pro, GPT-4 Turbo (for corpus preload) |
 | Memory management | GPU/CPU offload, INT8/INT4 KV-cache quantization for large caches |
+| Microsoft Stack | Azure OpenAI prompt caching; self-hosted vLLM on Azure Kubernetes Service (AKS) for KV-cache control; long-context models on Azure OpenAI |
 
 ---
 

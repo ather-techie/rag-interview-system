@@ -37,6 +37,7 @@ Query → Embedding Model → ANN Search (top-k) ──────────�
 | Vector Store | Chroma, Pinecone, Weaviate, pgvector, FAISS |
 | Embedding Models | OpenAI `text-embedding-3-small/large`, BGE, E5 |
 | Generator LLM | GPT-4o-mini, Claude, Llama 3 |
+| Microsoft Stack | Semantic Kernel / Microsoft Agent Framework; Azure AI Search, Azure Cosmos DB (DiskANN vector index), Azure Database for PostgreSQL (`pgvector`); Azure OpenAI `text-embedding-3`; Azure OpenAI GPT-4o-mini or Phi via Azure AI Foundry |
 
 ---
 

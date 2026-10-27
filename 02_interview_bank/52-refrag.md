@@ -53,6 +53,7 @@ Answer  (~30x faster time-to-first-token vs. feeding all chunks as raw tokens)
 | RL training | Policy-gradient training with a negative-log-perplexity reward on output tokens |
 | Compression alternative (contrast) | LLMLingua / LLMLingua-2 (prompt-token compression, see file 10) |
 | Reference paper | Lin, Ghosh, Low, Shrivastava & Mohan, *"REFRAG: Rethinking RAG based Decoding"*, Meta Superintelligence Labs, 2025, [arXiv:2509.01092](https://arxiv.org/abs/2509.01092) |
+| Microsoft Stack | Azure Machine Learning (GPU training and managed endpoints), DeepSpeed; Azure AI Search for the chunk store; LLMLingua as the Microsoft Research prompt-compression contrast |
 
 ---
 

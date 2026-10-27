@@ -59,6 +59,7 @@
 | Page rendering | `pdf2image`, `PyMuPDF` (`fitz`) — render pages to images, no text extraction |
 | Related retrieval-only method | ColPali / ColQwen2 (late-interaction, patch-level page embeddings — see file 30) |
 | Vector store | FAISS, Qdrant, Milvus (same ANN infra as text RAG, just embedding page images instead of text chunks) |
+| Microsoft Stack | Azure OpenAI GPT-4o (vision); Phi multimodal models via Azure AI Foundry; Azure AI Search for page-image embeddings |
 
 ---
 

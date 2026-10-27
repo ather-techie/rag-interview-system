@@ -57,6 +57,7 @@ Answer Synthesizer
 | RLHF training | Reward model + PPO training stack |
 | Environment | Sandboxed browser/search environment (text-based) |
 | Data collection | Human preference/demonstration data collection pipeline |
+| Microsoft Stack | Grounding with Bing Search (Azure AI Foundry Agent Service) as the search tool; Azure Machine Learning (GPU training and managed endpoints), DeepSpeed; Azure OpenAI for data generation |
 
 ---
 

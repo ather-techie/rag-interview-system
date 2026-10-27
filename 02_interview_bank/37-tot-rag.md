@@ -65,6 +65,7 @@ Generator ──► synthesizes final answer from best path + evidence
 | Orchestration | Custom ToT controller (prompt-based, no dedicated library required), LangGraph for branch expansion/pruning |
 | Retrieval | Any standard retriever / vector DB (Qdrant, Weaviate, Pinecone) |
 | Models | Cheap model (Haiku) for thought generation/evaluation, stronger model (Sonnet) for final synthesis |
+| Microsoft Stack | Semantic Kernel / Microsoft Agent Framework / Agent Framework workflows for branch expansion and pruning; Azure OpenAI mini model for thoughts and a larger model for synthesis |
 
 ---
 

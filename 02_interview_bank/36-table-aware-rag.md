@@ -47,6 +47,7 @@ Document (PDF / HTML / spreadsheet)
 | Table-aware encoders | TAPAS, OmniTab, TAT-QA-style hybrid text+table encoders |
 | Structured-query path | LangChain SQL Agent, direct Text-to-SQL over the source table/database |
 | Retrieval / embedding | sentence-transformers (bge), vector DB with `chunk_type` metadata |
+| Microsoft Stack | Azure AI Document Intelligence (layout model extracts tables); Azure SQL Database, Microsoft Fabric for the structured-query path; Azure AI Search |
 
 ---
 

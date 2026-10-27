@@ -53,6 +53,7 @@
 | Verifier model | GPT-4-class, Claude, Gemini-Ultra-class, or Llama-3-70B |
 | Serving | vLLM with prefix caching for batched, parallel drafting |
 | Retriever | Standard vector DB (Chroma, Pinecone, Qdrant) upstream of partitioning |
+| Microsoft Stack | Azure AI Foundry model catalog (Phi or other small drafters) and Azure OpenAI as the verifier; Azure AI Search; Azure Machine Learning managed endpoints |
 
 ---
 

@@ -55,8 +55,9 @@ Final Multi-Page Cited Report
 | Commercial products | OpenAI Deep Research (ChatGPT), Gemini Deep Research (Google), Perplexity Labs |
 | Open-source frameworks | LangChain `open_deep_research`, Hugging Face smolagents `open_deep_research` |
 | Multi-agent orchestration | LangGraph (supervisor/worker graphs), CrewAI, AutoGen |
-| Search/fetch backend | Tavily, Bing Search API, native web search tool use (Anthropic/OpenAI) |
+| Search/fetch backend | Tavily, Brave Search API, native web search tool use (Anthropic/OpenAI) |
 | Evaluation | GAIA benchmark (general assistant tasks), DeepSearchQA (Google) |
+| Microsoft Stack | Azure AI Foundry Deep Research tool (Agent Service); Microsoft Agent Framework, AutoGen, Magentic-One for multi-agent orchestration; Grounding with Bing Search (Azure AI Foundry Agent Service) |
 
 ---
 

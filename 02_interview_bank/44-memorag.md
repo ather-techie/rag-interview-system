@@ -54,6 +54,7 @@ Generator (final answer, grounded in retrieved evidence, not the draft)
 | Retriever backend | Standard dense retriever (e.g. BGE, E5) over the raw corpus |
 | Long-context alternative | Compare against long-context RAG (file 10) which skips compression and retrieval entirely |
 | Evaluation | UltraDomain benchmark (long-context, domain-specific QA used in the MemoRAG paper) |
+| Microsoft Stack | Azure Machine Learning (GPU training and managed endpoints), DeepSpeed; Azure AI Search over the raw corpus; Azure OpenAI long-context models for comparison |
 
 ---
 

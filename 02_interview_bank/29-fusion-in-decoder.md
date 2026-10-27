@@ -56,6 +56,7 @@ QUERY
 | ML framework | HuggingFace `transformers` |
 | Efficiency variants | FiD-light, FiDO (FiD-Optimized) implementations |
 | Reranking (pre-FiD pruning) | Cross-encoder rerankers to shrink k before passages reach FiD |
+| Microsoft Stack | Azure Machine Learning (fine-tune and host the FiD reader on managed endpoints); Azure AI Search as the upstream retriever |
 
 ---
 

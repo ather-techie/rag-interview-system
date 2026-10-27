@@ -48,6 +48,7 @@ Per-Token Query Encoder              Per-Token Document Encoder
 | Index | PLAID index with residual (2-bit) compression |
 | Wrapper library | RAGatouille |
 | Integration | `RAGatouilleLangChainRetriever`, LlamaIndex ColBERT integrations |
+| Microsoft Stack | Azure Machine Learning (host ColBERT-style models on managed endpoints); Azure AI Search for a single-vector first stage; Semantic Kernel / Microsoft Agent Framework |
 
 ---
 

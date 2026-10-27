@@ -69,6 +69,7 @@
 | Dense retriever | Standard bi-encoder (e.g. `text-embedding-3-large`, BGE) over large units |
 | Reference implementation | [TIGER-AI-Lab/LongRAG](https://tiger-ai-lab.github.io/LongRAG/) (open-source) |
 | Routing signal | Self-reflection prompt (no separate classifier needed) — open-source alternative: a small fine-tuned router model |
+| Microsoft Stack | Azure OpenAI long-context models (e.g. GPT-4.1); Azure AI Search over large retrieval units; Semantic Kernel / Microsoft Agent Framework |
 
 ---
 

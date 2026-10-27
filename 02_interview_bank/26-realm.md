@@ -56,6 +56,7 @@ PRE-TRAINING CORPUS (e.g., Wikipedia)
 | Large-scale pretraining infra | TPU pods / distributed training clusters for MLM pretraining |
 | Retriever warm-start | Inverse Cloze Task (ICT) contrastive pretraining |
 | Downstream fine-tuning & eval | Open-domain QA datasets (Natural Questions, WebQuestions, CuratedTrec) |
+| Microsoft Stack | Azure Machine Learning (GPU training and managed endpoints), DeepSpeed for pretraining; Azure AI Search or Azure Cosmos DB (DiskANN vector index) as a production index; DiskANN for billion-scale ANN |
 
 ---
 

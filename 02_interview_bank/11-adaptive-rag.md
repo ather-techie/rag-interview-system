@@ -44,6 +44,7 @@ Query Complexity Classifier
 | Vector DB (single/multi-hop) | Qdrant, Weaviate, Pinecone with HNSW ANN |
 | Uncertainty escalation | FLARE-style token-probability monitoring |
 | Generation | GPT-4/Claude/Llama variants sized per tier |
+| Microsoft Stack | Azure OpenAI model tiers (mini vs. full) selected per query class; Semantic Kernel / Microsoft Agent Framework routing; Azure AI Search |
 
 ---
 

@@ -205,6 +205,20 @@ Production-side evaluation (LLM-as-judge, online metrics, drift alerts): see [ob
 - `Cohere Rerank`
 - `Jina Reranker v2`
 
+### Microsoft / Azure Service Map
+Product names and tiers change often; check Microsoft Learn before quoting one. Details: [Microsoft / Azure AI Stack](../01_concepts/microsoft_azure_ai_stack.md).
+
+| Layer | Microsoft option | Neutral alternative |
+|---|---|---|
+| Parsing / OCR | Azure AI Document Intelligence | Unstructured, Docling |
+| Retrieval + reranking | Azure AI Search (hybrid, semantic ranker) | Elasticsearch / OpenSearch + cross-encoder |
+| Vectors beside operational data | Cosmos DB (DiskANN), PostgreSQL (`pgvector`) | `pgvector`, Qdrant |
+| Generation | Azure OpenAI, Phi via Foundry | Anthropic, Llama via vLLM / Ollama |
+| Graph RAG | `microsoft/graphrag` | LightRAG |
+| Agents | Microsoft Agent Framework, Semantic Kernel | LangGraph, LlamaIndex |
+| Safety / PII | Azure AI Content Safety, Presidio | Llama Guard, spaCy |
+| Evaluation | Azure AI Foundry evaluators | RAGAS, TruLens |
+
 ---
 
 ## Decision Tree: Which RAG to Use?

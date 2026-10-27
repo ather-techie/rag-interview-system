@@ -117,6 +117,8 @@ as above.
 - Prefer **tables and ASCII diagrams** over long prose for comparisons
 - Cite papers or tools where relevant (no need for formal citation format)
 - Avoid vendor lock-in in answers — mention open-source alternatives alongside commercial tools
+- Every file in `02_interview_bank/` has a `Microsoft Stack` row in its **Tools & Frameworks** table. Keep it when you add or change tools, and only name Microsoft products you have checked against current Microsoft Learn docs (product names and tiers change often)
+- Questions in `11_microsoft_stack/` follow the same format and per-file targets as the architecture files (22 free-form + 4 `[MCQ]`, at least 2 `[Scenario]`), and should link the Microsoft Learn page they rely on
 
 ## Validating Your Changes
 

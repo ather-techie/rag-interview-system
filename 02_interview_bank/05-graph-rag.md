@@ -53,6 +53,7 @@ Generator LLM → Answer
 | End-to-End Framework | Microsoft GraphRAG |
 | Entity Extraction (NER) | spaCy, GLiNER |
 | In-Memory Graphs | NetworkX |
+| Microsoft Stack | `microsoft/graphrag`; Azure Cosmos DB for Apache Gremlin, Azure Database for PostgreSQL with Apache AGE; Azure OpenAI for extraction and summarization |
 
 ---
 

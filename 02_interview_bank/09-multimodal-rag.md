@@ -51,6 +51,7 @@
 | Vector stores | Weaviate, Milvus, Qdrant (multi-vector support) |
 | Document parsing | Unstructured.io, LlamaParse, Azure Document Intelligence |
 | Multimodal generation | GPT-4o, Claude (vision), Gemini 1.5/2.x |
+| Microsoft Stack | Azure AI Document Intelligence; Azure AI Vision multimodal embeddings; Azure OpenAI GPT-4o (vision); Azure AI Search (vector fields for text and image embeddings) |
 
 ---
 

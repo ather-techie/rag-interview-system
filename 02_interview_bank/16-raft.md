@@ -52,6 +52,7 @@ User Query
 | Training data generation | GPT-4o / Claude (teacher model for CoT distillation) |
 | Serving | vLLM, TGI, Ollama |
 | Inference-time retrieval | Standard BM25 / dense retriever (Elasticsearch, Qdrant, Pinecone) — unchanged from vanilla RAG |
+| Microsoft Stack | Azure OpenAI fine-tuning, Azure Machine Learning (LoRA/QLoRA on open-weight models), Azure AI Foundry model catalog; Azure AI Search retriever (unchanged at inference) |
 
 ---
 

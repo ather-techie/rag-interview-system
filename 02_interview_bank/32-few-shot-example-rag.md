@@ -41,6 +41,7 @@ Generator (LLM produces the answer, conditioned on the retrieved examples)
 | Vector store | FAISS, Chroma |
 | Example selection | MMR (Maximal Marginal Relevance) for relevance + diversity |
 | Automated optimization | DSPy for automated example selection and prompt optimization |
+| Microsoft Stack | Azure AI Search as the example store; Semantic Kernel / Microsoft Agent Framework prompt templates; Azure OpenAI `text-embedding-3` |
 
 ---
 

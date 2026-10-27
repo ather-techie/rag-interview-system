@@ -49,6 +49,7 @@ User Query
 | Embeddings | Sentence-transformers / OpenAI embeddings for node synonymy and query linking |
 | Graph storage | NetworkX in-memory graph, Neo4j (for larger production graphs) |
 | Evaluation | MuSiQue, 2WikiMultiHopQA, HotpotQA for multi-hop recall benchmarking |
+| Microsoft Stack | `microsoft/graphrag` (alternative graph-index approach); Azure Cosmos DB for Apache Gremlin; Azure OpenAI for OpenIE-style triple extraction |
 
 ---
 

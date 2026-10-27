@@ -58,6 +58,7 @@ QUERY
 | ML framework | HuggingFace `transformers` / `datasets` |
 | ANN index | FAISS |
 | Evaluation | KILT benchmark suite, Natural Questions, TriviaQA, MMLU harnesses |
+| Microsoft Stack | Azure Machine Learning (GPU training and managed endpoints), DeepSpeed; Azure AI Search or Azure Cosmos DB (DiskANN vector index) as a production index; DiskANN for billion-scale ANN; Azure AI Foundry model catalog for hosting |
 
 ---
 

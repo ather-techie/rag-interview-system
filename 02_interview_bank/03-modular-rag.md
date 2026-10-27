@@ -51,6 +51,7 @@ Query ──────────► Routing Module ───┤
 | Pipeline Composition | Haystack pipelines, LangChain LCEL, LangGraph |
 | Memory | MemGPT, Zep |
 | Fusion / Ensemble Retrieval | LangChain `EnsembleRetriever`, LlamaIndex `QueryFusionRetriever` |
+| Microsoft Stack | Semantic Kernel / Microsoft Agent Framework (plugins, filters, process framework); Azure AI Search; Azure API Management as an AI gateway in front of Azure OpenAI |
 
 ---
 

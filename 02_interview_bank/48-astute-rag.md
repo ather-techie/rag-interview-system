@@ -55,6 +55,7 @@ Query
 | Internal-knowledge elicitation | Zero-context prompting of the same generator LLM (Gemini, GPT-4, Claude) |
 | Consolidation logic | Custom iterative merge/conflict-detection prompts (no separate NLI model required in the original paper, though one can be substituted) |
 | Evaluation benchmarks | Conflicting-evidence / counterfactual QA sets built on Natural Questions, TriviaQA, PopQA |
+| Microsoft Stack | Azure OpenAI (internal-knowledge elicitation); Azure AI Search hybrid retrieval; Azure AI Foundry evaluators |
 
 ---
 

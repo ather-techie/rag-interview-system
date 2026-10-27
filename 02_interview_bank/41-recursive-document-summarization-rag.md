@@ -58,6 +58,7 @@ Generator
 |---|---|
 | Summarization LLM | Any LLM; GPT-4o-mini or Claude Haiku for cost-efficient recursive summarization |
 | Vector store | Vector DB with level metadata (similar infra to RAPTOR, but hierarchy follows document structure rather than semantic clustering) |
+| Microsoft Stack | Azure OpenAI GPT-4o-mini for summarization; Azure AI Search with level fields; Azure AI Document Intelligence for structure-aware document parsing |
 
 ---
 

@@ -51,6 +51,7 @@ Outcome Reward (exact-match / F1 against gold answer) ──► PPO / GRPO updat
 | RL training infra | veRL, OpenRLHF, TRL |
 | Retriever backend | Dense retriever (e.g. E5) over Wikipedia dumps, or a live search API |
 | Sibling frameworks | R1-Searcher, ReSearch, DeepRetrieval (same RL-for-search family) |
+| Microsoft Stack | Azure Machine Learning (GPU clusters for RL training); Grounding with Bing Search (Azure AI Foundry Agent Service) for a live search backend; Azure AI Search as an alternative retriever |
 
 ---
 

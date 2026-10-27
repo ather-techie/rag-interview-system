@@ -46,6 +46,7 @@ Final Answer
 | Tool-Use APIs | Claude tool use, OpenAI function calling |
 | Agentic RAG Frameworks | LlamaIndex Agents |
 | Observability | LangSmith, Arize Phoenix |
+| Microsoft Stack | Microsoft Agent Framework, Semantic Kernel, AutoGen; Azure AI Foundry Agent Service; Azure AI Search as a retrieval tool; OpenTelemetry tracing to Application Insights |
 
 ---
 

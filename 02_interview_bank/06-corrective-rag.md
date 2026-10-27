@@ -56,9 +56,10 @@
 | Category | Example Tools & Frameworks |
 |---|---|
 | Evaluator model | Fine-tuned T5 (lightweight classifier), or a prompted GPT-4o-mini / Claude judge |
-| Web search fallback | Tavily API, Google Search API, Bing Search API |
+| Web search fallback | Tavily API, Google Search API, Brave Search API |
 | Orchestration | LangGraph (conditional edges / router), LangChain |
 | Vector DB | Pinecone, Weaviate, Chroma, Qdrant |
+| Microsoft Stack | Grounding with Bing Search (Azure AI Foundry Agent Service) as the web fallback; Azure AI Content Safety (groundedness detection); Semantic Kernel / Microsoft Agent Framework workflows for the evaluate-then-correct branches; Azure AI Search |
 
 ---
 

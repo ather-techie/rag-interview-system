@@ -67,6 +67,7 @@
 | Inference serving | vLLM, TGI (for multi-candidate / beam sampling) |
 | Retriever | Contriever or another dense retriever, served via a FAISS-style index |
 | Training data generation | Critic LLM (e.g., GPT-4) used offline to annotate reflection tokens |
+| Microsoft Stack | Azure Machine Learning and the Azure AI Foundry model catalog (fine-tune and host open-weight models on managed online endpoints); Azure AI Search as the retriever index |
 
 ---
 

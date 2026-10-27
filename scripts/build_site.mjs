@@ -30,8 +30,12 @@ const QUIZ_COMMON_JS = readFileSync(path.join(ROOT, 'scripts', 'quiz-common.js')
 const QUIZ_JS = readFileSync(path.join(ROOT, 'scripts', 'quiz.js'), 'utf8');
 const ASSESSMENT_JS = readFileSync(path.join(ROOT, 'scripts', 'assessment.js'), 'utf8');
 
-const QUIZ_DIRS = new Set(['02_interview_bank', '03_failure_modes']);
-const QUIZ_GROUP_LABELS = { '02_interview_bank': 'Architectures', '03_failure_modes': 'Failure Modes' };
+const QUIZ_GROUP_LABELS = {
+  '02_interview_bank': 'Architectures',
+  '03_failure_modes': 'Failure Modes',
+  '11_microsoft_stack': 'Microsoft Stack',
+};
+const QUIZ_DIRS = new Set(Object.keys(QUIZ_GROUP_LABELS));
 
 /**
  * Per-page prelude inlined ahead of quiz.js / assessment.js: the tag
@@ -353,7 +357,7 @@ function buildQuizPage(items, sections) {
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name));
 
-  const tocGroups = ['02_interview_bank', '03_failure_modes']
+  const tocGroups = [...QUIZ_DIRS]
     .filter((dir) => quizSectionsFor(dir).length > 0)
     .map((dir) => {
       const rows = quizSectionsFor(dir)
@@ -367,7 +371,7 @@ function buildQuizPage(items, sections) {
     })
     .join('\n');
 
-  const sectionOptions = ['02_interview_bank', '03_failure_modes']
+  const sectionOptions = [...QUIZ_DIRS]
     .filter((dir) => quizSectionsFor(dir).length > 0)
     .map((dir) => {
       const opts = quizSectionsFor(dir)
@@ -394,12 +398,14 @@ ${sectionOptions}
 
   const archCount = quizSectionsFor('02_interview_bank').length;
   const failureCount = quizSectionsFor('03_failure_modes').length;
+  const msCount = quizSectionsFor('11_microsoft_stack').length;
   const stats = [
     [items.length, 'Questions'],
     [scenarioTotal, 'Scenario-based'],
     ...(mcqTotal > 0 ? [[mcqTotal, 'Multiple-choice']] : []),
     [archCount, 'Architectures'],
     [failureCount, 'Failure modes'],
+    ...(msCount > 0 ? [[msCount, 'Microsoft stack']] : []),
   ];
   const statTiles = stats
     .map(([n, label]) => `  <div class="stat"><span class="stat-num">${n.toLocaleString('en-US')}</span><span class="stat-label">${label}</span></div>`)
@@ -462,6 +468,13 @@ function buildAssessmentPage(items, sections) {
     [new Set(mcqItems.map((it) => it.section)).size, 'Sections covered'],
     [sectionsWithMcq('02_interview_bank'), 'Architectures'],
     [sectionsWithMcq('03_failure_modes'), 'Failure modes'],
+    ...(sectionsWithMcq('11_microsoft_stack') > 0 ? [[sectionsWithMcq('11_microsoft_stack'), 'Microsoft stack']] : []),
+  ];
+  const groupOptions = [
+    { value: 'All', label: 'All' },
+    ...Object.entries(QUIZ_GROUP_LABELS)
+      .filter(([dir]) => sectionsWithMcq(dir) > 0)
+      .map(([, label]) => ({ value: label, label: label === 'Failure Modes' ? 'Failure modes' : label })),
   ];
   const statTiles = stats
     .map(([n, label]) => `  <div class="stat"><span class="stat-num">${n.toLocaleString('en-US')}</span><span class="stat-label">${label}</span></div>`)
@@ -480,9 +493,7 @@ ${assessSegmentedHtml({ legend: 'Difficulty', name: 'difficulty', active: 'All',
   { value: 'Intermediate', label: 'Intermediate', dotClass: 'intermediate' },
   { value: 'Advanced', label: 'Advanced', dotClass: 'advanced' },
 ] })}
-${assessSegmentedHtml({ legend: 'Section group', name: 'group', active: 'All', options: [
-  { value: 'All', label: 'All' }, { value: 'Architectures', label: 'Architectures' }, { value: 'Failure Modes', label: 'Failure modes' },
-] })}
+${assessSegmentedHtml({ legend: 'Section group', name: 'group', active: 'All', options: groupOptions })}
 ${assessSegmentedHtml({ legend: 'Timer', name: 'secondsPerQuestion', active: 0, options: [
   { value: 0, label: 'Off' }, { value: 30, label: '30 s / question' }, { value: 60, label: '60 s / question' },
 ] })}

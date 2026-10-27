@@ -52,6 +52,7 @@ Embed ───────────────► Dense Vector Index
 | Embedding model | text-embedding-3-small, Voyage, BGE |
 | Sparse index | BM25 via Elasticsearch/Weaviate |
 | Reranking (optional) | Cross-encoder (e.g., ms-marco-MiniLM) |
+| Microsoft Stack | Azure OpenAI prompt caching to amortize the full-document context; Azure AI Search hybrid (BM25 + vector) over the contextualized chunks; Azure OpenAI `text-embedding-3` |
 
 ---
 

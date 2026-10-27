@@ -73,6 +73,7 @@ Final Answer (synthesized from the full retrieval-narrative chain)
 | Orchestration | LangGraph / custom agent loop for the multi-turn retriever dialogue |
 | Retriever | Standard dense retriever (Contriever/DPR) or BM25 hybrid, called on-demand |
 | Evaluation | HotpotQA, 2WikiMultiHopQA, MuSiQue, and single-hop QA sets (NQ, TriviaQA) for measuring adaptive iteration count |
+| Microsoft Stack | Azure Machine Learning and the Azure AI Foundry model catalog for fine-tuned policy models; Semantic Kernel / Microsoft Agent Framework / Agent Framework for the multi-turn retrieval loop; Azure AI Search |
 
 ---
 

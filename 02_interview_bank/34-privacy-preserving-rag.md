@@ -60,6 +60,7 @@ QUERY (online)
 | PII anonymization | spaCy NER, regex pattern libraries, Microsoft Presidio |
 | Differential privacy | Custom Laplace/Gaussian noise implementation, Opacus (DP-trained models) |
 | Federated retrieval | Custom async coordinator (asyncio), gRPC between silo services |
+| Microsoft Stack | Microsoft Presidio; Azure AI Language PII detection; Azure private endpoints and confidential computing; ONNX Runtime (Microsoft) for on-device embedding |
 
 ---
 

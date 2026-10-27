@@ -45,6 +45,7 @@ Generator LLM → Answer
 | Sparse Retrieval (BM25) | Elasticsearch, OpenSearch |
 | Dense Retrieval | Pinecone, Weaviate, Qdrant |
 | Reranking | Cohere Rerank, `bge-reranker`, `cross-encoder/ms-marco-MiniLM` |
+| Microsoft Stack | Azure AI Search (BM25 + vector hybrid with RRF fusion, semantic ranker as the L2 reranker); Azure OpenAI; Semantic Kernel / Microsoft Agent Framework |
 
 ---
 
