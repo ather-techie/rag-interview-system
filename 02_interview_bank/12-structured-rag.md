@@ -1645,10 +1645,10 @@ What to monitor: audit-log completeness, so no query executes without a correspo
 
 ## Q24. Why is execution accuracy preferred over exact-match string comparison for scoring generated SQL? `[Intermediate]` `[MCQ]`
 
-- A. It is faster to compute than comparing SQL strings
+- A. It is cheaper to compute, since running a query is faster than comparing SQL strings
 - B. It credits equivalent queries written with different joins or aliases, by comparing result sets
-- C. It confirms that the query is safe to run on production
-- D. It counts how many retries the pipeline needed
+- C. It confirms that the generated query is read-only and safe to run on a production database
+- D. It counts how many retries the pipeline needed before the query finally executed
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1664,9 +1664,9 @@ What to monitor: audit-log completeness, so no query executes without a correspo
 ## Q25. A generated query joins orders to line items and uses COUNT(*) to report order totals, returning inflated numbers with no error. Which failure best explains this? `[Intermediate]` `[MCQ]`
 
 - A. Join fan-out repeats each order once per line item, so COUNT(*) counts rows rather than orders
-- B. The retry loop swallowed a syntax error and returned stale results
-- C. Schema linking selected a column that does not exist
-- D. The validator rewrote the aggregate into a SUM
+- B. The retry loop swallowed a syntax error from the first attempt and silently returned cached results
+- C. Schema linking selected a column that does not exist in the orders or line-items table
+- D. The validator rewrote the aggregate into a SUM to make the query pass its safety checks
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1681,8 +1681,8 @@ What to monitor: audit-log completeness, so no query executes without a correspo
 
 ## Q26. A retailer's finance team asks the same dozen metrics every week, such as net revenue last quarter, but its Structured RAG bot sometimes computes gross instead of net. Which design change fits best? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Increase the few-shot examples to twenty per prompt
-- B. Raise generation temperature so retries explore other definitions
+- A. Increase the few-shot examples to twenty per prompt, covering both gross and net revenue
+- B. Raise generation temperature so that retries explore other definitions of revenue each week
 - C. Add a second LLM pass to review each query for definitional correctness
 - D. Expose vetted, named metrics through a semantic layer instead of free-form SQL generation
 
@@ -1706,3 +1706,7 @@ What to monitor: audit-log completeness, so no query executes without a correspo
 | E-commerce product catalog search | Retail | Faceted queries ("show me red running shoes under $100 in size 10") map cleanly to SQL filters, not vector similarity |
 | EHR clinical data assistant (e.g., patient stats queries) | Healthcare | "What is the average A1C for patients in cohort X over the last 6 months?" requires SQL over structured EHR tables |
 | Log analytics and observability (e.g., natural language over Datadog/Splunk) | DevOps / SRE | Engineers query structured log data in natural language; Structured RAG translates to query DSL and retrieves relevant log slices |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

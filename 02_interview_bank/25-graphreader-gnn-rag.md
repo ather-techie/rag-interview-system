@@ -594,7 +594,7 @@ A GNN trained on one graph's structure (a specific entity-type distribution, a s
 
 ---
 
-## Q20. What are the limitations of GraphReader and GNN-RAG, and how might the field evolve? `[Advanced]`
+## Q20. How might GraphReader and GNN-RAG evolve to address their current limitations (Q7)? `[Advanced]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -666,9 +666,9 @@ Monitor: per-compartment path-retrieval recall, authorization-filter audit logs 
 ## Q24. In GNN-RAG, what does the GNN hand off for verbalization before the LLM generates the answer? `[Intermediate]` `[MCQ]`
 
 - A. Reasoning paths from question entities to the top-scored candidate answer nodes
-- B. The full k-hop subgraph exactly as extracted, with no filtering
-- C. Embedding vectors for every node in the subgraph
-- D. A ranked list of source document chunks
+- B. The full k-hop subgraph exactly as extracted, with no scoring or filtering of nodes
+- C. Embedding vectors for every node in the subgraph, for the LLM to read directly
+- D. A ranked list of source document chunks scored by node-level similarity
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -701,10 +701,10 @@ Monitor: per-compartment path-retrieval recall, authorization-filter audit logs 
 
 ## Q26. A logistics company must answer multi-hop questions across 2,000-page carrier contracts, such as "Which carrier with a late-delivery penalty above 5% also holds the Rotterdam route?" It has no knowledge graph and no labeled QA data. Which approach fits best? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. GNN-RAG, trained on the contracts to score reasoning paths
+- A. GNN-RAG, trained on the contract text to score candidate reasoning paths for each question
 - B. GraphReader, building a note graph and letting an agent explore it with a step cap
-- C. Placing all contracts into one long-context prompt
-- D. A single dense retrieval over contract chunks with a larger top-k
+- C. Placing all 2,000-page contracts into one long-context prompt for the model
+- D. A single dense retrieval over contract chunks with a much larger top-k
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -726,3 +726,7 @@ Monitor: per-compartment path-retrieval recall, authorization-filter audit logs 
 | Scientific & biomedical KGQA | Research / Biomed | GNN-based path retrieval surfaces multi-hop mechanisms over existing biomedical knowledge graphs |
 | Legal document & contract reasoning | Legal | GraphReader's agentic note-exploration follows cross-reference chains across very long documents |
 | Customer/entity-360 relationship queries | CRM / Security | Connectivity-driven questions ("who is linked to whom, how") map to learned graph retrieval over an entity KG |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

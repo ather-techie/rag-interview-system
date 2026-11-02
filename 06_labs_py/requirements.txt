@@ -1,32 +1,40 @@
-# LangChain stack
-langchain
-langchain-community
-langchain-huggingface
-langchain-google-genai
-langchain-anthropic
-langchain-openai
-langchain-ollama
+# Pinned to the versions `pip` resolved together on 2026-10-31 (the same set an
+# unpinned install produced that day), so a fresh install keeps working as the
+# LangChain / ragas / provider SDKs move. To refresh: delete the version pins,
+# run `pip install --dry-run --report report.json -r requirements.txt`, and copy
+# the resolved versions back here. Notebooks pin the same versions in their
+# first `%pip install` cell.
+
+# LangChain pieces (labs 01 and 04 only; no legacy `langchain` chains)
+langchain-core==1.7.3
+langchain-text-splitters==1.1.3
+langchain-huggingface==1.2.3
+langchain-chroma==1.1.0
+langchain-google-genai==4.4.2
+langchain-anthropic==1.7.7
+langchain-openai==1.7.3
+langchain-ollama==1.1.0
 
 # Retrieval & embeddings
-sentence-transformers
-chromadb
-huggingface_hub
-rank-bm25
-faiss-cpu
-numpy
+sentence-transformers==6.2.0
+chromadb==1.5.9
+huggingface_hub==1.33.0
+rank-bm25==0.2.2
+faiss-cpu==1.15.1
+numpy==2.5.4
 
 # Evaluation
-ragas
-datasets
+ragas==0.4.3
+datasets==5.1.0
 
 # Provider SDKs (see ai_client.py — dispatched via AI_PROVIDER)
-google-genai
-anthropic
-openai
+google-genai==2.34.0
+anthropic==2.3.0
+openai==3.3.0
 
 # Config
-python-dotenv
+python-dotenv==1.2.4
 
 # Notebook runtime
-jupyter
-ipykernel
+jupyter==1.1.1
+ipykernel==7.4.0

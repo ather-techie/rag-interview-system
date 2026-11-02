@@ -655,10 +655,10 @@ Reward design is genuinely harder than QA-style exact-match (Q4): "was this retr
 
 ## Q26. A legal-research team's Search-R1-style assistant is accurate when it searches but weak on a segment where it skips search and answers from memory; its frozen retriever handles statute citations poorly. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Add a larger per-search cost penalty to the reward
-- B. Increase max_turns so the policy can search longer
+- A. Add a larger per-search cost penalty to the reward to discourage unnecessary calls
+- B. Increase max_turns so that the policy is allowed to search for more turns
 - C. Replace the retriever with a legal-tuned one and continue RL against it
-- D. Raise the GRPO group size to sharpen advantage estimates
+- D. Raise the GRPO group size so that advantage estimates become sharper and less noisy
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -677,3 +677,7 @@ Reward design is genuinely harder than QA-style exact-match (Q4): "was this retr
 - **Literature/biomedical search agents**: DeepRetrieval trains small (3B) models that outperform GPT-4o/Claude on PubMed and clinical-trial literature retrieval tasks by directly optimizing recall
 - **Cost-sensitive search agents**: RL-trained policies that learn to minimize the number of search calls per query are attractive where each search call has a real dollar cost (paid search APIs)
 - **Autonomous research assistants**: sibling frameworks (R1-Searcher, ReSearch) demonstrate the same RL-for-search recipe generalizing to reflection and self-correction behavior without hand-authored heuristics
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

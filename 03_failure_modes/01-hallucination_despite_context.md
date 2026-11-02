@@ -296,7 +296,7 @@ class CitedAnswer(BaseModel):
     citations: list[dict]  # [{"claim": "...", "source": "Doc X", "page": 3}]
 
 response = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-5-5",
     max_tokens=1024,
     system="You output JSON with citations. Every claim in 'answer' must have a corresponding entry in 'citations'.",
     messages=[{

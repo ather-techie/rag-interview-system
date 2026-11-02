@@ -800,7 +800,7 @@ The hard constraint is that "correct" output differs by jurisdiction — a termi
 
 ## Q26. A fintech's text-to-SQL assistant automatically adds thumbs-up outputs to its example library. Months later, generated queries increasingly build SQL by string concatenation. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Raise k so that more good examples outvote the flawed ones
+- A. Raise k so that more good examples are retrieved and outvote the flawed ones in each prompt
 - B. Require human review before examples enter the library, and audit existing entries
 - C. Embed the answer side so retrieval favors well-formed SQL
 - D. Lower MMR lambda so retrieved examples are more varied
@@ -823,3 +823,7 @@ The hard constraint is that "correct" output differs by jurisdiction — a termi
 - **Customer support bots**: Retrieve past solved tickets as examples for consistent tone and resolution format
 - **Medical coding**: Retrieve similar clinical notes with correct ICD codes as examples for coding new notes
 - **Structured extraction**: Retrieve examples of correctly-formatted JSON extractions to guide schema-constrained generation
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

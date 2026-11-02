@@ -7,25 +7,19 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { DIFFICULTIES, TAGS } from './questions.mjs';
+import { preludeJs, QUIZ_COMMON_JS } from './prelude.mjs';
 
-// Mirror the prelude scripts/build_site.mjs's preludeJs() emits ahead of the
-// browser scripts, then the shared helpers, then assessment.js itself.
-const prelude = [
-  `const DIFFICULTIES = ${JSON.stringify(DIFFICULTIES)};`,
-  `const TAGS = ${JSON.stringify(TAGS)};`,
-  'const ASSESSMENT_HREF = "assessment.html";',
-  'const QUIZ_PAGE_GROUP = null;',
-].join('\n');
-const common = readFileSync(new URL('../quiz-common.js', import.meta.url), 'utf8');
+// The exact prelude and shared helpers the build serves, then assessment.js itself.
+const prelude = preludeJs();
+const common = QUIZ_COMMON_JS;
 const src = readFileSync(new URL('../assessment.js', import.meta.url), 'utf8');
 const api = vm.runInNewContext(
   [prelude, common, src].join('\n') +
-    '\n;({ isMcqItem, shuffleArray, filterPool, sampleQuestions, scoreAttempt, readinessFor, formatClock, timerSeconds, sectionPageHref, loadHistory, saveAttempt, clearHistory, bestScore, configFromSearch, HISTORY_KEY, HISTORY_MAX })',
+    '\n;({ isMcqItem, shuffleArray, escapeHtml, normalizeItem, isShortcutBlocked, mcqOptionHtml, difficultyBadgeHtml, filterPool, sampleQuestions, scoreAttempt, readinessFor, formatClock, timerSeconds, sectionPageHref, loadHistory, saveAttempt, clearHistory, bestScore, configFromSearch, HISTORY_KEY, HISTORY_MAX })',
   { Math, JSON, Date, URLSearchParams }
 );
 const {
-  isMcqItem, shuffleArray, filterPool, sampleQuestions, scoreAttempt, readinessFor,
+  isMcqItem, shuffleArray, escapeHtml, normalizeItem, isShortcutBlocked, mcqOptionHtml, difficultyBadgeHtml, filterPool, sampleQuestions, scoreAttempt, readinessFor,
   formatClock, timerSeconds, sectionPageHref, loadHistory, saveAttempt, clearHistory,
   bestScore, configFromSearch, HISTORY_KEY, HISTORY_MAX,
 } = api;
@@ -180,7 +174,7 @@ test('history: empty, corrupt, non-array and null storage all yield []', () => {
 
 test('history: saveAttempt prepends, caps at HISTORY_MAX, clearHistory removes', () => {
   const st = fakeStorage();
-  for (let i = 0; i < HISTORY_MAX + 5; i++) saveAttempt(st, { pct: i, at: String(i) });
+  for (let i = 0; i < HISTORY_MAX + 5; i++) saveAttempt(st, { pct: i, total: 10, correct: 5, at: String(i) });
   const h = loadHistory(st);
   assert.equal(h.length, HISTORY_MAX);
   assert.equal(h[0].pct, HISTORY_MAX + 4);
@@ -220,4 +214,68 @@ test('configFromSearch keeps numeric and "All" types intact', () => {
   assert.strictEqual(c.count, 'All');
   assert.strictEqual(c.secondsPerQuestion, 0);
   assert.strictEqual(configFromSearch('?count=50', DEFAULTS).count, 50);
+});
+
+test('sampleQuestions stays balanced across difficulties when sections outnumber the count', () => {
+  // 60 sections, each 1 Basic / 2 Intermediate / 1 Advanced: the real pool's shape.
+  const pool = [];
+  for (let s = 0; s < 60; s++) {
+    pool.push(mcq(`s${s}-b`, `S${s}`, 'Basic'), mcq(`s${s}-i1`, `S${s}`, 'Intermediate'),
+      mcq(`s${s}-i2`, `S${s}`, 'Intermediate'), mcq(`s${s}-a`, `S${s}`, 'Advanced'));
+  }
+  for (const count of [10, 25, 50]) {
+    const picked = sampleQuestions(pool, count, mulberry32(count));
+    assert.equal(picked.length, count);
+    for (const d of DIFFS) {
+      const n = picked.filter((q) => q.difficulty === d).length;
+      assert.ok(n >= Math.floor(count / 3) - 1, `${d}: only ${n} of ${count}`);
+    }
+  }
+});
+
+test('loadHistory drops entries with non-numeric fields', () => {
+  const st = fakeStorage(JSON.stringify([{ pct: 50, total: 10, correct: 5 }, { pct: 'x', total: 1, correct: 1 }, { pct: 1, total: '<b>', correct: 1 }]));
+  assert.equal(loadHistory(st).length, 1);
+});
+
+test('escapeHtml escapes markup, quotes and nullish values', () => {
+  assert.equal(escapeHtml('<img src="x" onerror=\'a\'>&'), '&lt;img src=&quot;x&quot; onerror=&#39;a&#39;&gt;&amp;');
+  assert.equal(escapeHtml(null), '');
+  assert.equal(escapeHtml(5), '5');
+});
+
+test('normalizeItem maps the build JSON shape and defaults missing fields', () => {
+  const n = normalizeItem({ question: 'Q', difficulty: 'Basic', answer: '<p>a</p>' });
+  assert.equal(n.questionText, 'Q');
+  assert.equal(n.answerHTML, '<p>a</p>');
+  assert.deepEqual([...n.tags], []);
+  assert.equal(n.options, null);
+  assert.equal(n.correct, null);
+  assert.equal(n.href, null);
+});
+
+test('isShortcutBlocked rejects modifier combos, key repeat and form controls', () => {
+  const ev = (o) => ({ ctrlKey: false, metaKey: false, altKey: false, repeat: false, target: { tagName: 'DIV' }, ...o });
+  assert.equal(isShortcutBlocked(ev({})), false);
+  assert.equal(isShortcutBlocked(ev({ ctrlKey: true })), true);
+  assert.equal(isShortcutBlocked(ev({ metaKey: true })), true);
+  assert.equal(isShortcutBlocked(ev({ altKey: true })), true);
+  assert.equal(isShortcutBlocked(ev({ repeat: true })), true);
+  assert.equal(isShortcutBlocked(ev({ target: { tagName: 'SELECT' } })), true);
+  assert.equal(isShortcutBlocked(ev({ target: { tagName: 'DIV', isContentEditable: true } })), true);
+});
+
+test('mcqOptionHtml emits data attributes, no inline handlers, and aria-pressed only for toggles', () => {
+  const o = { letter: 'B', html: 'two <code>x</code>' };
+  const oneShot = mcqOptionHtml(o, { action: 'choose' });
+  assert.ok(oneShot.includes('data-action="choose"') && oneShot.includes('data-letter="B"'));
+  assert.ok(!oneShot.includes('aria-pressed') && !oneShot.includes('onclick'));
+  assert.ok(mcqOptionHtml(o, { action: 'answer', selected: true }).includes('aria-pressed="true"'));
+  assert.ok(mcqOptionHtml(o, { action: 'answer', selected: false }).includes('aria-pressed="false"'));
+  assert.ok(mcqOptionHtml(o, { disabled: true, extraClass: 'wrong' }).includes('disabled'));
+});
+
+test('difficultyBadgeHtml defaults to Basic and escapes', () => {
+  assert.ok(difficultyBadgeHtml().includes('basic'));
+  assert.ok(!difficultyBadgeHtml('<b>').includes('<b>'));
 });

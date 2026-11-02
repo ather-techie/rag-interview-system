@@ -75,6 +75,8 @@ Query → Embedder → ANN Search ────┘ → Top-k chunks → LLM → A
 
 **Answer:**
 
+Naive RAG's weaknesses share one root cause: every stage is fixed in advance and unaware of the others, so nothing in the pipeline can notice or recover when an earlier stage goes wrong.
+
 | Limitation | Description |
 |---|---|
 | Chunking artifacts | Fixed-size splits can cut context mid-sentence, losing coherence |
@@ -362,12 +364,11 @@ class SemanticCache:
 Here is a complete, runnable Naive RAG pipeline using LangChain, Chroma, and OpenAI:
 
 ```python
-import os
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.chains import RetrievalQA
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.prompts import ChatPromptTemplate
 
 # 1. Load and chunk documents
 loader = TextLoader("document.txt")
@@ -377,33 +378,34 @@ chunks = splitter.split_documents(docs)
 
 # 2. Create embeddings and store in vector DB
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-vectorstore = Chroma.from_documents(
-    chunks, 
-    embeddings,
-    persist_directory="./chroma_db"
-)
+vectorstore = Chroma.from_documents(chunks, embeddings, persist_directory="./chroma_db")
 
-# 3. Build RAG chain
+# 3. The RAG step: retrieve, "stuff" the chunks into one prompt, generate
 retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-qa_chain = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",
-    retriever=retriever,
-    return_source_documents=True
+prompt = ChatPromptTemplate.from_template(
+    "Answer the question using only the context below. "
+    "If the answer is not in the context, say so.\n\n"
+    "Context:\n{context}\n\nQuestion: {question}"
 )
 
+def answer(question: str):
+    sources = retriever.invoke(question)
+    context = "\n\n".join(doc.page_content for doc in sources)
+    reply = llm.invoke(prompt.format_messages(context=context, question=question))
+    return reply.content, sources
+
 # 4. Query
-response = qa_chain({"query": "What is the main topic?"})
-print(response["result"])
-for doc in response["source_documents"]:
+result, sources = answer("What is the main topic?")
+print(result)
+for doc in sources:
     print(f"Source: {doc.metadata}")
 ```
 
 **Key points:**
 - `RecursiveCharacterTextSplitter` handles heterogeneous documents (code, prose, tables).
 - `OpenAIEmbeddings` uses the latest text-embedding-3-small (cheaper, better than ada-002).
-- `RetrievalQA` wraps the retriever + LLM; `chain_type="stuff"` concatenates all chunks into one prompt.
+- `answer()` is the whole "chain": retrieve, concatenate ("stuff") the chunks into one prompt, generate. LangChain's legacy `RetrievalQA` class did the same thing behind an abstraction; it was deprecated in 2024 and removed from the core `langchain` package in 1.0, so write the three lines yourself and keep the prompt visible.
 - Persist the vector store to disk for reuse without re-embedding.
 
 To extend this to production: add reranking (Q2), query rewriting (Q2), or a custom retriever with filtering (Q3).
@@ -455,7 +457,7 @@ Embedding 10M documents upfront:
 
 1. **Quantization** — Reduce vectors from float32 to int8 or binary, cutting storage by 4-10x.
    ```python
-   from langchain.embeddings.base import Embeddings
+   import numpy as np
    
    # Original: 1536 dims × 4 bytes = 6144 bytes
    # Quantized: 1536 dims × 1 byte = 1536 bytes (4x savings)
@@ -923,7 +925,7 @@ What to monitor: automated PII-pattern scans on every generated answer before it
 
 ## Q25. What does a semantic cache typically check to decide whether a new query can reuse a previous response? `[Intermediate]` `[MCQ]`
 
-- A. Whether the new query's text exactly matches a cached query string
+- A. Whether the new query's text exactly matches a cached query string after lowercasing and whitespace normalization
 - B. Whether the new query's embedding is close enough (above a similarity threshold) to a cached query's embedding
 - C. Whether the new query retrieved the same chunk IDs as a cached query
 - D. Whether the LLM reports high confidence in a cached answer
@@ -941,7 +943,7 @@ What to monitor: automated PII-pattern scans on every generated answer before it
 
 ## Q26. A fintech's Naive RAG chatbot over regulatory filings must guarantee it never cites a filing version that has since been superseded, even though old versions stay in the index for audit purposes. Which retrieval-time change satisfies this with the least architectural disruption? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Delete superseded filings from the index entirely
+- A. Delete superseded filings from the index entirely and rebuild it with only the latest version of each filing
 - B. Add an `is_current` metadata field to each chunk and apply it as a mandatory pre-filter before similarity search
 - C. Lower the similarity threshold so older filings naturally rank below newer ones
 - D. Instruct the LLM in the prompt to ignore outdated filings by date
@@ -966,3 +968,7 @@ What to monitor: automated PII-pattern scans on every generated answer before it
 | University knowledge base Q&A | Education | Course catalogues and FAQs have low query complexity; Naive RAG is fast to prototype and deploy on limited budgets |
 | Customer support first-line triage | SaaS / Support | Answers common "how do I?" questions from documentation before escalating to agents |
 | Small-team documentation search | Startups / DevTools | When the corpus is < 10k chunks, Naive RAG delivers adequate precision without orchestration overhead |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

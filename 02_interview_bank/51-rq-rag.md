@@ -684,9 +684,9 @@ Retraining cadence (Q12, Q18) needs to track organizational reality, not just ca
 ## Q23. In RQ-RAG, which control token does the fine-tuned model emit for the query "Compare Tokyo's population and its average rent"? `[Basic]` `[MCQ]`
 
 - A. `<decompose>`, producing several independent sub-queries
-- B. `<rewrite>`, producing one reformulated query
-- C. `<disambiguate>`, producing one clarified query
-- D. `<no-op>`, passing the query through unchanged
+- B. `<rewrite>`, producing one reformulated query with clearer wording
+- C. `<disambiguate>`, producing one clarified query with the ambiguity resolved
+- D. `<no-op>`, passing the query through unchanged to retrieval
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -701,10 +701,10 @@ Retraining cadence (Q12, Q18) needs to track organizational reality, not just ca
 
 ## Q24. Which signal does RQ-RAG's path selector use to choose among candidate refinement paths? `[Intermediate]` `[MCQ]`
 
-- A. A separate LLM judge that grades each drafted answer
+- A. A separate LLM judge that grades each drafted answer against its retrieved passages
 - B. The retriever's top similarity score for each refined query
 - C. The perplexity of each path's drafted answer, as average token log-probability
-- D. Agreement among the drafted answers across a majority of paths
+- D. Agreement among the drafted answers across a majority of the candidate paths
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -719,10 +719,10 @@ Retraining cadence (Q12, Q18) needs to track organizational reality, not just ca
 
 ## Q25. What is the purpose of the retrieval-and-answer feedback filter when building RQ-RAG training data? `[Intermediate]` `[MCQ]`
 
-- A. To drop refinements the teacher LLM was unsure about
+- A. To drop refinements the teacher LLM expressed low confidence about when writing them
 - B. To keep only refinements that improve downstream answer correctness over the raw query
 - C. To deduplicate near-identical refined queries across the dataset
-- D. To balance the number of examples for each refinement operation
+- D. To balance the number of training examples available for each refinement operation
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -759,3 +759,7 @@ Retraining cadence (Q12, Q18) needs to track organizational reality, not just ca
 - **Conversational search**: The `<disambiguate>` operation resolves pronoun/ellipsis-heavy follow-up queries ("what about the second one?") using prior turn context, an alternative to the memory-augmentation approach in file 21 (Memory/Conversational RAG)
 - **Enterprise search over jargon-heavy corpora**: `<rewrite>` learns domain-specific query reformulation (casual phrasing → internal terminology) without needing a hand-maintained synonym dictionary
 - **Research assistants**: Chaining decomposition then rewriting lets the system handle "explain the tradeoffs between A and B, citing recent work" as a structured multi-step retrieval plan rather than one noisy retrieval call
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

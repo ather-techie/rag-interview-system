@@ -749,3 +749,7 @@ At billions of functions, the ~10-30x token-level storage multiplier (Q4, Q18) i
 - **Stanford BEIR benchmark**: ColBERTv2 achieves state-of-the-art on zero-shot retrieval across 18 diverse datasets
 - **Code search**: GitHub Copilot and similar systems use multi-vector representations for token-level code matching
 - **Legal RAG**: Multi-vector retrieval improves recall on clause-level legal document search where key terms can appear anywhere in a passage
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

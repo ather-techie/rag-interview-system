@@ -1054,10 +1054,10 @@ What to monitor: routing accuracy and answer quality segmented by country (Q18's
 
 ## Q25. Given how costly each type of misroute is in Adaptive RAG, which threshold bias is recommended? `[Intermediate]` `[MCQ]`
 
-- A. Bias t2 low so more queries reach the multi-hop tier
+- A. Bias t2 low so more moderate queries are escalated into the multi-hop tier
 - B. Bias t1 low so uncertain queries escalate to retrieval instead of skipping it
-- C. Bias t1 high so more queries skip retrieval and save cost
-- D. Set t1 equal to t2 to remove the single-hop tier
+- C. Bias t1 high so more uncertain queries skip retrieval entirely and save cost
+- D. Set t1 equal to t2 so that the single-hop tier is removed from the router
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1072,8 +1072,8 @@ What to monitor: routing accuracy and answer quality segmented by country (Q18's
 
 ## Q26. An airline's Adaptive RAG bot has a classifier whose softmax says 0.9 on predictions that are right about 70% of the time, so multi-hop rebooking questions reach no-retrieval and get fabricated answers. Which fix keeps the cost savings? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Replace the classifier with an LLM judge on every request
-- B. Retrain with ten times more simple-class examples
+- A. Replace the classifier with an LLM judge that scores every request before routing
+- B. Retrain the classifier from scratch with ten times more simple-class training examples
 - C. Remove the no-retrieval tier so every query retrieves at least once
 - D. Calibrate with temperature scaling and route low-confidence predictions to single-hop
 
@@ -1097,3 +1097,7 @@ What to monitor: routing accuracy and answer quality segmented by country (Q18's
 | E-learning platform with adaptive tutoring | EdTech | Simple recall questions are answered from parametric knowledge; novel problem-solving routes to retrieved worked examples |
 | Customer success platform (e.g., Zendesk AI) | SaaS / Support | Quick FAQs answered immediately; nuanced billing disputes route to policy retrieval and escalation logic |
 | Internal developer tool (code Q&A + generation) | DevTools | Simple syntax questions need no retrieval; architecture-level questions trigger full codebase search and retrieval |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

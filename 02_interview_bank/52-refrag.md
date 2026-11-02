@@ -57,7 +57,7 @@ Answer  (~30x faster time-to-first-token vs. feeding all chunks as raw tokens)
 
 ---
 
-## Q1. What is REFRAG and how does its compression approach differ from the prompt-compression techniques already used in Long-Context RAG? `[Basic]`
+## Q1. How does REFRAG's compression approach differ from the prompt-compression techniques already used in Long-Context RAG (#10)? `[Basic]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -620,10 +620,10 @@ Given how fast market conditions and relevant document types shift, the RL polic
 
 ## Q23. In REFRAG, what does the chunk encoder produce for each fixed-size token block of a retrieved passage? `[Basic]` `[MCQ]`
 
-- A. A short natural-language summary of the block
+- A. A short natural-language summary of the block, which replaces the raw tokens
 - B. A single dense embedding aligned with the decoder's input space
-- C. A keep-or-drop label for every token in the block
-- D. A sparse keyword vector used to score expansion
+- C. A keep-or-drop label for every token in the block, used to prune it
+- D. A sparse keyword vector used to score whether to expand the block
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -639,9 +639,9 @@ Given how fast market conditions and relevant document types shift, the RL polic
 ## Q24. What reward signal trains REFRAG's chunk-selection policy? `[Intermediate]` `[MCQ]`
 
 - A. The negative log-perplexity of the decoder's output under the chosen expansion
-- B. Human preference ratings of the final answer's helpfulness
-- C. Recall of the expanded chunks against gold supporting passages
-- D. The reduction in total token count achieved by the selection
+- B. Human preference ratings of the final answer's helpfulness, collected per query
+- C. Recall of the expanded chunks measured against hand-labeled gold supporting passages
+- D. The reduction in total token count achieved by the chunk selection policy
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -696,3 +696,7 @@ Given how fast market conditions and relevant document types shift, the RL polic
 - **Long multi-turn conversational agents**: extending effective context ~16x lets an agent retain more retrieved evidence across a long conversation without a proportional latency penalty
 - **Long-document summarization pipelines**: compressing most of a long document into chunk embeddings while expanding only the sections most relevant to the requested summary focus
 - **Cost-sensitive RAG-as-a-service platforms**: reducing per-query decoding cost (fewer effective tokens processed) directly reduces GPU-time billing for high-volume RAG APIs
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

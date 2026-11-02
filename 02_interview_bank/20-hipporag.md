@@ -552,7 +552,7 @@ Synonymy edges (Q6) exist to merge references to the same entity that the extrac
 
 ---
 
-## Q20. What are the limitations of HippoRAG, and how might the field evolve? `[Advanced]`
+## Q20. How might HippoRAG evolve to address its current limitations (Q7)? `[Advanced]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -662,7 +662,7 @@ Monitor: incremental update latency versus report arrival rate, entity-link rate
 - A. Raise the synonymy similarity threshold and spot-check edge precision
 - B. Lower the damping factor so activation stays near the seeds
 - C. Raise the top-k so the correct drug's passages also appear
-- D. Re-run OpenIE over the corpus with a larger extraction model
+- D. Re-run OpenIE over the corpus with a larger extraction model to improve triple quality
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -684,3 +684,7 @@ Monitor: incremental update latency versus report arrival rate, entity-link rate
 | Investigative & intelligence analysis | Security / Journalism | "How is entity A connected to entity B?" is exactly associative graph traversal over extracted relationships |
 | Customer-360 / entity-resolution assistants | Enterprise CRM | Synonym edges unify entity surface forms across systems; PPR surfaces all linked records for a customer |
 | High-volume factual QA with strict latency SLAs | Search / Knowledge | Single-step multi-hop avoids per-hop LLM cost, so deep questions answer as fast as shallow ones |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

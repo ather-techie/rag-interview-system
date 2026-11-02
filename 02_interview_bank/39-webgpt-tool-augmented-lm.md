@@ -588,9 +588,9 @@ The regulator-audit-trail requirement is a hard compliance constraint that shift
 ## Q25. In Toolformer's data-filtering step, which condition decides that a candidate API call is kept for fine-tuning? `[Intermediate]` `[MCQ]`
 
 - A. Inserting the call and its result meaningfully lowers perplexity on the following tokens
-- B. A human annotator confirms that the API call is appropriate
-- C. The API call executes without raising an error
-- D. The call is copied from a human browsing demonstration
+- B. A human annotator reviews each candidate API call and confirms that it is appropriate
+- C. The API call executes successfully and returns a non-empty result without raising an error
+- D. The call is copied verbatim from a human browsing demonstration collected for fine-tuning
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -630,3 +630,7 @@ The regulator-audit-trail requirement is a hard compliance constraint that shift
 | Cost-sensitive, high-volume narrow-task automation | Enterprise ops | A small fine-tuned model with a fixed action set can be cheaper at scale than repeatedly prompting a large general-purpose model |
 | Research and evaluation of tool-use training methods | Academia / R&D | WebGPT, Toolformer, and Gorilla remain the reference architectures cited when proposing new tool-learning methods |
 | Rapid-iteration general-purpose agents | Most production agentic systems today | Prompted tool use (agentic RAG, #31) is the default precisely because it avoids the retraining costs WebGPT's approach requires |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

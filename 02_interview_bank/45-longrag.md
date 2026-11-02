@@ -636,7 +636,7 @@ Given specs run to thousands of pages and requirements cross-reference each othe
 
 ## Q24. What does Self-Route ask the LLM to judge before falling back to full long-context stuffing? `[Intermediate]` `[MCQ]`
 
-- A. Whether the query is longer than the model's context window
+- A. Whether the query plus its retrieved passages is longer than the model's context window
 - B. Whether the top-k retrieved passages are sufficient to answer the query
 - C. Whether the retrieved units exceed the 4K-token target size
 - D. Whether the retriever's top similarity score passes a threshold
@@ -695,3 +695,7 @@ Given specs run to thousands of pages and requirements cross-reference each othe
 - **Google's hybrid RAG/long-context search assistants**: Self-Route-style routing to avoid paying long-context token costs on the majority of simple, single-hop queries
 - **Cost-sensitive production RAG**: Self-Route as a cheap "escalation" gate before falling back to an expensive long-context or agentic retrieval pass
 - **Research/legal assistants with mixed query difficulty**: routing simple lookup questions through cheap RAG while escalating synthesis-heavy questions to full-document long-context reasoning
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

@@ -497,6 +497,23 @@ export function countQuestions(md) {
   return n;
 }
 
+/**
+ * Length skew of an MCQ: test-takers learn that the longest option is usually
+ * the right one. Returns { correctLen, maxOtherLen, ratio, skewed } where
+ * `skewed` means the correct option is more than 10% longer than every
+ * distractor. Returns null for a question without a usable option set.
+ */
+export const MCQ_SKEW_RATIO = 1.1;
+export function mcqLengthSkew(q) {
+  if (!q || !q.correct || !Array.isArray(q.options) || q.options.length < 2) return null;
+  const correct = q.options.find((o) => o.letter === q.correct);
+  if (!correct) return null;
+  const others = q.options.filter((o) => o.letter !== q.correct).map((o) => o.text.length);
+  const maxOtherLen = Math.max(...others);
+  const ratio = correct.text.length / maxOtherLen;
+  return { correctLen: correct.text.length, maxOtherLen, ratio, skewed: ratio > MCQ_SKEW_RATIO };
+}
+
 /** Tally of {Basic, Intermediate, Advanced} counts for a parsed file's questions. */
 export function difficultyMix(questions) {
   const mix = { Basic: 0, Intermediate: 0, Advanced: 0 };

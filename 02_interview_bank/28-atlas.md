@@ -148,7 +148,7 @@ The challenge: retrieval (a discrete top-k selection) isn't directly differentia
 
 ---
 
-## Q4. How does Atlas differ from REALM, RETRO, and Fusion-in-Decoder? `[Advanced]`
+## Q4. How does Atlas's jointly-trained few-shot recipe differ from REALM, RETRO, and Fusion-in-Decoder? `[Advanced]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -658,7 +658,7 @@ The hard constraint here is combinatorial: dozens of domains, each potentially n
 
 - A. Lowering the number of passages the reader fuses per query
 - B. Freezing the FiD reader while the retriever keeps training
-- C. Swapping attention distillation for perplexity distillation
+- C. Swapping attention distillation for perplexity distillation as the retriever's training signal
 - D. Updating only the query encoder and keeping document embeddings fixed
 
 <details>
@@ -692,7 +692,7 @@ The hard constraint here is combinatorial: dozens of domains, each potentially n
 
 ## Q26. A pharmaceutical company adapts an Atlas-style model on 60 labeled drug-interaction questions. After joint fine-tuning, answer accuracy rose slightly, but recall@k on a held-out retrieval set fell below the original retriever's. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Increase the reader's learning rate so it compensates for weaker retrieval
+- A. Increase the reader's learning rate so it compensates for the weaker retrieval during joint fine-tuning
 - B. Retrieve more passages per query so the reader sees extra evidence
 - C. Lower the retriever's learning rate relative to the reader's during joint fine-tuning
 - D. Drop the retriever and fine-tune a closed-book reader on the 60 examples
@@ -717,3 +717,7 @@ The hard constraint here is combinatorial: dozens of domains, each potentially n
 | Knowledge assistants needing updatable facts | Enterprise | Edit the corpus to change knowledge without retraining or new labels |
 | Parameter-efficient knowledge models | ML platform / R&D | An 11B retrieval model rivals 540B closed-book models on knowledge tasks |
 | Interpretable QA where answers must cite evidence | Regulated industries | Retrieved passages provide a transparent basis for each generated answer |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

@@ -17,6 +17,8 @@
 //                                        target, with a heuristic rubric-slot
 //                                        breakdown
 //   readme --write | --check            regenerate README.md counts/badge
+//   mcq-length [--dir <dir>] [--json]    list [MCQ] questions whose correct option is
+//                                        >10% longer than every distractor (a giveaway)
 //   renumber <file>                      rewrite Qn sequentially outside fences
 //
 // Usage: node scripts/check_questions.mjs <command> [options]
@@ -26,12 +28,12 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
   parseQuestionFile,
-  countQuestions,
   difficultyMix,
   tagCounts,
   findNearDuplicates,
   normalizeTitle,
   partitionMcq,
+  mcqLengthSkew,
   HEADING_RE,
 } from './lib/questions.mjs';
 
@@ -50,7 +52,6 @@ const TARGET_SCENARIOS = 2; // per-file target count of [Scenario]-tagged questi
 // Set to 0 to silence W-MCQ (e.g. while rolling MCQs out to a new batch of
 // files); see CONTRIBUTING.md's "The [MCQ] tag" section.
 const TARGET_MCQ = 4;
-const MIX_TOLERANCE = 1;
 
 // Heuristic rubric used by `gaps` to suggest what to write next. Keyword
 // matching against question titles is approximate by design — it's a
@@ -503,6 +504,34 @@ function runReadme({ write, check }) {
 }
 
 // ---------------------------------------------------------------------------
+// mcq-length
+// ---------------------------------------------------------------------------
+function runMcqLength({ dir, json }) {
+  const dirs = dir ? [dir] : QUIZ_DIRS;
+  const rows = [];
+  let total = 0;
+  let longest = 0;
+  for (const f of dirs.flatMap(loadDir)) {
+    for (const q of f.questions.filter((x) => x.tags.includes('MCQ'))) {
+      const skew = mcqLengthSkew(q);
+      if (!skew) continue;
+      total++;
+      if (skew.correctLen >= skew.maxOtherLen) longest++;
+      if (skew.skewed) rows.push({ file: f.relPath, n: q.n, correct: q.correct, ...skew, title: q.title });
+    }
+  }
+  rows.sort((a, b) => b.ratio - a.ratio);
+  if (json) {
+    console.log(JSON.stringify(rows, null, 2));
+    return;
+  }
+  for (const r of rows) console.log(`${r.file} Q${r.n} correct=${r.correct} ${r.correctLen}/${r.maxOtherLen} chars (x${r.ratio.toFixed(2)})`);
+  console.log(`
+${rows.length} of ${total} MCQs have a correct option >10% longer than every distractor; ` +
+    `correct option is the longest or tied in ${longest} (${total ? Math.round((100 * longest) / total) : 0}%, chance is ~25%).`);
+}
+
+// ---------------------------------------------------------------------------
 // renumber
 // ---------------------------------------------------------------------------
 function runRenumber(file) {
@@ -571,11 +600,14 @@ function main() {
     case 'readme':
       runReadme({ write: values.write, check: values.check });
       break;
+    case 'mcq-length':
+      runMcqLength({ dir: values.dir, json: values.json });
+      break;
     case 'renumber':
       runRenumber(rest.find((a) => !a.startsWith('--')));
       break;
     default:
-      console.error(`Unknown command: ${command}\nUsage: node scripts/check_questions.mjs <check|gaps|readme|renumber> [options]`);
+      console.error(`Unknown command: ${command}\nUsage: node scripts/check_questions.mjs <check|gaps|readme|mcq-length|renumber> [options]`);
       process.exitCode = 1;
   }
 }

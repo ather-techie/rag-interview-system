@@ -141,6 +141,22 @@ correct-answer line). `npm run readme` rewrites the `questions-###` badge and th
 per-file/section/grand/scenario/MCQ totals in `README.md` for you — never hand-edit those
 counts.
 
+### Validator codes
+
+| Code | Meaning |
+|---|---|
+| `E-NUM`, `E-TAG`, `E-LEGACY` | Question numbering, difficulty/unknown tags, or a legacy `**Q:**` marker |
+| `E-DETAILS`, `E-SUMMARY`, `E-ANSWER`, `E-EMPTY`, `E-HR` | The `<details>` / summary / `**Answer:**` / `---` structure |
+| `E-MCQ-OPTS`, `E-MCQ-KEY` | `[MCQ]` option list or `**Correct: X.**` line |
+| `E-DUP`, `W-NEARDUP` | Duplicate or near-duplicate question titles |
+| `W-COUNT`, `W-SCENARIO`, `W-MCQ` | Per-file targets (22 free-form, 2 scenario, 4 MCQ); errors under `--strict` |
+| `W-SHORT`, `W-H1` | Answer under 40 words; H1 not starting with the file number |
+
+Other scripts: `npm run gaps` (progress toward the per-file targets),
+`npm run mcq-length` (MCQs whose correct option is much longer than the
+distractors — keep options within about 10% of each other so length is not a
+giveaway), `npm run readme:check` (README counts in sync).
+
 ## Releasing
 
 Maintainer-only steps for cutting a new version:

@@ -813,9 +813,9 @@ The hard constraints here are compounding: information changes by the minute, so
 ## Q23. What does a web search API return that lets an Agentic Web RAG system skip full page fetches for some queries? `[Basic]` `[MCQ]`
 
 - A. Short snippets alongside each URL that can suffice for simple factual questions
-- B. Pre-chunked page text already embedded for vector lookup
-- C. Verified citation labels confirming each result's reliability
-- D. Cached full-page content for every URL in the result list
+- B. Pre-chunked page text that is already embedded and ready for direct vector lookup
+- C. Verified citation labels from the provider confirming each result's reliability
+- D. Cached full-page content for every URL in the result list, ready to read immediately
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -848,10 +848,10 @@ The hard constraints here are compounding: information changes by the minute, so
 
 ## Q25. Why is a snippet-sufficiency check usually a better latency lever than uniformly lowering the number of pages fetched per search? `[Intermediate]` `[MCQ]`
 
-- A. It raises search API cost, so fewer results force repeated searches
+- A. It raises search API cost, so fewer results per query force repeated follow-up searches
 - B. It skips fetches only when snippets suffice, preserving coverage for queries that need full pages
 - C. It removes the need for the domain trust score on neutral domains
-- D. It only reduces generation time, not fetch time, so total latency barely changes
+- D. It only reduces generation time, not fetch time, so end-to-end latency barely changes at all
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -889,3 +889,7 @@ The hard constraints here are compounding: information changes by the minute, so
 - **You.com, Phind**: Developer-focused search engines with web RAG pipelines
 - **Financial research bots**: Real-time market data, earnings calls, SEC filings retrieved on demand
 - **News summarization**: Summarizing breaking news from multiple sources with cross-source fact-checking
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

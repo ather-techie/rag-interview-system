@@ -1096,9 +1096,9 @@ What to monitor: the `[IsRel]`/`[IsSup]` disagreement rate (Q19) as an ongoing g
 
 ## Q26. A legal-research startup's Self-RAG model confidently answers from memory about a recently amended statute and never retrieves. Which diagnosis fits best? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. The [IsRel] threshold is too strict, so relevant passages are filtered out
-- B. The segment beam is too narrow, so better candidates are never sampled
-- C. The [IsUse] weighting is too low, so useful answers are being penalized
+- A. The [IsRel] threshold is too strict, so relevant passages are filtered out of the context
+- B. The segment beam is too narrow, so better candidate continuations are never sampled
+- C. The [IsUse] weighting is too low, so genuinely useful answers are penalized in ranking
 - D. The [Retrieve] token is under-triggering, so lower its threshold and monitor labeled cases
 
 <details>
@@ -1121,3 +1121,7 @@ What to monitor: the `[IsRel]`/`[IsSup]` disagreement rate (Q19) as an ongoing g
 | Academic writing assistant | Education | Model self-assesses whether retrieved papers actually support a claim before including them in a literature review |
 | Insurance underwriting Q&A | Insurance | High-stakes answers require self-evaluation of retrieval quality; `[IsUse]` prevents low-relevance policy clauses from diluting the answer |
 | Automated report generation (earnings, ESG) | Finance / Corporate | Model reflection tokens gate inclusion of each retrieved data point, preventing factually unsupported statements in published reports |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

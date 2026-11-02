@@ -642,7 +642,7 @@ Like Agentic Web RAG (#31 Q8) and LazyGraphRAG (#47 Q9), Contextual Retrieval is
 
 ---
 
-## Q15. How does Contextual Retrieval compare to HyDE (#22)? `[Basic]`
+## Q15. Contextual Retrieval and HyDE (#22) both add LLM-generated text: which end of the pipeline does each change, and can they be combined? `[Basic]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -794,7 +794,7 @@ Monitor per-jurisdiction: refresh completion time against the nightly SLA (with 
 ## Q24. In the context-generation prompt, which part is cached across calls so that per-chunk cost stays low? `[Intermediate]` `[MCQ]`
 
 - A. The full document text shared by every chunk-generation call for that document
-- B. The chunk-specific suffix, reused across the chunks of every document
+- B. The chunk-specific suffix, which stays the same and is reused across the chunks of every document
 - C. The generated prefix, reused for any later chunk with similar wording
 - D. The embedding of each contextualized chunk, reused at query time
 
@@ -854,3 +854,7 @@ Monitor per-jurisdiction: refresh completion time against the nightly SLA (with 
 | Knowledge management platform (e.g., Guru, Tettra) | Enterprise | Articles about company processes are contextually embedded so "Q4 onboarding" retrieves correctly even when the chunk doesn't repeat those words |
 | Contract intelligence platform | Legal | Clause chunks are prefixed with contract type and party context so retrieval understands "this indemnity clause belongs to an SaaS agreement" |
 | Technical documentation search | DevTools / Cloud | API reference chunks are contextualized with service name and version, so "authentication" retrieves the right service's auth docs |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
 import { gfmHeadingId } from 'marked-gfm-heading-id';
 import { countQuestions, DIFFICULTIES, TAGS } from './lib/questions.mjs';
+import { preludeJs, QUIZ_COMMON_JS } from './lib/prelude.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const OUT = path.join(ROOT, '_site');
@@ -26,9 +27,47 @@ marked.use(gfmHeadingId());
 marked.setOptions({ gfm: true });
 
 const SITE_CSS = readFileSync(path.join(ROOT, 'scripts', 'site.css'), 'utf8');
-const QUIZ_COMMON_JS = readFileSync(path.join(ROOT, 'scripts', 'quiz-common.js'), 'utf8');
 const QUIZ_JS = readFileSync(path.join(ROOT, 'scripts', 'quiz.js'), 'utf8');
 const ASSESSMENT_JS = readFileSync(path.join(ROOT, 'scripts', 'assessment.js'), 'utf8');
+
+// Public URL of the deployed site (canonical links, Open Graph, sitemap).
+// Override with SITE_URL when building for a fork or a renamed repository.
+const SITE_URL = (process.env.SITE_URL || 'https://ather-techie.github.io/rag-interview-system/').replace(/\/?$/, '/');
+const ASSET_DIR = 'assets/site';
+const DEFAULT_DESCRIPTION =
+  'RAG (Retrieval-Augmented Generation) interview questions and answers for AI engineers: 52 architectures, production failure modes, the Microsoft stack, a practice quiz and a timed self-assessment.';
+
+const DIR_LABELS = {
+  '00_overview': 'Overview: roadmap, taxonomy, learning path, system design',
+  '01_concepts': 'Core Concepts',
+  '02_interview_bank': 'Interview Bank: 52 RAG Architectures',
+  '03_failure_modes': 'Production Failure Modes',
+  '11_microsoft_stack': 'Microsoft Stack for RAG',
+  cheatsheets: 'Cheatsheets',
+};
+
+const escAttr = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** A one-sentence meta description: the file's blockquote summary, else its first prose paragraph. */
+function extractDescription(md) {
+  const lines = md.split(/\r?\n/);
+  const clean = (t) =>
+    t
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/[*_`>]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  let text = '';
+  const quote = lines.find((l) => /^>\s*\S/.test(l) && !/^>\s*\*\*Status/.test(l));
+  if (quote) text = clean(quote);
+  if (!text) {
+    const para = lines.find((l) => l.trim() && !/^(#|\||-|\*|\d+\.|```|<|\[|!\[|---)/.test(l.trim()));
+    if (para) text = clean(para);
+  }
+  if (!text) return DEFAULT_DESCRIPTION;
+  return text.length > 160 ? text.slice(0, 157).replace(/\s+\S*$/, '') + '...' : text;
+}
 
 const QUIZ_GROUP_LABELS = {
   '02_interview_bank': 'Architectures',
@@ -37,22 +76,8 @@ const QUIZ_GROUP_LABELS = {
 };
 const QUIZ_DIRS = new Set(Object.keys(QUIZ_GROUP_LABELS));
 
-/**
- * Per-page prelude inlined ahead of quiz.js / assessment.js: the tag
- * vocabulary (single source of truth: scripts/lib/questions.mjs), the
- * relative path to the assessment page, the section group a quiz page
- * belongs to (null on the aggregated pages), then the shared helpers in
- * scripts/quiz-common.js.
- */
-function preludeJs({ assessmentHref, pageGroup }) {
-  return [
-    `const DIFFICULTIES = ${JSON.stringify(DIFFICULTIES)};`,
-    `const TAGS = ${JSON.stringify(TAGS)};`,
-    `const ASSESSMENT_HREF = ${JSON.stringify(assessmentHref)};`,
-    `const QUIZ_PAGE_GROUP = ${JSON.stringify(pageGroup ?? null)};`,
-    QUIZ_COMMON_JS,
-  ].join('\n');
-}
+const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0070f3"/><text x="16" y="22" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" text-anchor="middle" fill="#fff">RAG</text></svg>
+`;
 
 let warnings = 0;
 let brokenLinks = 0;
@@ -274,38 +299,70 @@ function filterBarHtml({ extraChipsHtml = '', extraGroupsHtml = '' } = {}) {
     <fieldset class="filter-group">
       <legend>Difficulty</legend>
       <div class="segmented" role="group" aria-label="Difficulty">
-        <button class="filter-btn active" aria-pressed="true" onclick="setFilter('All', this)">All</button>
-        <button class="filter-btn" aria-pressed="false" onclick="setFilter('Basic', this)"><span class="dot basic"></span>Basic</button>
-        <button class="filter-btn" aria-pressed="false" onclick="setFilter('Intermediate', this)"><span class="dot intermediate"></span>Intermediate</button>
-        <button class="filter-btn" aria-pressed="false" onclick="setFilter('Advanced', this)"><span class="dot advanced"></span>Advanced</button>
+        <button type="button" class="filter-btn active" aria-pressed="true" data-action="filter" data-value="All">All</button>
+        <button type="button" class="filter-btn" aria-pressed="false" data-action="filter" data-value="Basic"><span class="dot basic"></span>Basic</button>
+        <button type="button" class="filter-btn" aria-pressed="false" data-action="filter" data-value="Intermediate"><span class="dot intermediate"></span>Intermediate</button>
+        <button type="button" class="filter-btn" aria-pressed="false" data-action="filter" data-value="Advanced"><span class="dot advanced"></span>Advanced</button>
       </div>
     </fieldset>
     <fieldset class="filter-group">
       <legend>Type</legend>
       <div class="segmented" role="group" aria-label="Question type">
-        <button class="type-btn active" aria-pressed="true" onclick="onTypeChange('All', this)">All</button>
-        <button class="type-btn" aria-pressed="false" onclick="onTypeChange('Flashcard', this)">Flashcards</button>
-        <button class="type-btn" aria-pressed="false" onclick="onTypeChange('MCQ', this)">MCQ</button>
+        <button type="button" class="type-btn active" aria-pressed="true" data-action="type" data-value="All">All</button>
+        <button type="button" class="type-btn" aria-pressed="false" data-action="type" data-value="Flashcard">Flashcards</button>
+        <button type="button" class="type-btn" aria-pressed="false" data-action="type" data-value="MCQ">MCQ</button>
       </div>
     </fieldset>
     <fieldset class="filter-group">
       <legend>Options</legend>
       <div class="chips">
-        <label class="chip"><input type="checkbox" id="scenario-toggle" onchange="onScenarioChange()"> Scenario only</label>${extraChipsHtml}
+        <label class="chip"><input type="checkbox" id="scenario-toggle" data-change="scenario"> Scenario only</label>${extraChipsHtml}
       </div>
     </fieldset>${extraGroupsHtml}
   </div>
   <div class="quiz-bar-actions">
-    <button id="quiz-start-btn" class="primary" onclick="startQuiz()">▶ Start Practice</button>
+    <button type="button" id="quiz-start-btn" class="primary" data-action="start">▶ Start Practice</button>
     <span id="quiz-match-count" class="match-count" aria-live="polite"></span>
-    <button class="link-btn" onclick="resetFilters()">Reset filters</button>
+    <button type="button" class="link-btn" data-action="reset">Reset filters</button>
   </div>
 </div>
 `;
 }
 
 /** Wraps rendered body HTML in the shared page shell. */
-function wrapPage({ title, bodyHtml, depth, quiz, quizGroup = null }) {
+function pageScripts({ up, assessmentHref, pageGroup, dataHref, main }) {
+  return `<script>
+${preludeJs({ assessmentHref, pageGroup, dataHref })}
+</script>
+<script src="${up}${ASSET_DIR}/quiz-common.js"></script>
+<script src="${up}${ASSET_DIR}/${main}.js"></script>`;
+}
+
+const MERMAID_SCRIPT = `<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs';
+document.querySelectorAll('pre > code.language-mermaid').forEach((code) => {
+  const holder = document.createElement('pre');
+  holder.className = 'mermaid';
+  holder.textContent = code.textContent;
+  code.parentElement.replaceWith(holder);
+});
+mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+await mermaid.run();
+</script>`;
+
+/** Wraps rendered body HTML in the shared page shell (head metadata, stylesheet, optional scripts). */
+function wrapPage({
+  title,
+  bodyHtml,
+  depth,
+  quiz,
+  quizGroup = null,
+  description = DEFAULT_DESCRIPTION,
+  pagePath = '',
+  assetBase = null,
+  scriptsHtml = '',
+}) {
+  const up = assetBase ?? '../'.repeat(depth);
   const backHref = '../'.repeat(depth) + 'index.html';
   const backLink = depth >= 1 ? `<a class="back" href="${backHref}">← Back to Index</a>\n` : '';
   const quizBar = quiz ? `${filterBarHtml()}<div id="main-content">\n` : '';
@@ -313,12 +370,13 @@ function wrapPage({ title, bodyHtml, depth, quiz, quizGroup = null }) {
     ? `</div>
 <div class="quiz-panel-overlay" id="quiz-overlay"></div>
 <div id="quiz-panel"></div>
-<script>
-${preludeJs({ assessmentHref: '../'.repeat(depth) + 'assessment.html', pageGroup: quizGroup })}
-${QUIZ_JS}
-</script>
+${pageScripts({ up, assessmentHref: '../'.repeat(depth) + 'assessment.html', pageGroup: quizGroup, dataHref: null, main: 'quiz' })}
 `
     : '';
+  const canonical = SITE_URL + pagePath.replace(/(^|\/)index\.html$/, '$1');
+  const desc = escAttr(description);
+  const safeTitle = escAttr(title.replace(/<[^>]+>/g, '').replace(/&(amp|lt|gt|quot|#39);/g, (m) => ({ '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" }[m])));
+  const mermaid = bodyHtml.includes('language-mermaid') ? `\n${MERMAID_SCRIPT}` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -326,27 +384,43 @@ ${QUIZ_JS}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
-  <style>
-${SITE_CSS}
-  </style>
+  <meta name="description" content="${desc}">
+  <link rel="canonical" href="${escAttr(canonical)}">
+  <link rel="icon" href="${up}${ASSET_DIR}/favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="RAG Interview Questions">
+  <meta property="og:title" content="${safeTitle}">
+  <meta property="og:description" content="${desc}">
+  <meta property="og:url" content="${escAttr(canonical)}">
+  <meta property="og:image" content="${SITE_URL}assets/logos/banner.webp">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="${up}${ASSET_DIR}/site.css">
 </head>
 <body>
 ${backLink}${quizBar}${bodyHtml}
-${quizClose}</body>
+${quizClose}${scriptsHtml}${mermaid}
+</body>
 </html>
 `;
 }
 
 /** Builds an index page for a directory that has .md content but no README.md. */
 function buildDirectoryIndex(relDir, pages) {
-  const dirLabel = relDir;
+  const dirLabel = DIR_LABELS[relDir] || relDir;
   const items = pages
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((p) => `<li><a href="${p.name}.html">${p.title || p.name}</a></li>`)
     .join('\n');
   const body = `<h1>${dirLabel}</h1>\n<ul>\n${items}\n</ul>`;
-  return wrapPage({ title: dirLabel, bodyHtml: body, depth: 1, quiz: false });
+  return wrapPage({
+    title: dirLabel,
+    bodyHtml: body,
+    depth: relDir.split('/').length,
+    quiz: false,
+    description: `${dirLabel}: ${pages.length} pages of RAG interview preparation material.`,
+    pagePath: `${relDir}/index.html`,
+  });
 }
 
 /** Builds the aggregated all-questions quiz page at the site root. */
@@ -381,7 +455,6 @@ function buildQuizPage(items, sections) {
     })
     .join('\n');
 
-  const dataJson = JSON.stringify(items).replace(/</g, '\\u003c');
   const scenarioTotal = items.filter((it) => it.tags.includes('Scenario')).length;
   const mcqTotal = items.filter((it) => it.tags.includes('MCQ')).length;
 
@@ -420,16 +493,17 @@ ${filterBarHtml({ extraChipsHtml: shuffleChip, extraGroupsHtml: sectionGroup })}
 ${tocGroups}
 </div>
 <div class="quiz-panel-overlay" id="quiz-overlay"></div>
-<div id="quiz-panel"></div>
-<script type="application/json" id="quiz-data">
-${dataJson}
-</script>
-<script>
-${preludeJs({ assessmentHref: 'assessment.html', pageGroup: null })}
-${QUIZ_JS}
-</script>`;
+<div id="quiz-panel"></div>`;
 
-  return wrapPage({ title: 'RAG Interview Practice Quiz', bodyHtml: body, depth: 0, quiz: false });
+  return wrapPage({
+    title: 'RAG Interview Practice Quiz',
+    bodyHtml: body,
+    depth: 0,
+    quiz: false,
+    description: `Practice quiz: ${items.length.toLocaleString('en-US')} RAG interview questions as flashcards and auto-graded multiple choice, filterable by difficulty, section and scenario.`,
+    pagePath: 'quiz.html',
+    scriptsHtml: pageScripts({ up: '', assessmentHref: 'assessment.html', pageGroup: null, dataHref: 'quiz-data.json', main: 'quiz' }),
+  });
 }
 
 /**
@@ -442,7 +516,7 @@ function assessSegmentedHtml({ legend, name, options, active }) {
     .map((o) => {
       const on = o.value === active;
       const dot = o.dotClass ? `<span class="dot ${o.dotClass}"></span>` : '';
-      return `<button class="assess-btn${on ? ' active' : ''}" data-opt="${name}" data-value="${String(o.value)}" aria-pressed="${on}" onclick='setAssessOption("${name}", ${JSON.stringify(o.value)}, this)'>${dot}${o.label}</button>`;
+      return `<button type="button" class="assess-btn${on ? ' active' : ''}" data-opt="${name}" data-value="${String(o.value)}" aria-pressed="${on}" data-action="assess-option">${dot}${o.label}</button>`;
     })
     .join('\n        ');
   return `    <fieldset class="filter-group">
@@ -461,7 +535,6 @@ function isAssessmentItem(it) {
 /** Builds the exam-style self-assessment page at the site root. */
 function buildAssessmentPage(items, sections) {
   const mcqItems = items.filter(isAssessmentItem);
-  const dataJson = JSON.stringify(mcqItems).replace(/</g, '\\u003c');
   const sectionsWithMcq = (dir) => (sections.get(dir) ?? []).filter((s) => s.mcqCount > 0).length;
   const stats = [
     [mcqItems.length, 'Multiple-choice'],
@@ -499,7 +572,7 @@ ${assessSegmentedHtml({ legend: 'Timer', name: 'secondsPerQuestion', active: 0, 
 ] })}
   </div>
   <div class="quiz-bar-actions">
-    <button id="assess-start-btn" class="primary" onclick="startAssessment()">▶ Start assessment</button>
+    <button type="button" id="assess-start-btn" class="primary" data-action="assess-start">▶ Start assessment</button>
     <span id="assess-match-count" class="match-count" aria-live="polite"></span>
   </div>
 </div>`;
@@ -516,20 +589,26 @@ ${setupCard}
 </div>
 <section id="assessment-results" class="is-hidden"></section>
 <div class="quiz-panel-overlay" id="quiz-overlay"></div>
-<div id="quiz-panel"></div>
-<script type="application/json" id="assessment-data">
-${dataJson}
-</script>
-<script>
-${preludeJs({ assessmentHref: 'assessment.html', pageGroup: null })}
-${ASSESSMENT_JS}
-</script>`;
+<div id="quiz-panel"></div>`;
 
-  return wrapPage({ title: 'RAG Interview Self-Assessment', bodyHtml: body, depth: 0, quiz: false });
+  return wrapPage({
+    title: 'RAG Interview Self-Assessment',
+    bodyHtml: body,
+    depth: 0,
+    quiz: false,
+    description: `Timed self-assessment: exam-style sets of RAG interview multiple-choice questions with a readiness level and a per-section breakdown (${mcqItems.length} questions).`,
+    pagePath: 'assessment.html',
+    scriptsHtml: pageScripts({ up: '', assessmentHref: 'assessment.html', pageGroup: null, dataHref: 'assessment-data.json', main: 'assessment' }),
+  });
 }
 
 function main() {
   rmSync(OUT, { recursive: true, force: true });
+  mkdirSync(path.join(OUT, ASSET_DIR), { recursive: true });
+  const sharedAssets = { 'site.css': SITE_CSS, 'quiz-common.js': QUIZ_COMMON_JS, 'quiz.js': QUIZ_JS, 'assessment.js': ASSESSMENT_JS };
+  for (const [name, text] of Object.entries(sharedAssets)) writeFileSync(path.join(OUT, ASSET_DIR, name), text, 'utf8');
+  writeFileSync(path.join(OUT, ASSET_DIR, 'favicon.svg'), FAVICON_SVG, 'utf8');
+  const sitemapPaths = [];
 
   const files = walk(ROOT);
   let pageCount = 0;
@@ -604,8 +683,17 @@ function main() {
       });
     }
 
-    const page = wrapPage({ title, bodyHtml: html, depth, quiz, quizGroup: quiz ? QUIZ_GROUP_LABELS[srcDirRel] : null });
+    const page = wrapPage({
+      title,
+      bodyHtml: html,
+      depth,
+      quiz,
+      quizGroup: quiz ? QUIZ_GROUP_LABELS[srcDirRel] : null,
+      description: extractDescription(md),
+      pagePath: outRel,
+    });
     writeFileSync(outAbs, page, 'utf8');
+    sitemapPaths.push(outRel);
     pageCount++;
   }
 
@@ -618,12 +706,34 @@ function main() {
     const outAbs = path.join(OUT, relDir, 'index.html');
     mkdirSync(path.dirname(outAbs), { recursive: true });
     writeFileSync(outAbs, html, 'utf8');
+    sitemapPaths.push(`${relDir}/index.html`);
     indexCount++;
   }
 
   const quizPage = buildQuizPage(quizItems, quizSections);
   writeFileSync(path.join(OUT, 'quiz.html'), quizPage, 'utf8');
   writeFileSync(path.join(OUT, 'assessment.html'), buildAssessmentPage(quizItems, quizSections), 'utf8');
+  writeFileSync(path.join(OUT, 'quiz-data.json'), JSON.stringify(quizItems), 'utf8');
+  writeFileSync(path.join(OUT, 'assessment-data.json'), JSON.stringify(quizItems.filter(isAssessmentItem)), 'utf8');
+  sitemapPaths.push('quiz.html', 'assessment.html');
+
+  writeFileSync(
+    path.join(OUT, '404.html'),
+    wrapPage({
+      title: 'Page not found',
+      bodyHtml: `<h1>Page not found</h1>\n<p>That page does not exist. It may have moved when the repository was reorganised.</p>\n<p><a href="${SITE_URL}">Back to the index</a> · <a href="${SITE_URL}quiz.html">Practice Quiz</a> · <a href="${SITE_URL}assessment.html">Self-Assessment</a></p>`,
+      depth: 0,
+      quiz: false,
+      pagePath: '404.html',
+      assetBase: SITE_URL,
+    }),
+    'utf8'
+  );
+  const urlFor = (p) => SITE_URL + p.replace(/(^|\/)index\.html$/, '$1');
+  const sitemap = [...new Set(sitemapPaths)].sort().map((p) => `  <url><loc>${urlFor(p)}</loc></url>`).join('\n');
+  writeFileSync(path.join(OUT, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemap}\n</urlset>\n`, 'utf8');
+  writeFileSync(path.join(OUT, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE_URL}sitemap.xml\n`, 'utf8');
+  writeFileSync(path.join(OUT, '.nojekyll'), '', 'utf8');
   const assessmentMcqs = quizItems.filter(isAssessmentItem).length;
 
   console.log(

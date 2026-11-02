@@ -630,10 +630,10 @@ At 200 million documents with a strict re-indexing cadence, DPR's original desig
 
 ## Q26. A pharma company's DPR-style retriever over clinical-trial records keeps missing queries built around exact identifiers such as protocol codes and adverse-event IDs. Which change fixes this most directly? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Raise top-k from 20 to 200 on the dense retriever alone
+- A. Raise top-k from 20 to 200 on the dense retriever alone and pass all results to the reader
 - B. Run BM25 beside the dense retriever and merge results with Reciprocal Rank Fusion
-- C. Retrain the encoders with a larger in-batch negative count
-- D. Replace the exact flat index with an HNSW approximate index
+- C. Retrain the encoders with a much larger number of in-batch negatives per query
+- D. Replace the exact flat index with an HNSW approximate nearest-neighbor index
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -655,3 +655,7 @@ At 200 million documents with a strict re-indexing cadence, DPR's original desig
 | Domain-specific retriever fine-tuning | Enterprise search | DPR's training recipe (Q4, Q12, Q13) is the template for fine-tuning a retriever on proprietary QA data |
 | Billion-scale document search | Search infrastructure | DPR's offline-indexing insight is what makes dense retrieval feasible at this scale in the first place |
 | Baseline for retrieval research and benchmarking | Academia / R&D | DPR remains the standard reference point ("beats/loses to DPR on X benchmark") for new retrieval methods |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

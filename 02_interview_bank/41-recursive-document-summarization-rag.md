@@ -682,8 +682,8 @@ The deadline forces a real trade-off: full corpus-wide (Level 3) summarization i
 
 ## Q24. Why does the index partition nodes by tree level before running similarity search? `[Intermediate]` `[MCQ]`
 
-- A. It lets query embeddings be computed separately for each level
-- B. It guarantees every retrieved node's parent is also retrieved
+- A. It lets query embeddings be computed separately for each level of the tree
+- B. It guarantees every retrieved node's parent is also retrieved alongside it
 - C. It stops summaries and raw chunks from competing for the same top-k slots
 - D. It removes the need for a level router
 
@@ -700,10 +700,10 @@ The deadline forces a real trade-off: full corpus-wide (Level 3) summarization i
 
 ## Q25. Which design makes this architecture tolerant of a router that mislabels an exact-figure query as a 'section' query? `[Intermediate]` `[MCQ]`
 
-- A. Search only Level 3 first and fall back to chunks if it fails
+- A. Search only Level 3 first and fall back to raw chunks only if that search returns nothing
 - B. Always retrieve section summaries first, then drill down into their chunks
 - C. Swap in a larger router model and trust its labels
-- D. Merge summaries and raw chunks into one index ranked together
+- D. Merge summaries and raw chunks into one index ranked together by similarity
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -743,3 +743,7 @@ The deadline forces a real trade-off: full corpus-wide (Level 3) summarization i
 | Annual report / financial filing analysis | Finance | Analysts move between "what's the overall narrative" and "what's the exact Q3 figure" within one document |
 | Single large research paper or book Q&A | Academia / Publishing | Preserves the document's own chapter/section structure rather than fragmenting it into a cross-document cluster |
 | Enterprise knowledge base with independent, self-contained articles | Enterprise Ops | Each article's own structure matters more than finding cross-article themes |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

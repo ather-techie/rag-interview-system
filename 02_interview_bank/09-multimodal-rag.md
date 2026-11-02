@@ -1093,7 +1093,7 @@ What to monitor: cross-modal retrieval quality specifically on cases where the c
 
 ## Q23. What practical consequence does CLIP's 77-token text-encoder limit have for a Multimodal RAG system? `[Basic]` `[MCQ]`
 
-- A. Queries beyond 77 tokens are rejected by the vector store with an error
+- A. Queries beyond 77 tokens are rejected by the vector store with a validation error at query time
 - B. Long queries or captions are truncated, so details past the limit never influence retrieval
 - C. Image embeddings are restricted to 77 dimensions per picture
 - D. Queries are limited to 77 distinct words when matching images
@@ -1111,7 +1111,7 @@ What to monitor: cross-modal retrieval quality specifically on cases where the c
 
 ## Q24. When merging ranked results from a CLIP image index and a text-chunk index, which fusion input is most reliable? `[Intermediate]` `[MCQ]`
 
-- A. Raw cosine similarity scores summed with equal weights
+- A. Raw cosine similarity scores from both indexes summed together with equal weights
 - B. Only the image index's scores, since they are cross-modal
 - C. The higher of the two raw scores for each document
 - D. Rank positions from each list combined with weighted reciprocal rank fusion
@@ -1130,7 +1130,7 @@ What to monitor: cross-modal retrieval quality specifically on cases where the c
 ## Q25. What distinguishes ColPali-style retrieval from single-vector CLIP retrieval for scanned PDFs? `[Intermediate]` `[MCQ]`
 
 - A. It embeds page screenshots as multi-vector patch embeddings scored with MaxSim, skipping OCR and chunking
-- B. It embeds each page as one pooled vector from a larger contrastive backbone
+- B. It embeds each page screenshot as one pooled vector from a larger contrastive image-text backbone
 - C. It runs OCR on every page and indexes the text with a sparse lexical encoder
 - D. It captions each page with a vision LLM and indexes only the caption text
 
@@ -1148,7 +1148,7 @@ What to monitor: cross-modal retrieval quality specifically on cases where the c
 ## Q26. A wind-turbine maintenance company's Multimodal RAG assistant sends 20 retrieved schematics plus manual text to its vision LLM per query; answers are slow, costly, and miss labeled details. Which change fits best? `[Advanced]` `[Scenario]` `[MCQ]`
 
 - A. Switch to a larger CLIP model so embeddings are more precise
-- B. Downscale all 20 images to thumbnails and pass them together
+- B. Downscale all 20 images to small thumbnails and pass them all together to the vision LLM
 - C. Rerank across modalities and pass only the top 2-3 images with their text chunks
 - D. Drop images at generation time and answer from text chunks alone
 
@@ -1172,3 +1172,7 @@ What to monitor: cross-modal retrieval quality specifically on cases where the c
 | Document understanding / invoice processing (e.g., AWS Textract-based apps) | Finance / Operations | Mixed PDFs contain tables, charts, and text; multimodal RAG retrieves the right page-image and interprets layout-sensitive content |
 | Manufacturing defect detection Q&A | Industrial / QA | Engineers query visual defect libraries: "show me welds with this type of crack" retrieves annotated image-text pairs |
 | Educational content platform (textbook Q&A) | EdTech | Students ask questions about diagrams or charts; image-text retrieval fetches the relevant figure and its surrounding explanation |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

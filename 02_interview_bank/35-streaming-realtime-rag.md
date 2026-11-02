@@ -656,7 +656,7 @@ Given the active-emergency context, there is no time for a human review gate on 
 ## Q23. Which property makes Debezium-style CDC more complete than an application-level publish call as a streaming event source? `[Basic]` `[MCQ]`
 
 - A. It filters out unapproved documents before any event is published
-- B. It embeds the changed rows inside the database before streaming them
+- B. It embeds the changed rows inside the database itself before streaming them onward
 - C. It subscribes to webhooks exposed by third-party SaaS tools
 - D. It reads the database write-ahead log, so every committed mutation is captured
 
@@ -674,9 +674,9 @@ Given the active-emergency context, there is no time for a human review gate on 
 ## Q24. An older update event is redelivered from the dead-letter queue after a newer version of the same document was already indexed. Which safeguard prevents the index from silently reverting? `[Intermediate]` `[MCQ]`
 
 - A. Compare the event timestamp with the last indexed version and drop older events
-- B. Lengthen flush_interval so more events share each micro-batch
-- C. Commit the Kafka offset before the vector DB write completes
-- D. Add more consumer processes to the same consumer group
+- B. Lengthen flush_interval so more events share each micro-batch and get written together
+- C. Commit the Kafka offset before the vector DB write completes, to avoid reprocessing events
+- D. Add more consumer processes to the same consumer group to speed up processing
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -691,10 +691,10 @@ Given the active-emergency context, there is no time for a human review gate on 
 
 ## Q25. A consumer crashes after deleting a document's old vectors but before writing the new ones, and the offset was already committed. Which design change removes this window? `[Intermediate]` `[MCQ]`
 
-- A. Shorten the micro-batch flush_interval
-- B. Raise the dead-letter queue's maximum retry count
+- A. Shorten the micro-batch flush_interval so batches reach the vector database sooner
+- B. Raise the dead-letter queue's maximum retry count so failed events are retried longer
 - C. Write new vectors as pending, flip an active pointer, then delete the old ones
-- D. Partition the topic by a random hash instead of by doc_id
+- D. Partition the topic by a random hash instead of by doc_id to spread load evenly
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -709,10 +709,10 @@ Given the active-emergency context, there is no time for a human review gate on 
 
 ## Q26. A flash-sale pricing assistant meets its freshness SLO at steady state, but during bursts lag climbs to minutes. Embedding GPUs sit idle while the vector DB's upsert queue depth keeps growing. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Add consumer processes beyond the topic's partition count
+- A. Add consumer processes beyond the topic's partition count to raise consumption parallelism
 - B. Batch upserts into larger calls and pause consumption past a queue-depth threshold
-- C. Add GPU replicas behind the embedding endpoint
-- D. Switch the event source from CDC to application-level publishing
+- C. Add GPU replicas behind the embedding endpoint to increase embedding throughput further
+- D. Switch the event source from CDC to application-level publishing to reduce event volume
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -734,3 +734,7 @@ Given the active-emergency context, there is no time for a human review gate on 
 | E-commerce inventory / pricing Q&A | Retail | Stock levels and prices change continuously; stale answers directly cause customer-facing errors |
 | Customer support ticket knowledge base | Support | Newly resolved tickets should be searchable by other agents within seconds, not after a nightly batch |
 | Regulatory filings search | Legal / Compliance | New filings must be discoverable immediately for compliance monitoring use cases |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

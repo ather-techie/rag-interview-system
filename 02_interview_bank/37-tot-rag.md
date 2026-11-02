@@ -664,9 +664,9 @@ The "same-shift decision deadline" is effectively a hard latency SLO layered on 
 
 ## Q24. Logs show many pruned branches scored just below prune_threshold, and later analysis finds that a large share of them were correct. What does this indicate? `[Intermediate]` `[MCQ]`
 
-- A. The threshold is too lenient, so weak branches consume beam slots
+- A. The threshold is too lenient, so weak branches survive and consume beam slots at every depth
 - B. The threshold is too aggressive, so correct branches are pruned before evidence accumulates
-- C. The beam is too wide, so too many branches survive each depth
+- C. The beam is too wide, so too many branches survive at each depth and crowd out good ones
 - D. The max_depth is too high, so the tree explores past the answer
 
 <details>
@@ -682,10 +682,10 @@ The "same-shift decision deadline" is effectively a hard latency SLO layered on 
 
 ## Q25. With branching_factor=3, beam_width=2 and max_depth=3, about how many thought-generation calls does ToT-RAG make before final synthesis? `[Intermediate]` `[MCQ]`
 
-- A. About 3
-- B. About 6
-- C. About 9
-- D. About 18
+- A. About 3 calls
+- B. About 6 calls
+- C. About 9 calls
+- D. About 18 calls
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -701,8 +701,8 @@ The "same-shift decision deadline" is effectively a hard latency SLO layered on 
 ## Q26. A clinical differential-diagnosis assistant often falls back to "unable to find a confident answer" because every candidate scores below the threshold, but dashboards track only final-answer quality. What is the best response? `[Advanced]` `[Scenario]` `[MCQ]`
 
 - A. Alert on early tree collapse and check evaluator scores against labeled cases
-- B. Raise max_depth so the tree has more chances to find an answer
-- C. Raise branching_factor to 5 so more candidates are generated
+- B. Raise max_depth so the tree has more chances to find a confident answer in later levels
+- C. Raise branching_factor to 5 so more candidate thoughts are generated at every level
 - D. Remove prune_threshold so no branch is ever discarded
 
 <details>
@@ -725,3 +725,7 @@ The "same-shift decision deadline" is effectively a hard latency SLO layered on 
 | Legal case strategy exploration | Legal | Multiple legal theories or precedent interpretations need to be checked against case law in parallel |
 | Complex technical architecture decisions | Engineering | "Should we use X or Y" questions benefit from exploring both paths with targeted evidence before recommending one |
 | Fraud investigation triage | Finance / Trust & Safety | Several fraud hypotheses (account takeover, synthetic identity, collusion) need distinct evidence trails evaluated before escalation |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

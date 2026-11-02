@@ -6,7 +6,7 @@
 
 | Notebook | Run it | What You Build | Key Skills |
 |----------|--------|---------------|-----------|
-| [01_naive_rag.ipynb](01_naive_rag.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/01_naive_rag.ipynb) | End-to-end naive RAG: chunk → embed → FAISS → Claude | Indexing pipeline, cosine retrieval, generation |
+| [01_naive_rag.ipynb](01_naive_rag.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/01_naive_rag.ipynb) | End-to-end naive RAG: chunk → embed → Chroma → retrieve → generate via `ai_client` | Indexing pipeline, cosine retrieval, generation, two failure modes |
 | [02_hybrid_rag.ipynb](02_hybrid_rag.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/02_hybrid_rag.ipynb) | BM25 + dense retrieval merged with RRF | `rank_bm25`, FAISS, RRF formula, comparison vs. each alone |
 | [03_reranker_pipeline.ipynb](03_reranker_pipeline.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/03_reranker_pipeline.ipynb) | Two-stage: bi-encoder → cross-encoder reranker | `CrossEncoder`, latency trade-off, rank change analysis |
 | [04_ragas_evaluation.ipynb](04_ragas_evaluation.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/04_ragas_evaluation.ipynb) | Full eval harness: RAGAS + custom judges + regression detection | Golden datasets, RAGAS 4 metrics, LLM-as-judge, Recall@k |
@@ -49,7 +49,7 @@ Select the **Python (rag-labs)** kernel when opening a notebook (in VS Code: top
 
 ### 4. Configure your LLM provider
 
-Copy `.env.example` to `.env` and set `AI_PROVIDER`, `AI_MODEL`, and `AI_API_KEY` (Labs 02-05 read these via `ai_client.py`, which supports `claude`, `gemini`, `openai`, `azure`, and `ollama`). Lab 01 additionally needs `HF_TOKEN` (a HuggingFace Hub token), independent of `AI_PROVIDER`.
+Copy `.env.example` to `.env` and set `AI_PROVIDER`, `AI_MODEL`, and `AI_API_KEY`. All five labs read these via `ai_client.py`, which supports `claude`, `gemini`, `openai`, `azure`, and `ollama` (set `AI_PROVIDER=ollama` for a fully offline run; no key needed).
 
 ```powershell
 Copy-Item .env.example .env
@@ -88,10 +88,14 @@ Lab 05 (Agentic RAG)
 
 | Lab | API Calls | Est. Cost |
 |-----|-----------|-----------|
-| 01 | ~10 Claude calls | ~$0.002 |
+| 01 | ~10 LLM calls | ~$0.002 |
 | 02 | ~5 LLM calls | ~$0.001 |
 | 03 | ~5 LLM calls | ~$0.001 |
 | 04 | ~50–80 RAGAS judge calls | ~$0.05 |
 | 05 | ~25–40 LLM calls (multi-step loops + eval) | ~$0.01–0.02 |
 
-Labs 02-05 use whichever model `AI_MODEL` is set to (see `.env`); costs above assume a small/cheap model like `gemini-2.5-flash-lite`. Lab 01 uses HuggingFace's Mistral-7B (or local Ollama), independent of `AI_PROVIDER`.
+All labs use whichever model `AI_MODEL` is set to (see `.env`); costs above assume a small/cheap model like `gemini-2.5-flash-lite`. With `AI_PROVIDER=ollama` every lab runs at zero API cost.
+
+## Dependency pins
+
+`requirements.txt` pins every package to the versions `pip` resolved together on 2026-10-31, and each notebook's first `%pip install` cell pins the same versions, so a fresh install keeps working as the LangChain, ragas, and provider SDKs move. The header comment in `requirements.txt` explains how to refresh the pins. The notebooks have not been re-executed end-to-end against these pins; if a cell breaks after a refresh, [open an issue](https://github.com/ather-techie/rag-interview-system/issues/new/choose) with the traceback.

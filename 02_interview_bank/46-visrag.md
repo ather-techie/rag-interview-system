@@ -702,3 +702,7 @@ Given the corpus includes decades of legacy scans, rendering-quality validation 
 - **Scanned legacy document archives**: government/insurance/legal scans where OCR historically fails on poor scan quality or handwriting
 - **Slide-deck and presentation search**: retrieving the right slide by its visual layout and embedded chart, not just any text that happens to be on it
 - **OpenBMB's VisRAG reference implementation**: open-source, MiniCPM-V-based, demonstrating a 20–40% end-to-end gain over traditional text-based RAG pipelines on multi-modality document benchmarks
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

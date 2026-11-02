@@ -601,7 +601,7 @@ Non-Azure comparison: self-hosting on vLLM gives similar fixed-cost economics wi
 - A. Prompt Shields document attack detection, which must be enabled in the guardrail configuration
 - B. The hate and violence severity filter, set to its strictest level
 - C. A larger `top_k` so malicious chunks are diluted by benign ones
-- D. Lowering `temperature` to zero so the model cannot follow embedded commands
+- D. Lowering `temperature` to zero so the model becomes deterministic and cannot follow embedded commands
 
 <details>
 <summary>💡 Show Answer</summary>

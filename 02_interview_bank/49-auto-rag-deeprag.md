@@ -671,9 +671,9 @@ Given the query volume across hundreds of engagements plausibly clears Q15's dec
 ## Q25. What does DeepRAG's binary tree search over RETRIEVE and PARAMETRIC branches provide that final-answer labels alone cannot? `[Intermediate]` `[MCQ]`
 
 - A. Labels for the minimal retrieval sequence that still reaches the correct answer
-- B. Gold supporting passages for every atomic subquery
-- C. A reward model that scores the fluency of each sub-answer
-- D. Negative examples of questions that cannot be decomposed
+- B. Gold supporting passages annotated for every atomic subquery in the training set
+- C. A learned reward model that scores the fluency and style of each generated sub-answer
+- D. Negative examples of questions that cannot be decomposed into atomic subqueries
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -688,8 +688,8 @@ Given the query volume across hundreds of engagements plausibly clears Q15's dec
 
 ## Q26. A bank's DeepRAG assistant is asked for a partner bank's current overdraft fee and how it compares with the national average. The policy confidently answers the fee subquery PARAMETRIC. What change best prevents a stale answer? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Fine-tune longer so the policy grows even more confident on fee subqueries
-- B. Lower max_steps so fewer subqueries are answered per chain
+- A. Fine-tune longer so the policy grows even more confident on its fee subqueries
+- B. Lower max_steps so that fewer subqueries are answered per reasoning chain
 - C. Add a time-sensitivity rule that forces RETRIEVE for subqueries about current fees
 - D. Switch to Auto-RAG so the free-form dialogue handles the fee
 
@@ -710,3 +710,7 @@ Given the query volume across hundreds of engagements plausibly clears Q15's dec
 - **Cost-sensitive RAG at scale**: DeepRAG-style skip-retrieval-when-confident policies materially cut retrieval/API cost on high-volume QA traffic where many subqueries are answerable parametrically
 - **Research and fact-verification copilots**: Auto-RAG-style autonomous dialogue with a retriever, producing an interpretable, natural-language trace of what was looked up and why
 - **Enterprise knowledge assistants with mixed fresh/stable knowledge**: routing volatile facts (pricing, org charts, policy versions) to retrieval while answering stable facts (definitions, historical data) parametrically, decided per-subquery rather than per-query
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

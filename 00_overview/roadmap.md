@@ -148,9 +148,9 @@ The RAG field moves fast. These papers define the landscape. Each shaped the arc
 | Year | Paper | What It Introduced | Still Relevant? | Where to Use This Knowledge |
 |------|-------|-------------------|-----------------|------------------------------|
 | 2020 | Lewis et al., "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" | The original RAG framework: retrieve-then-generate | Yes, foundation | `02_interview_bank/01-naive-rag.md` |
-| 2023 | Gao et al., "Retrieval-Augmented Generation for Large Language Models: A Survey" | Taxonomy of retrieval strategies (dense, sparse, hybrid) | Yes, reference | `01_concepts/retrieval_strategies.md` |
-| 2023 | Asai et al., "Self-RAG: Learning to Retrieve, Generate, and Critique for Self-Improvement" | First widely-adopted self-improving architecture | Yes, state-of-the-art | `02_interview_bank/07-self-rag.md` |
-| 2023 | Jiang et al., "FLARE: Forward-Looking Active REtrieval Augmented Generation" | Iterative retrieval: generate, detect uncertainty, re-retrieve | Emerging, research-frontier | `01_concepts/retrieval_strategies.md` (multi-hop) |
+| 2023 | Gao et al., "Retrieval-Augmented Generation for Large Language Models: A Survey" | The Naive → Advanced → Modular RAG taxonomy this repo is organized around | Yes, reference | `00_overview/rag_taxonomy.md` |
+| 2023 | Asai et al., "Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection" | First widely-adopted self-improving architecture | Yes, state-of-the-art | `02_interview_bank/07-self-rag.md` |
+| 2023 | Jiang et al., "Active Retrieval Augmented Generation" (FLARE) | Active retrieval: generate, detect low-confidence tokens, re-retrieve | Yes, research-frontier | `02_interview_bank/23-flare-rag.md` |
 | 2024 | Yan et al., "Corrective Retrieval Augmented Generation" | Validation loop: assess retrieved context, re-retrieve if needed | Yes, production-grade | `02_interview_bank/06-corrective-rag.md` |
 | 2024 | Edge et al., "From Local to Global: A Graph RAG Approach to Query-Focused Summarization" | Knowledge graphs + community detection for retrieval | Emerging, enterprise | `02_interview_bank/05-graph-rag.md` |
 | 2023 | Es et al., "RAGAS: Automated Evaluation of Retrieval Augmented Generation" | LLM-based evaluation without gold labels | Yes, standard now | `01_concepts/evaluation_metrics.md` |

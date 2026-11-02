@@ -496,7 +496,7 @@ The encoder `g` is treated as a **lossy compressor / denoiser**: it projects the
 
 ---
 
-## Q13. Walk through the HyDE architecture end-to-end. `[Basic]`
+## Q13. Why does the hypothetical document never reach the generator, and what would go wrong if it did? `[Basic]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -512,6 +512,8 @@ Query → LLM generates a hypothetical answer document (no retrieval yet)
 ```
 
 The critical detail visible in this diagram, easy to miss on a first read, is that the hypothetical document is used **only** to compute an embedding for retrieval — it never reaches the final generation step, and its factual accuracy is irrelevant to the final answer's accuracy (Q12's "grounding tolerates hallucination" finding). This is what makes HyDE simultaneously simple to add to an existing pipeline (it's a query-side, single-LLM-call preprocessing step) and robust to the LLM's own knowledge gaps, since a fabricated but topically-appropriate hypothetical document still retrieves the right real evidence.
+
+If the hypothetical document *were* passed to the generator alongside the retrieved passages, every fabricated detail in it (a wrong dosage, an invented date) would sit in the context with the same authority as the real evidence, and the generator would have no way to tell them apart — HyDE would then *add* a hallucination source instead of removing one. Discarding it after retrieval is what keeps the final answer grounded only in the corpus.
 
 </details>
 
@@ -693,7 +695,7 @@ Monitor: recall@k per language pair, hypothetical language-correctness rate, and
 
 ## Q23. In HyDE, what happens to the hypothetical document once the nearest-neighbor search has run? `[Basic]` `[MCQ]`
 
-- A. It is passed to the final generator as supporting context
+- A. It is passed to the final generator as supporting context for the answer
 - B. It is discarded, and only real retrieved passages ground the answer
 - C. It is added to the corpus index to speed up later queries
 - D. It becomes the query the reranker scores documents against
@@ -749,7 +751,7 @@ Monitor: recall@k per language pair, hypothetical language-correctness rate, and
 
 - A. Make the hypothetical far longer so it covers more codenames
 - B. Ask the LLM for search keywords instead of a passage
-- C. Average embeddings from several more sampled hypotheticals
+- C. Average embeddings from several more sampled hypotheticals per query
 - D. Gate HyDE by query type and fuse hypothetical and raw-query retrieval
 
 <details>
@@ -772,3 +774,7 @@ Monitor: recall@k per language pair, hypothetical language-correctness rate, and
 | Scientific & medical literature search | Research / Biomed | Short technical queries embed far from dense abstracts; an answer-shaped hypothetical bridges the gap |
 | Legal & regulatory document retrieval | Legal | Lay-phrased questions don't match formal statute language; the hypothetical adopts the corpus's legal vocabulary |
 | Long-tail enterprise knowledge search | Enterprise | Vocabulary-mismatched employee questions retrieve better when expanded into an answer-style passage |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

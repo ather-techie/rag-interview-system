@@ -1194,7 +1194,7 @@ What to monitor: whether the incremental nightly update actually completes befor
 ## Q23. In Microsoft's GraphRAG pipeline, what is the Leiden algorithm used for? `[Basic]` `[MCQ]`
 
 - A. Merging duplicate entity names such as Apple and Apple Inc.
-- B. Embedding each text chunk into a dense vector
+- B. Embedding each text chunk into a dense vector for similarity search
 - C. Scoring edges by traversal cost for Cypher queries
 - D. Clustering graph entities into communities that are then summarized
 
@@ -1229,7 +1229,7 @@ What to monitor: whether the incremental nightly update actually completes befor
 
 ## Q25. Raising the Leiden resolution parameter in a Graph RAG index will most likely have which effect? `[Intermediate]` `[MCQ]`
 
-- A. Fewer, larger communities with coarser summaries
+- A. Fewer, larger communities with coarser, more general summaries per community
 - B. More, smaller communities with finer but more numerous summaries
 - C. Faster entity extraction for each document
 - D. Automatic merging of duplicate entity nodes
@@ -1248,7 +1248,7 @@ What to monitor: whether the incremental nightly update actually completes befor
 ## Q26. A pharma-supply-chain team finds Pfizer, Pfizer Inc., and PFE as three separate graph nodes, and multi-hop supplier queries miss known relationships. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
 
 - A. Strengthen entity resolution with alias matching, re-merge the nodes, and audit high-degree entities
-- B. Increase the community hierarchy depth so more summary levels are available
+- B. Increase the community hierarchy depth so more summary levels are available for global queries
 - C. Raise the vector search top-k so more supporting chunks are passed along
 - D. Lower the Leiden resolution so fewer communities are produced
 
@@ -1272,3 +1272,7 @@ What to monitor: whether the incremental nightly update actually completes befor
 | Fraud detection explainability | FinTech | Entity graph (accounts, transactions, people) enables "why was this flagged?" queries via relationship traversal |
 | Enterprise organizational knowledge (org charts, project dependencies) | Enterprise | Who-knows-what and who-reports-to-whom queries require relationship traversal, not just document retrieval |
 | Supply chain risk analysis | Manufacturing / Logistics | Supplier → component → product dependency graphs enable queries like "which products are affected if Supplier X fails?" |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

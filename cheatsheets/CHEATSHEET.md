@@ -234,19 +234,35 @@ Start
   │
   ├─ Is your corpus relational / entity-heavy (graph-structured)?
   │     ├─ Large corpus, mandatory global summaries needed → Graph RAG (Microsoft)
-  │     └─ Lower build cost, dual local+global retrieval → LightRAG
+  │     ├─ Graph index cost is the blocker → LazyGraphRAG (defer LLM work to query time)
+  │     ├─ Lower build cost, dual local+global retrieval → LightRAG
+  │     ├─ Multi-hop over entities, single retrieval pass → HippoRAG
+  │     ├─ Professional domain needing logical-form reasoning → KAG
+  │     └─ Agent walks a graph (GraphReader) or a GNN scores subgraphs (GNN-RAG)
   │
   ├─ Does query complexity vary widely (trivial to multi-hop)?
   │     └─ YES → Adaptive RAG
   │
   ├─ Does your query require multiple retrieval steps or tool calls?
-  │     └─ YES → Agentic RAG
+  │     ├─ Fixed retrieve-reason loop is enough → Iterative / Multi-hop RAG (IRCoT, Self-Ask)
+  │     ├─ Retrieve only when the model is unsure mid-answer → FLARE
+  │     ├─ Want the retrieval policy learned with RL → Search-R1 / Auto-RAG / DeepRAG / CoRAG
+  │     ├─ Queries need rewriting, decomposing or disambiguating first → RQ-RAG
+  │     ├─ Output is a long cited report → Deep Research RAG
+  │     ├─ Several reasoning hypotheses to test → Tree of Thought RAG
+  │     └─ Open-ended tool use → Agentic RAG
   │
   ├─ Does your corpus include images/tables?
-  │     └─ YES → Multi-modal RAG
+  │     ├─ Pages are visually rich, skip OCR → VisRAG (or ColPali-style late interaction)
+  │     ├─ Mostly numeric tables → Table-Aware RAG
+  │     ├─ Output must satisfy a schema, per-field grounding → SURGE
+  │     └─ Mixed text, images, audio → Multi-modal RAG
   │
   ├─ Is your corpus small (<50 docs) and complex?
   │     └─ YES → Long-context RAG
+  │           ├─ Long inputs, want to cut tokens → LongRAG + Self-Route, or REFRAG (compress chunks)
+  │           ├─ Whole-corpus questions on a long document → MemoRAG
+  │           └─ Multi-level summaries by level → Recursive Document Summarization RAG
   │
   ├─ Is your corpus hierarchical or multi-level (needs multi-hop summaries)?
   │     └─ YES → RAPTOR
@@ -255,17 +271,39 @@ Start
   │     └─ YES → Contextual RAG  ← LLM-generated context prefix per chunk
   │
   ├─ Are queries often ambiguous or benefit from multiple phrasings?
-  │     └─ YES → RAG-Fusion  ← N reformulations + RRF merge
+  │     ├─ Short queries that don't look like the documents → HyDE
+  │     ├─ Need the answer style demonstrated by examples → Few-Shot Example RAG
+  │     └─ Several phrasings merged → RAG-Fusion  ← N reformulations + RRF merge
   │
   ├─ Is retrieval accuracy critical in a closed, specialized domain?
-  │     ├─ Can fine-tune the LLM generator → RAFT
-  │     └─ Cannot fine-tune → Self-RAG (if reflection tokens available)
+  │     ├─ Can fine-tune the LLM generator → RAFT (oracle + distractor training) or Self-RAG (reflection tokens)
+  │     └─ Cannot fine-tune → Corrective RAG (retrieval evaluator + fallback) or Astute RAG (reconcile retrieved vs. parametric knowledge)
   │
   ├─ Is your knowledge base potentially outdated/incomplete?
-  │     └─ YES → Corrective RAG
+  │     ├─ Answers must reflect the live web → Agentic Web RAG (WebGPT is the trained ancestor)
+  │     ├─ Updates arrive continuously, seconds of freshness → Streaming / Real-Time RAG
+  │     └─ Otherwise → Corrective RAG
   │
   ├─ Do you need cost/quality optimization at scale?
   │     └─ YES → Speculative RAG
+  │
+  ├─ Do you need trust, privacy or compliance guarantees?
+  │     ├─ Every claim needs a checkable source → Verifiable / Citation RAG
+  │     ├─ Data must not leave the device or tenant → Privacy-Preserving RAG
+  │     └─ Retrieved passages conflict with what the model knows → Astute RAG
+  │
+  ├─ Is it a multi-turn assistant with memory?
+  │     └─ YES → Memory / Conversational RAG
+  │
+  ├─ Retrieval model itself is the bottleneck?
+  │     ├─ Train a bi-encoder on question-passage pairs → DPR
+  │     └─ Token-level matching, more storage → ColBERT / ColRAG
+  │
+  ├─ Are you training the model, not just the pipeline? (research / large-scale)
+  │     ├─ Learn the retriever end to end → REALM
+  │     ├─ Trillion-token frozen datastore → RETRO
+  │     ├─ Few-shot knowledge tasks → Atlas
+  │     └─ Fuse many passages in the decoder → Fusion-in-Decoder
   │
   ├─ Do you need a flexible, customizable pipeline?
   │     └─ YES → Modular RAG

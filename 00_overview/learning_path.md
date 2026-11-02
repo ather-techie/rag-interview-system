@@ -10,9 +10,9 @@ Choose your track based on your available time and interview target.
 
 | Track | Time Budget | Recommended For | Where to Start |
 |-------|-------------|-----------------|-----------------|
-| **Breadth-First** | 1–2 weeks | Phone screens, quick prep, need to know all 12 types at high level | `00_overview/rag_taxonomy.md`, then each file in `02_interview_bank/` Q1–Q3 only |
+| **Breadth-First** | 1–2 weeks | Phone screens, quick prep, need to know all 52 types at high level | `00_overview/rag_taxonomy.md`, then each file in `02_interview_bank/` Q1–Q3 only |
 | **Depth-First** | 4 weeks | Technical interviews, system design rounds, deep expertise on 3–4 types | `01_concepts/` in full, then `02_interview_bank/` 01–04 in depth |
-| **Production-First** | 3 weeks | Senior/staff interviews, operations focus, observability and failure modes | `00_overview/system_design_principles.md`, cost analysis (Q11 across all files), evaluation/observability |
+| **Production-First** | 3 weeks | Senior/staff interviews, operations focus, observability and failure modes | `00_overview/system_design_principles.md`, the `[Advanced]` production-ops questions (cost, latency, scale) in each file, evaluation/observability |
 
 ---
 
@@ -163,10 +163,10 @@ These resources fill gaps this repo intentionally leaves. Use them for context.
 | Resource | Type | What It Covers | Why Use It |
 |---|---|---|---|
 | [LlamaIndex Documentation](https://docs.llamaindex.ai/) | Code + Tutorials | Production patterns for ingestion, retrieval, evaluation | This repo is concept-heavy; LlamaIndex is implementation-heavy. Use together. |
-| [Langchain Handbook](https://www.deeplearning.ai/short-courses/) (DeepLearning.AI) | Course | End-to-end RAG systems with code | Complements the Q&A format with narrative tutorials. |
-| [BEIR Benchmark Leaderboard](https://huggingface.co/spaces/mteb/leaderboard) | Benchmark Dataset | Retrieval evaluation across 18 datasets | Test your understanding of retrieval metrics against real benchmarks. |
+| [DeepLearning.AI short courses](https://www.deeplearning.ai/short-courses/) (LangChain, LlamaIndex, RAG) | Course | End-to-end RAG systems with code | Complements the Q&A format with narrative tutorials. |
+| [MTEB Leaderboard](https://huggingface.co/spaces/mteb/leaderboard) | Benchmark Leaderboard | Embedding and retrieval evaluation across dozens of tasks, including the BEIR retrieval datasets | Test your understanding of retrieval metrics against real benchmarks. |
 | [OpenAI Prompt Injection Docs](https://platform.openai.com/docs/guides/prompt-injection-mitigation) | Official Guidance | Prompt injection patterns and defenses | Official best practice; more current than papers. |
-| Banerjee et al., "RAGAS: Automated Evaluation of Retrieval Augmented Generation" (2023) | Paper | RAGAS framework in-depth | Deep dive if you want to implement custom evaluation. |
+| Es et al., "RAGAS: Automated Evaluation of Retrieval Augmented Generation" (2023) | Paper | RAGAS framework in-depth | Deep dive if you want to implement custom evaluation. |
 
 ---
 

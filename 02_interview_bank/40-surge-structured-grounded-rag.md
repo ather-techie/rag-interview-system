@@ -671,7 +671,7 @@ At this volume, cost and latency (Q15) become a real constraint — batched NLI 
 ## Q26. A hospital uses SURGE to extract medication dosages from clinical notes, where a wrong but confident dosage is far costlier than a missing one. Which configuration fits best? `[Advanced]` `[Scenario]` `[MCQ]`
 
 - A. Raise the ENTAILMENT threshold to about 0.8 and send nulled fields to human review
-- B. Lower the ENTAILMENT threshold to 0.5 to keep more fields populated
+- B. Lower the ENTAILMENT threshold to 0.5 so that more fields stay populated and fewer go to review
 - C. Drop NLI and rely on the model's self-reported confidence field
 - D. Make the dosage field required so it is always populated
 
@@ -695,3 +695,7 @@ At this volume, cost and latency (Q15) become a real constraint — batched NLI 
 | Medical record structured summarization | Healthcare | ICD codes, dosages, and diagnoses must cite the specific source note |
 | Regulatory compliance reporting | Compliance / Audit | Auditors require passage-level traceability for every reported figure |
 | Automated competitive intelligence tables | Market Research | Every cell must be sourced; a null cell is preferable to a hallucinated one |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

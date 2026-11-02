@@ -641,9 +641,9 @@ The security risk this scenario adds beyond Q17's general treatment is sharper: 
 
 ## Q23. What does LazyGraphRAG build at index time? `[Basic]` `[MCQ]`
 
-- A. An LLM-extracted entity graph with typed relationship edges
+- A. An LLM-extracted entity graph with typed relationship edges between the entities
 - B. A noun-phrase co-occurrence graph from NLP tagging, with no LLM calls
-- C. Leiden community summaries for every detected community
+- C. Leiden community summaries for every detected community in the graph
 - D. Pre-computed subgraph summaries for the most likely queries
 
 <details>
@@ -678,8 +678,8 @@ The security risk this scenario adds beyond Q17's general treatment is sharper: 
 ## Q25. What happens to LazyGraphRAG when you lower the relevance test budget? `[Intermediate]` `[MCQ]`
 
 - A. Queries get cheaper but may miss relevant, harder-to-reach graph regions
-- B. Indexing gets cheaper because fewer noun phrases are extracted
-- C. Community summaries get coarser, blurring broad global themes
+- B. Indexing gets cheaper because fewer noun phrases are extracted from each chunk
+- C. Community summaries get coarser, blurring broad global themes across the corpus
 - D. Entity resolution gets stricter, which reduces duplicate nodes
 
 <details>
@@ -695,9 +695,9 @@ The security risk this scenario adds beyond Q17's general treatment is sharper: 
 
 ## Q26. A pharma R&D team's LazyGraphRAG spends most of its relevance budget on candidates linked only by generic terms like "results" and "study" that co-occur across the whole corpus. Which fix is best? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Add an LLM entity-resolution pass at index time
-- B. Raise relevance_budget until the generic candidates are exhausted
-- C. Widen window_size so more topical phrases get linked
+- A. Add an LLM entity-resolution pass at index time to merge aliases of the same phrase
+- B. Raise relevance_budget until the generic candidates are exhausted and topical ones are reached
+- C. Widen window_size so more topical phrases get linked to the phrases around them
 - D. Down-weight very high-frequency co-occurrence edges before they become frontier candidates
 
 <details>
@@ -718,3 +718,7 @@ The security risk this scenario adds beyond Q17's general treatment is sharper: 
 - **Cost-sensitive enterprise deployments with unpredictable corpus growth**: incremental, cheap NLP-only indexing avoids the LLM-extraction bill scaling with every new document
 - **Global/community-style questions on a budget** ("What are the main themes across this entire corpus?"): reported to match or beat full GraphRAG's global search quality at a fraction of the cost, at comparable query-time budget to vector RAG
 - **Rapid prototyping of graph-based RAG** before committing to full GraphRAG's heavier indexing pipeline for a production system
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

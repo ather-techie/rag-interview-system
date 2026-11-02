@@ -1,12 +1,12 @@
-// Runs inline on assessment.html (see scripts/build_site.mjs's
-// buildAssessmentPage), so this is a plain classic script, not an ES module.
-// The build emits a prelude before it that defines DIFFICULTIES and TAGS
-// (from scripts/lib/questions.mjs), followed by scripts/quiz-common.js
-// (isMcqItem, shuffleArray, setPressed). The top half here is DOM-free (only
-// Math/JSON/Date/URLSearchParams) so scripts/lib/assessment.test.mjs can load
+// Served as assets/site/assessment.js on assessment.html (see
+// scripts/build_site.mjs's buildAssessmentPage), so this is a plain classic
+// script, not an ES module. The build emits an inline prelude before it
+// (scripts/lib/prelude.mjs: DIFFICULTIES, TAGS, ...), followed by
+// assets/site/quiz-common.js (isMcqItem, shuffleArray, escapeHtml, ...).
+// The top half here is DOM-free so scripts/lib/assessment.test.mjs can load
 // it with node:vm; everything that touches `document` lives below the "DOM"
 // marker and only runs via initAssessment().
-const HISTORY_KEY = 'rag-assessment-history-v1';
+const HISTORY_KEY = 'rag-interview-system:assessment-history-v1';
 const HISTORY_MAX = 20;
 
 const READINESS_BANDS = [
@@ -24,7 +24,9 @@ function filterPool(pool, { difficulty = 'All', group = 'All' } = {}) {
 }
 
 // Stratified pick: round-robin across sections (so no single architecture
-// dominates), preferring a rotating difficulty within each section.
+// dominates), preferring a rotating difficulty within each section. The
+// rotation advances per pick (not per round): with more sections than `count`
+// a per-round rotation never leaves round 0 and the set is all Basic.
 function sampleQuestions(pool, count, rng = Math.random) {
   if (count === 'All' || count >= pool.length) return shuffleArray(pool, rng);
   const buckets = new Map();
@@ -41,7 +43,7 @@ function sampleQuestions(pool, count, rng = Math.random) {
     for (const bucket of order) {
       if (picked.length >= count) break;
       if (bucket.length === 0) continue;
-      const want = DIFFICULTIES[round % DIFFICULTIES.length];
+      const want = DIFFICULTIES[(picked.length + round) % DIFFICULTIES.length];
       let i = bucket.findIndex(q => q.difficulty === want);
       if (i < 0) i = 0;
       picked.push(bucket.splice(i, 1)[0]);
@@ -118,7 +120,7 @@ function loadHistory(storage) {
   try {
     const parsed = JSON.parse(storage.getItem(HISTORY_KEY));
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(e => e && typeof e === 'object' && typeof e.pct === 'number');
+    return parsed.filter(e => e && typeof e === 'object' && Number.isFinite(e.pct) && Number.isFinite(e.total) && Number.isFinite(e.correct));
   } catch (e) {
     return [];
   }
@@ -184,22 +186,6 @@ const state = {
 
 function $(id) { return document.getElementById(id); }
 
-function loadAssessmentQuestions() {
-  const dataEl = $('assessment-data');
-  if (!dataEl) return [];
-  return JSON.parse(dataEl.textContent).map(item => ({
-    questionText: item.question,
-    difficulty: item.difficulty,
-    tags: item.tags || [],
-    answerHTML: item.answer,
-    options: item.options || null,
-    correct: item.correct || null,
-    section: item.section || null,
-    sectionGroup: item.sectionGroup || null,
-    href: item.href || null,
-  }));
-}
-
 function getStorage() {
   try { return window.localStorage || null; } catch (e) { return null; }
 }
@@ -239,12 +225,10 @@ function startAssessment() {
   state.startedAt = Date.now();
   state.timedOut = false;
   state.phase = 'exam';
-  $('main-content').classList.add('hidden');
   $('assessment-results').classList.add('is-hidden');
-  $('quiz-overlay').classList.add('visible');
-  $('quiz-panel').classList.add('visible');
+  openQuizPanel('Self-assessment');
   startTimer();
-  renderExamQuestion();
+  renderExamQuestion('title');
 }
 
 function startTimer() {
@@ -262,11 +246,10 @@ function stopTimer() {
 
 function updateClock() {
   const el = $('assess-clock');
-  if (!el || state.deadline === null) return 1;
+  if (!el || state.deadline === null) return;
   const remaining = Math.max(0, Math.ceil((state.deadline - Date.now()) / 1000));
   el.textContent = '⏱ ' + formatClock(remaining);
   el.classList.toggle('warning', remaining < 60);
-  return remaining;
 }
 
 function tickTimer() {
@@ -278,59 +261,71 @@ function tickTimer() {
   updateClock();
 }
 
-function renderExamQuestion() {
+// `focus` says where keyboard focus should land after the panel is rebuilt:
+// 'title' (new question), or a CSS selector (the option just toggled), so a
+// click or keypress never drops focus back to <body>.
+function renderExamQuestion(focus) {
   const q = state.questions[state.currentIndex];
   const n = state.questions.length;
   const answeredCount = Object.keys(state.answers).length;
   const chosen = state.answers[state.currentIndex] || null;
   const dots = state.questions.map((_, i) => {
-    const cls = ['assess-dot', state.answers[i] ? 'answered' : '', i === state.currentIndex ? 'current' : ''].join(' ').trim();
-    return `<button class="${cls}" aria-label="Go to question ${i + 1}" onclick="goToQuestion(${i})">${i + 1}</button>`;
+    const isAnswered = !!state.answers[i];
+    const isCurrent = i === state.currentIndex;
+    const cls = ['assess-dot', isAnswered ? 'answered' : '', isCurrent ? 'current' : ''].join(' ').trim();
+    const label = `Go to question ${i + 1}${isAnswered ? ' (answered)' : ' (unanswered)'}`;
+    return `<button type="button" class="${cls}" data-action="goto" data-index="${i}" aria-label="${label}"${isCurrent ? ' aria-current="true"' : ''}>${i + 1}</button>`;
   }).join('');
   const options = q.options.map(o =>
-    `<button class="mcq-option${chosen === o.letter ? ' selected' : ''}" aria-pressed="${chosen === o.letter}" onclick="selectAnswer('${o.letter}')"><span class="mcq-letter">${o.letter}.</span> ${o.html}</button>`
+    mcqOptionHtml(o, { action: 'answer', selected: chosen === o.letter })
   ).join('');
-  $('quiz-panel').classList.add('assess-panel');
-  $('quiz-panel').innerHTML = `
+  const panel = $('quiz-panel');
+  panel.classList.add('assess-panel');
+  panel.innerHTML = `
     <div class="quiz-header">
       <div>
-        <strong>Question ${state.currentIndex + 1} / ${n}</strong>
-        <span class="difficulty-badge ${q.difficulty.toLowerCase()}">${q.difficulty}</span>
+        <strong class="quiz-title">Question ${state.currentIndex + 1} / ${n}</strong>
+        ${difficultyBadgeHtml(q.difficulty)}
       </div>
       <span id="assess-clock" class="assess-clock"></span>
-      <button onclick="exitAssessment()" aria-label="Exit assessment" style="border: none; background: none; cursor: pointer; font-size: 1.2em;">✕</button>
+      ${closeButtonHtml('exit', 'Exit assessment')}
     </div>
     <div class="quiz-progress"><div class="quiz-progress-bar" style="width: ${(answeredCount / n) * 100}%"></div></div>
     <div class="assess-answered">${answeredCount} of ${n} answered</div>
-    <div class="assess-nav">${dots}</div>
-    ${q.section ? `<div class="quiz-section">${q.section}</div>` : ''}
+    <div class="assess-nav" role="group" aria-label="Question navigator">${dots}</div>
+    ${q.section ? `<div class="quiz-section">${escapeHtml(q.section)}</div>` : ''}
     <div class="quiz-question">${q.questionText}</div>
-    <div class="mcq-options">${options}</div>
+    <div class="mcq-options" role="group" aria-label="Answer options">${options}</div>
     <div class="quiz-buttons">
-      <button onclick="goToQuestion(${state.currentIndex - 1})" ${state.currentIndex === 0 ? 'disabled' : ''}>← Previous</button>
-      <button onclick="goToQuestion(${state.currentIndex + 1})" ${state.currentIndex === n - 1 ? 'disabled' : ''}>Next →</button>
-      <button class="primary" onclick="submitAssessment({ reason: 'user' })">Submit</button>
+      <button type="button" data-action="goto" data-index="${state.currentIndex - 1}" ${state.currentIndex === 0 ? 'disabled' : ''}>← Previous</button>
+      <button type="button" data-action="goto" data-index="${state.currentIndex + 1}" ${state.currentIndex === n - 1 ? 'disabled' : ''}>Next →</button>
+      <button type="button" class="primary" data-action="submit">Submit</button>
     </div>`;
   updateClock();
+  if (focus === 'title') {
+    focusQuizPanel();
+  } else if (focus) {
+    const el = panel.querySelector(focus);
+    if (el) el.focus();
+  }
 }
 
 function goToQuestion(i) {
   if (state.phase !== 'exam' || i < 0 || i >= state.questions.length) return;
   state.currentIndex = i;
-  renderExamQuestion();
+  renderExamQuestion('title');
 }
 
 function selectAnswer(letter) {
   if (state.phase !== 'exam') return;
   if (state.answers[state.currentIndex] === letter) delete state.answers[state.currentIndex];
   else state.answers[state.currentIndex] = letter;
-  renderExamQuestion();
+  renderExamQuestion(`.mcq-option[data-letter="${letter}"]`);
 }
 
 function closeExamPanel() {
   stopTimer();
-  $('quiz-panel').classList.remove('visible');
-  $('quiz-overlay').classList.remove('visible');
+  closeQuizPanel({ restoreMain: false, restoreFocus: false });
 }
 
 function exitAssessment() {
@@ -367,8 +362,11 @@ function submitAssessment({ reason } = {}) {
   saveAttempt(getStorage(), entry);
   renderResults(entry);
   renderHistory();
-  $('assessment-results').classList.remove('is-hidden');
+  const results = $('assessment-results');
+  results.classList.remove('is-hidden');
   window.scrollTo(0, 0);
+  const heading = results.querySelector('h2');
+  if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
 }
 
 function backToSetup() {
@@ -379,6 +377,8 @@ function backToSetup() {
   $('main-content').classList.remove('hidden');
   $('quiz-panel').classList.remove('assess-panel');
   window.scrollTo(0, 0);
+  const start = $('assess-start-btn');
+  if (start) start.focus({ preventScroll: true });
 }
 
 function pctClass(pct) {
@@ -391,25 +391,25 @@ function renderResults(entry) {
   const diffRows = DIFFICULTIES.filter(d => r.byDifficulty[d] && r.byDifficulty[d].total > 0).map(d => {
     const v = r.byDifficulty[d];
     const p = Math.round((v.correct / v.total) * 100);
-    return `<tr><td>${d}</td><td>${v.correct} / ${v.total}</td><td class="pct ${pctClass(p)}">${p}%</td></tr>`;
+    return `<tr><td>${escapeHtml(d)}</td><td>${v.correct} / ${v.total}</td><td class="pct ${pctClass(p)}">${p}%</td></tr>`;
   }).join('');
   const sectionRows = r.bySection.map(s => {
-    const name = s.href ? `<a href="${s.href}">${s.section}</a>` : s.section;
+    const name = s.href ? `<a href="${escapeHtml(s.href)}">${escapeHtml(s.section)}</a>` : escapeHtml(s.section);
     return `<tr><td>${name}</td><td>${s.correct} / ${s.total}</td><td class="pct ${pctClass(s.pct)}">${s.pct}%</td></tr>`;
   }).join('');
   const review = r.missed.map(m => {
     const q = m.question;
     const opts = q.options.map(o => {
-      const cls = o.letter === q.correct ? ' correct' : o.letter === m.chosen ? ' wrong' : '';
-      return `<button class="mcq-option${cls}" disabled><span class="mcq-letter">${o.letter}.</span> ${o.html}</button>`;
+      const cls = o.letter === q.correct ? 'correct' : o.letter === m.chosen ? 'wrong' : '';
+      return mcqOptionHtml(o, { disabled: true, extraClass: cls });
     }).join('');
     const status = m.chosen ? `You chose ${m.chosen}. Correct answer: ${m.correct}.` : `Not answered. Correct answer: ${m.correct}.`;
-    const open = q.href ? `<a class="quiz-open" href="${q.href}">Open in section page ↗</a>` : '';
+    const open = q.href ? `<a class="quiz-open" href="${escapeHtml(q.href)}">Open in section page ↗</a>` : '';
     return `<div class="review-item">
-      <div class="quiz-section">Q${m.index + 1} · ${q.section || ''} <span class="difficulty-badge ${q.difficulty.toLowerCase()}">${q.difficulty}</span></div>
+      <div class="quiz-section">Q${m.index + 1} · ${escapeHtml(q.section || '')} ${difficultyBadgeHtml(q.difficulty)}</div>
       <div class="quiz-question">${q.questionText}</div>
       <div class="mcq-options">${opts}</div>
-      <div class="mcq-result">${status}</div>
+      <div class="mcq-result">${escapeHtml(status)}</div>
       <details><summary>Show full answer</summary><div class="quiz-answer">${q.answerHTML}</div></details>
       ${open}
     </div>`;
@@ -428,7 +428,7 @@ function renderResults(entry) {
     <h3>Review (${r.missed.length})</h3>
     ${review || '<p class="history-empty">Perfect score. Nothing to review.</p>'}
     <p class="assess-actions">
-      <button class="assess-again" onclick="backToSetup()">Take another assessment</button>
+      <button type="button" class="assess-again" data-action="back">Take another assessment</button>
       <a href="quiz.html">Back to quiz</a> · <a href="index.html">Back to index</a>
     </p>`;
 }
@@ -449,15 +449,15 @@ function renderHistory() {
   const best = bestScore(history);
   const rows = history.map(h => {
     const band = readinessFor(h.pct);
-    const when = new Date(h.at).toLocaleString();
-    const diff = h.difficulty && h.difficulty !== 'All' ? ` · ${h.difficulty}` : '';
-    const grp = h.group && h.group !== 'All' ? ` · ${h.group}` : '';
-    const timer = h.secondsPerQuestion ? ` · ${h.secondsPerQuestion} s/q` : '';
-    return `<li><span>${when} · ${h.total} Q${diff}${grp}${timer}</span><span>${h.correct}/${h.total} (${h.pct}%) <span class="history-level readiness ${band.cls}">${band.level}</span></span></li>`;
+    const when = escapeHtml(new Date(h.at).toLocaleString());
+    const diff = h.difficulty && h.difficulty !== 'All' ? ` · ${escapeHtml(h.difficulty)}` : '';
+    const grp = h.group && h.group !== 'All' ? ` · ${escapeHtml(h.group)}` : '';
+    const timer = Number(h.secondsPerQuestion) ? ` · ${Number(h.secondsPerQuestion)} s/q` : '';
+    return `<li><span>${when} · ${Number(h.total)} Q${diff}${grp}${timer}</span><span>${Number(h.correct)}/${Number(h.total)} (${Number(h.pct)}%) <span class="history-level readiness ${band.cls}">${band.level}</span></span></li>`;
   }).join('');
   el.innerHTML = `
     <div class="history-head"><h2>Past attempts</h2>
-      <span>Best: ${best.pct}% · <button class="link-btn" onclick="onClearHistory()">Clear history</button></span></div>
+      <span>Best: ${Number(best.pct)}% · <button type="button" class="link-btn" data-action="clear-history">Clear history</button></span></div>
     <ul class="quiz-toc">${rows}</ul>`;
 }
 
@@ -476,21 +476,47 @@ function syncSetupButtons() {
   }
 }
 
-function initAssessment() {
-  state.pool = loadAssessmentQuestions();
-  state.config = configFromSearch(window.location.search, state.config);
-  syncSetupButtons();
-  updateAssessMatchCount();
-  renderHistory();
+async function initAssessment() {
+  bindActions({
+    'assess-option': (el) => {
+      const name = el.dataset.opt;
+      const value = CONFIG_CHOICES[name].find(v => String(v) === el.dataset.value);
+      if (value !== undefined) setAssessOption(name, value, el);
+    },
+    'assess-start': startAssessment,
+    goto: (el) => goToQuestion(Number(el.dataset.index)),
+    answer: (el) => selectAnswer(el.dataset.letter),
+    exit: exitAssessment,
+    submit: () => submitAssessment({ reason: 'user' }),
+    back: backToSetup,
+    'clear-history': onClearHistory,
+  });
   document.addEventListener('keydown', (e) => {
     if (state.phase !== 'exam') return;
-    if (e.target && /^(SELECT|INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    if (e.key === 'Escape') { exitAssessment(); return; }
+    if (isShortcutBlocked(e)) return;
     const q = state.questions[state.currentIndex];
     if (e.key === 'ArrowRight') { goToQuestion(state.currentIndex + 1); return; }
     if (e.key === 'ArrowLeft') { goToQuestion(state.currentIndex - 1); return; }
     const letter = e.key.length === 1 ? e.key.toUpperCase() : '';
     if (q && letter && q.options.some(o => o.letter === letter)) selectAnswer(letter);
   });
+  state.config = configFromSearch(window.location.search, state.config);
+  syncSetupButtons();
+  renderHistory();
+  try {
+    state.pool = (await loadQuizData('assessment-data')) || [];
+  } catch (err) {
+    const el = $('assess-match-count');
+    if (el) {
+      el.textContent = 'Could not load the question data. Reload the page to try again.';
+      el.classList.add('empty');
+    }
+    const btn = $('assess-start-btn');
+    if (btn) btn.disabled = true;
+    return;
+  }
+  updateAssessMatchCount();
 }
 
 if (typeof document !== 'undefined') initAssessment();

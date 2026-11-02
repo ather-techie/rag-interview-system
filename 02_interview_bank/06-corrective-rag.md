@@ -1181,7 +1181,7 @@ What to monitor: the rate of stale-but-topically-correct verdicts over time as a
 ## Q25. CRAG's evaluator runs on every query. Which optimization from the cost discussion reduces that overhead? `[Intermediate]` `[MCQ]`
 
 - A. Disable the web search fallback for all queries
-- B. Run the evaluator only on the final generated answer
+- B. Run the evaluator only once on the final generated answer, after generation, not on retrieved documents
 - C. Increase top-k so each evaluator call covers more documents
 - D. Use a small model or rule-based pre-filter, calling the evaluator only when confidence is uncertain
 
@@ -1198,7 +1198,7 @@ What to monitor: the rate of stale-but-topically-correct verdicts over time as a
 
 ## Q26. A mortgage lender's CRAG assistant keeps rating long, keyword-heavy old fee schedules as CORRECT and quotes outdated rates. What is the best next step? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Lower the threshold so more documents are labeled INCORRECT across the board
+- A. Lower the threshold so more documents are labeled INCORRECT across the board, regardless of length or keywords
 - B. Replace web search with a larger internal vector index
 - C. Segment verdict accuracy by length and keyword density, then rebalance the evaluator's training or prompt examples
 - D. Switch to a larger generator model to compensate for bad context
@@ -1225,3 +1225,7 @@ What to monitor: the rate of stale-but-topically-correct verdicts over time as a
 | Customer-facing warranty & returns bot | Retail / E-commerce | Policy documents change frequently; evaluator catches when retrieved chunks are outdated and retrieves a refreshed version |
 
 </details>
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

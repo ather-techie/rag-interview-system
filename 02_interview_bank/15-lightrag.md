@@ -766,9 +766,9 @@ Monitor: entity resolution precision sampled per plant, weekly update completion
 
 ## Q25. A source document is revised, and its old entities and relationships are already in the LightRAG graph. Which procedure avoids leaving stale edges behind? `[Intermediate]` `[MCQ]`
 
-- A. Tombstone what the old version produced, re-run insertion, then delete the tombstones after verification
-- B. Insert the new version and rely on entity resolution to overwrite the old edges
-- C. Re-embed the revised chunks and leave the existing graph untouched
+- A. Tombstone the old version's nodes and edges, re-run insertion, then delete them after verification
+- B. Insert the new version and rely on entity resolution to overwrite the old edges and descriptions
+- C. Re-embed the revised chunks in the vector store and leave the existing graph untouched
 - D. Rebuild the whole graph from scratch over the entire corpus
 
 <details>
@@ -809,3 +809,7 @@ Monitor: entity resolution precision sampled per plant, weekly update completion
 | Personal knowledge management app (e.g., Obsidian AI, Logseq AI) | Productivity | Users' personal note graphs benefit from entity-aware retrieval across local markdown files, with no server-side infrastructure required |
 | Privacy-first enterprise assistant | Healthcare / Legal | Sensitive corpora that cannot leave the premises are served by LightRAG running entirely on-premises on commodity hardware |
 | Small-business chatbot with limited budget | SMB / Startup | Simple, cost-efficient dual-mode retrieval delivers good enough quality for SMB corpora without the overhead of a full advanced RAG stack |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

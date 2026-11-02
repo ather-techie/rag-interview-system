@@ -153,7 +153,7 @@ So retrieval uses an index that's a bit out of date, but refreshed often enough 
 
 ---
 
-## Q4. How does REALM differ from RETRO, Atlas, and Fusion-in-Decoder? `[Advanced]`
+## Q4. What distinguishes REALM's end-to-end learned retriever from the later RETRO, Atlas, and Fusion-in-Decoder designs? `[Advanced]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -623,8 +623,8 @@ Monitor: compute spend against the quarterly budget (with re-embedding cost brok
 ## Q23. In REALM, what signal teaches the retriever which documents are useful? `[Basic]` `[MCQ]`
 
 - A. The masked-token loss, backpropagated through marginalization over retrieved documents
-- B. Human relevance labels on query and passage pairs
-- C. Click-through logs from a search deployment
+- B. Human relevance labels annotated on each query and passage pair from a QA dataset
+- C. Click-through logs collected from a deployed search engine and used as weak labels
 - D. A separate contrastive loss on BM25 hard negatives
 
 <details>
@@ -658,10 +658,10 @@ Monitor: compute spend against the quarterly budget (with re-embedding cost brok
 
 ## Q25. Which change removes REALM's need for asynchronous re-indexing, at some cost in task-aligned retrieval? `[Intermediate]` `[MCQ]`
 
-- A. Increasing top-k during marginalization
+- A. Increasing top-k during marginalization over the retrieved documents
 - B. Freezing the document encoder and training only the query encoder
-- C. Replacing salient-span masking with random masking
-- D. Skipping the ICT warm-start of the retriever
+- C. Replacing salient-span masking with uniform random token masking
+- D. Skipping the ICT warm-start of the retriever before joint training
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -701,3 +701,7 @@ Monitor: compute spend against the quarterly budget (with re-embedding cost brok
 | Knowledge-grounded language modeling research | Research / Academia | The canonical reference architecture for learned, latent-variable retrieval |
 | Fact-intensive assistants needing inspectable knowledge | Enterprise | External corpus (vs parametric memory) gives auditable, swappable knowledge sources |
 | Foundations for building custom end-to-end RAG training pipelines | ML platform / R&D | REALM's marginalization + async-refresh recipe underpins modern end-to-end retrieval training |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

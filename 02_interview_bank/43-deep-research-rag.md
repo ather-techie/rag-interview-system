@@ -662,9 +662,9 @@ The board deadline forces careful budget-monitor tuning (Q4, Q10): the early-ter
 
 ## Q24. Two parallel sub-agents burn budget researching overlapping market-size facts. Which design property of the architecture causes this? `[Intermediate]` `[MCQ]`
 
-- A. The aggregator deduplicates URLs before assigning citation IDs
+- A. The aggregator deduplicates URLs before assigning citation IDs in the final report
 - B. The budget monitor stops dispatch once new findings dry up
-- C. The lead agent caps its plan at a fixed number of sub-questions
+- C. The lead agent caps its plan at a fixed number of parallel sub-questions per run
 - D. Sub-agents run in isolated contexts and cannot see each other's findings
 
 <details>
@@ -721,3 +721,7 @@ The board deadline forces careful budget-monitor tuning (Q4, Q10): the early-ter
 - **LangChain `open_deep_research`**: open-source, model-agnostic deep research agent supporting configurable search tools and MCP servers
 - **Hugging Face smolagents `open_deep_research`**: open replication effort benchmarked on GAIA (general AI assistant tasks), reporting ~55% pass@1 versus ~67% for OpenAI's original
 - **Enterprise due-diligence and market research**: competitive landscape analysis, literature reviews, and regulatory research where a single cited answer is insufficient and a structured multi-source report is the deliverable
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

@@ -241,7 +241,7 @@ import anthropic
 
 client = anthropic.Anthropic()
 
-def query_with_cache(query: str, document: str, model="claude-3-5-sonnet-20241022"):
+def query_with_cache(query: str, document: str, model="claude-sonnet-5-5"):
     """Query using prompt caching for cost savings."""
     
     # First query: full cost, builds cache
@@ -1029,7 +1029,7 @@ What to monitor: the pre-filter's exclusion rate against that planted-document v
 
 ## Q24. For a follow-up query to benefit from prompt caching on a stuffed document, which condition must hold? `[Intermediate]` `[MCQ]`
 
-- A. The follow-up must be semantically similar to the first query
+- A. The follow-up must be semantically similar to the first query so the cache lookup matches by meaning
 - B. The cached document block must remain an identical prefix, with the new question placed after it
 - C. The follow-up must ask about a different section of the document
 - D. The document must be compressed before it is cached
@@ -1066,7 +1066,7 @@ What to monitor: the pre-filter's exclusion rate against that planted-document v
 ## Q26. A pharma regulatory team's Long-context RAG assistant worked at 200 filings, but at 20,000 the pre-filter keeps dropping documents to fit the window and answers miss relevant filings. Which design change is best? `[Advanced]` `[Scenario]` `[MCQ]`
 
 - A. Add a precision retrieval stage that picks passages from the filtered documents rather than stuffing whole ones
-- B. Move to the largest available context window and loosen the pre-filter
+- B. Move to the largest available context window and loosen the pre-filter so fewer documents are dropped before stuffing
 - C. Compress every document aggressively so the full corpus fits in the window
 - D. Raise top-N and rely on bookend ordering to compensate
 
@@ -1090,3 +1090,7 @@ What to monitor: the pre-filter's exclusion rate against that planted-document v
 | Large codebase Q&A (e.g., Sourcegraph Cody) | DevTools | Repository-level questions ("where does authentication flow through?") require reasoning across many files simultaneously |
 | Clinical trial protocol analysis | Pharma / Regulatory | Trial protocols are long, structured documents; retrieving complete sections preserves eligibility criteria and procedure details intact |
 | M&A document room assistant | Investment Banking | Due diligence corpora span thousands of pages; long-context windows allow the LLM to reason across related documents without losing thread |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

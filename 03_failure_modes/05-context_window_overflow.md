@@ -248,7 +248,7 @@ def smart_retrieval(query):
 ```python
 import tiktoken
 
-def count_context_tokens(system_prompt, query, retrieved_chunks, model='claude-3-5-sonnet-20241022'):
+def count_context_tokens(system_prompt, query, retrieved_chunks, model='claude-sonnet-5-5'):
     """Estimate total tokens in prompt."""
     
     # Note: Exact token counts vary by model
@@ -287,7 +287,7 @@ if tokens['total'] > 150_000:
 ### Method 2: Runtime Monitoring
 
 ```python
-def monitor_context_usage(messages, model='claude-3-5-sonnet'):
+def monitor_context_usage(messages, model='claude-sonnet-5-5'):
     """Monitor actual token usage in API calls."""
     
     from anthropic import Anthropic

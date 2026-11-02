@@ -637,7 +637,7 @@ Monitor: logical-form parse accuracy on a clinician/policy-reviewed sample, the 
 
 - A. Re-running community detection to regenerate the missing summary
 - B. Falling back to the linked source text for the missing nuance and evidence
-- C. Replacing the step with a similarity search over the whole graph
+- C. Replacing the step with a similarity search over the whole graph's node embeddings
 - D. Dropping the step and answering from the remaining steps
 
 <details>
@@ -653,7 +653,7 @@ Monitor: logical-form parse accuracy on a clinician/policy-reviewed sample, the 
 
 ## Q24. In KAG, which operations are executed deterministically instead of being left to LLM generation? `[Intermediate]` `[MCQ]`
 
-- A. Parsing the user question into a logical form
+- A. Parsing the user question into a multi-step logical form of retrieval and operator steps
 - B. Writing the final natural-language answer
 - C. Aligning synonymous entities during extraction
 - D. Operators such as count, compare, and sort over resolved facts
@@ -672,7 +672,7 @@ Monitor: logical-form parse accuracy on a clinician/policy-reviewed sample, the 
 ## Q25. Which failure in a KAG deployment is most likely to yield a confidently wrong answer that still looks fully auditable? `[Intermediate]` `[MCQ]`
 
 - A. A false fact extracted into the KG and then used by deterministic operators
-- B. A text-fallback step returning a loosely related chunk
+- B. A text-fallback step returning a loosely related chunk to the reasoning step
 - C. A cached logical form that is slightly slower than a fresh parse
 - D. An operator that times out and returns an empty result
 
@@ -690,7 +690,7 @@ Monitor: logical-form parse accuracy on a clinician/policy-reviewed sample, the 
 ## Q26. An e-government agency runs KAG for benefit-eligibility rules, but most traffic is simple lookups such as "What is the deadline for Form 12?", and average latency is high. Which change best fixes this while keeping rule rigor where it matters? `[Advanced]` `[Scenario]` `[MCQ]`
 
 - A. Replace the knowledge graph with dense retrieval for every incoming query
-- B. Run full logical-form decomposition on every query using a larger parser model
+- B. Run full logical-form decomposition on every query, including simple lookups, using a larger parser model
 - C. Route simple lookups to direct KG or text retrieval, keeping logical forms for multi-step questions
 - D. Let the LLM answer eligibility questions directly, skipping operator execution
 
@@ -714,3 +714,7 @@ Monitor: logical-form parse accuracy on a clinician/policy-reviewed sample, the 
 | Financial compliance & risk assessment | Finance | Regulatory rules demand exact, auditable multi-step reasoning over linked entities and filings |
 | Legal reasoning & statute application | Legal | Applying statutes/precedents to facts is logical inference over a knowledge graph, traceable to sources |
 | Enterprise expert systems over technical/engineering knowledge | Enterprise | Schematizable domains with dense relations benefit from deterministic operators plus text provenance |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

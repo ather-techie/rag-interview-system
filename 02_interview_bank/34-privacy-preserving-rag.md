@@ -647,7 +647,7 @@ This differs from the multi-hospital case (Q18) in one critical way: hospitals i
 
 - A. Raw scores would reveal the text of the matching documents to the coordinator
 - B. RRF needs fewer round trips to each silo than score averaging does
-- C. Scores from independently scaled silo indexes are not comparable, but rank positions are
+- C. Scores from separately scaled silo indexes are not comparable, but ranks are
 - D. RRF adds differential-privacy noise to the merged list automatically
 
 <details>
@@ -664,8 +664,8 @@ This differs from the multi-hospital case (Q18) in one critical way: hospitals i
 ## Q24. Compared with DP noise on query embeddings, what does k-anonymity query obfuscation cost? `[Intermediate]` `[MCQ]`
 
 - A. About k times the server retrieval work, with no recall loss for the real query
-- B. A recall loss that grows with k, with no extra server work
-- C. About k times the on-device embedding cost, with no extra server work
+- B. A recall loss for the real query that grows with k, with no extra server work
+- C. About k times the on-device embedding cost, with no extra server retrieval work
 - D. A recall loss that grows with 1/epsilon, with no extra server work
 
 <details>
@@ -699,10 +699,10 @@ This differs from the multi-hospital case (Q18) in one critical way: hospitals i
 
 ## Q26. A legal e-discovery platform deploys on-device embedding, DP noise, k-anonymity, federated retrieval and anonymization. Audits still find privileged passages quoted verbatim in logged answers. Which control closes this gap? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Lower epsilon further on the query embeddings
+- A. Lower epsilon further on the query embeddings so that more noise is added to each one
 - B. Add output-side controls that filter responses before they leave the trust boundary
-- C. Increase k_anon so more dummy queries are sent per request
-- D. Add more silos so each one holds fewer documents
+- C. Increase k_anon so that more dummy queries are sent alongside each real request
+- D. Add more silos so that each silo holds fewer documents of the privileged corpus
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -733,3 +733,7 @@ This differs from the multi-hospital case (Q18) in one critical way: hospitals i
 | Financial fraud investigation across banks | Finance | Banks cannot share raw transaction records but need to jointly search for patterns; federated retrieval plus DP noise satisfies both constraints |
 | Legal e-discovery platforms | Legal | Privileged documents must be searchable without exposing content to the platform operator |
 | Consumer health / wellness assistants | Consumer | On-device embedding keeps sensitive personal queries off any server by default, satisfying "privacy by design" expectations |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

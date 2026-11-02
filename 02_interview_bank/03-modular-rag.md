@@ -1201,8 +1201,8 @@ What to monitor: per-region routing and module-health metrics (Q9), canary succe
 
 ## Q23. In Modular RAG, what does the routing module decide for each incoming query? `[Basic]` `[MCQ]`
 
-- A. Which embedding model should be used to index the corpus
-- B. Which tokens the generator is allowed to emit in its answer
+- A. Which embedding model should be used to index the whole corpus offline
+- B. Which tokens the generator is allowed to emit in its final answer text
 - C. Which retrieval module or modules should be invoked for the query
 - D. Which reranker weights should be updated from user feedback
 
@@ -1220,9 +1220,9 @@ What to monitor: per-region routing and module-health metrics (Q9), canary succe
 ## Q24. Why is Reciprocal Rank Fusion commonly used in a Modular RAG fusion module when merging BM25 and dense-vector results? `[Intermediate]` `[MCQ]`
 
 - A. It relies only on each result's rank, so incompatible score scales do not matter
-- B. It re-embeds every result so both retrievers share one vector space
-- C. It discards any document that only one of the retrievers returned
-- D. It asks the LLM to rate each candidate before the lists are merged
+- B. It re-embeds every result so that both retrievers share a single common vector space
+- C. It discards any document that was returned by only one of the two retrievers
+- D. It asks the LLM to rate each candidate for relevance before the lists are merged
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1237,9 +1237,9 @@ What to monitor: per-region routing and module-health metrics (Q9), canary succe
 
 ## Q25. In a Modular RAG deployment, the SQL retrieval module times out on a query. Which response best matches the intended design? `[Intermediate]` `[MCQ]`
 
-- A. Surface the timeout error to the user so they can retry
-- B. Abort the whole pipeline and cache the failed result
-- C. Permanently route all future queries away from the SQL module
+- A. Surface the raw timeout error to the user so they can retry the question later
+- B. Abort the whole pipeline and cache the failed result so later requests skip retrieval
+- C. Permanently route all future queries away from the SQL module after one timeout
 - D. Follow a predefined fallback chain such as vector search over a denormalized copy
 
 <details>
@@ -1255,10 +1255,10 @@ What to monitor: per-region routing and module-health metrics (Q9), canary succe
 
 ## Q26. An e-commerce retailer swaps in a new vendor's vector retrieval module. Each module scores well when tested alone, but fused answers get worse. Which diagnosis and fix fits best? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. The router is misclassifying queries, so retrain its classifier on more examples
+- A. The router is misclassifying queries, so retrain its classifier on a larger set of labeled examples
 - B. The new module breaks the shared output contract, so enforce a versioned schema validated at integration
-- C. The reranker is too large for the fused list, so replace it with a smaller model
-- D. The memory module holds stale turns, so clear the session history more often
+- C. The reranker is too large for the fused candidate list, so replace it with a smaller distilled model
+- D. The memory module holds stale conversation turns, so clear the session history after every few turns
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1280,3 +1280,7 @@ What to monitor: per-region routing and module-health metrics (Q9), canary succe
 | Regulated industry knowledge platform (finance, pharma) | Compliance | Modules can be individually audited, versioned, and replaced as regulations change without rewriting the whole pipeline |
 | Multilingual customer support | Global SaaS | Language-detection module gates to a locale-specific retriever and translation module, all without forking the pipeline |
 | Research literature assistant | Academia / R&D | Abstract-only retrieval, full-text retrieval, and citation-graph retrieval are separate swappable modules depending on query depth |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

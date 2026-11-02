@@ -1169,9 +1169,9 @@ What to monitor: p99, not just p95, latency given the firmness of the SLA; inter
 ## Q24. Which statement about pairing a Mistral-7B drafter with an API-hosted GPT-4-class verifier in Speculative RAG is correct? `[Intermediate]` `[MCQ]`
 
 - A. It works, because drafts are passed as plain text rather than token distributions
-- B. It fails, because both models must share one tokenizer vocabulary
+- B. It fails, because the drafter and verifier must share one tokenizer vocabulary
 - C. It works only if both models were fine-tuned on the same corpus
-- D. It fails, because the verifier must reuse the drafter's KV cache
+- D. It fails, because the verifier must reuse the drafter's KV cache to read drafts
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1204,10 +1204,10 @@ What to monitor: p99, not just p95, latency given the firmness of the SLA; inter
 
 ## Q26. A bank's compliance assistant built on Speculative RAG confidently returns a wrong policy answer after a vendor memo was ingested as five slightly reworded copies, and four of five drafts now agree. Which fix targets the root cause? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Raise m from 5 to 10 so additional subsets dilute the copies
+- A. Raise m from 5 to 10 so that additional document subsets dilute the five reworded copies
 - B. Deduplicate near-identical chunks before partitioning so agreement reflects independent sources
-- C. Swap in a larger verifier that can spot the false claim
-- D. Set the drafter temperature to 0 so drafts become more consistent
+- C. Swap in a larger verifier model that is better able to spot the false claim in the drafts
+- D. Set the drafter temperature to 0 so that the drafts become more consistent with one another
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1229,3 +1229,7 @@ What to monitor: p99, not just p95, latency given the firmness of the SLA; inter
 | Financial news summarization at scale | Media / FinTech | Thousands of simultaneous queries benefit from speculative decoding; large model verifies only the drafts that need correction |
 | Call center copilot (agent assist) | Telecom / BPO | Speculative RAG provides fast preliminary answers to human agents while a more capable model verifies claims in the background |
 | Government citizen Q&A portal | Public sector | High daily query volume benefits from cost reduction via speculative drafting; verifier ensures compliance-sensitive answers are accurate |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

@@ -450,7 +450,7 @@ A hop's retrieval may pull a different tenant's or entity's documents if metadat
 
 ---
 
-## Q13. Walk through the Iterative/Multi-hop RAG architecture end-to-end. `[Basic]`
+## Q13. Sketch the generic Iterative/Multi-hop RAG loop, and what separates it from parallel query reformulation (#18)? `[Basic]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -699,3 +699,7 @@ Monitor: per-hop confidence and source-strength scores, time-to-answer against t
 | Scientific literature synthesis | Research / Biomed | Tracing a mechanism (gene → pathway → disease → drug) needs sequential, evidence-linked hops |
 | Legal case & precedent research | Legal | Following citation chains and statutory cross-references is inherently multi-hop |
 | Troubleshooting & root-cause assistants | DevOps / Support | Diagnosis chains (symptom → component → dependency → known issue) adapt each hop to the prior finding |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

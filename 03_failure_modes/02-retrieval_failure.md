@@ -1636,10 +1636,10 @@ Priority 3 (Use only if needed):
 
 ## Q11. Which of these is a directly observable *symptom* of retrieval failure, rather than one of its underlying root causes? `[Basic]` `[MCQ]`
 
-- A. The embedding model was trained on a different domain than the corpus
+- A. The embedding model was trained on a different domain than the corpus it now indexes
 - B. The generated answer cites content that isn't actually relevant to the question
-- C. Chunk boundaries split a key definition across two separate chunks
-- D. The vector index uses too few dimensions for the corpus's complexity
+- C. Chunk boundaries split a key definition across two separate chunks during ingestion
+- D. The vector index uses too few dimensions for the complexity of the corpus it stores
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1654,10 +1654,10 @@ Priority 3 (Use only if needed):
 
 ## Q12. What is the "semantic gap" problem in retrieval, most precisely? `[Intermediate]` `[MCQ]`
 
-- A. A mismatch between a query's vocabulary/phrasing and a relevant document's vocabulary/phrasing, despite shared meaning
-- B. A gap in index coverage where some documents were never embedded
+- A. A mismatch between a query's wording and a relevant document's wording, despite shared meaning
+- B. A gap in index coverage where some relevant documents were never embedded or indexed at all
 - C. The latency difference between first-stage retrieval and reranking
-- D. A version mismatch between the embedding model used at index time versus query time
+- D. A version mismatch between the embedding model used at index time and the one used at query time
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1690,10 +1690,10 @@ Priority 3 (Use only if needed):
 
 ## Q14. A support-ticket retrieval system shows stable recall@k in offline evaluation, but production complaints about irrelevant answers rise right after a cross-encoder reranker upgrade — and the offline benchmark hasn't been rerun since. What should you check first? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Assume the embedding index is stale, and rebuild it
-- B. Compare the new reranker's behavior directly against production traffic, since a frozen recall@k benchmark only measures first-stage retrieval and wouldn't catch a reranker-only regression
-- C. Assume the chunking strategy regressed, and re-chunk the corpus
-- D. Lower the LLM's generation temperature
+- A. Assume the embedding index went stale after the upgrade and rebuild it from scratch, since outdated vectors would surface irrelevant tickets for many queries
+- B. Compare the new reranker's behavior against production traffic, since a frozen recall@k benchmark measures only first-stage retrieval and misses reranker-only regressions
+- C. Assume the chunking strategy regressed and re-chunk the whole ticket corpus, since poorly split chunks would make the reranker return irrelevant answers
+- D. Lower the LLM's generation temperature, since a more deterministic generator would reduce the irrelevant answers users are complaining about in production
 
 <details>
 <summary>💡 Show Answer</summary>

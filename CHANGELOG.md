@@ -9,6 +9,65 @@ tooling, **patch** for fixes and wording.
 
 ## [Unreleased]
 
+### Fixed
+
+- The self-assessment sampler rotated difficulty per round, so with more
+  sections than questions every 10/25/50-question set was almost all Basic
+  (about 25 of 25 in the default set). Difficulty now rotates per pick and
+  sets are balanced across Basic, Intermediate and Advanced.
+- Keyboard shortcuts no longer fire on Ctrl/Cmd/Alt combinations or key
+  auto-repeat (Ctrl+C used to answer option C). A filter change during a
+  practice session now restarts scoring instead of letting the score exceed
+  100%, and "Try Again" reshuffles.
+- Assessment history is validated on load, escaped on render, and stored
+  under a namespaced key (GitHub Pages project sites of one account share an
+  origin and therefore localStorage).
+- `system_design_principles.md` presented per-second query volumes as
+  per-day costs, which understated the example by a factor of 86,400. The
+  worked example now converts QPS to daily volume and shows a corrected
+  table; the "cannot fine-tune" branch of the cheatsheet decision tree no
+  longer recommends Self-RAG, which requires fine-tuning.
+- Corrected the RAGAS author, several paper titles and links in the overview
+  docs, stale counts in the README and learning path, and replaced retired
+  model IDs and the removed LangChain `RetrievalQA` class in code samples.
+- `06_labs_py`: Lab 01 now uses `ai_client` like the other labs instead of the
+  retired HuggingFace serverless endpoint; dependencies are pinned;
+  `ai_client` sends `max_completion_tokens` to OpenAI and Azure and fails
+  clearly when `AI_MODEL` or `AI_API_KEY` is missing.
+- 103 multiple-choice questions whose correct option was noticeably longer
+  than every distractor had their distractors rewritten; the correct option
+  was the longest in 70% of questions before and is now close to chance.
+- Removed duplicate and overlapping question titles (including all five
+  near-duplicate warnings) and 14 missing papers were added to `REFERENCES.md`;
+  every architecture file now links to it.
+
+### Changed (site)
+
+- Shared CSS and JavaScript are now served as cacheable files under
+  `assets/site/`, and the quiz and assessment datasets as `quiz-data.json` and
+  `assessment-data.json`. `quiz.html` dropped from about 4.2 MB to about 21 KB
+  of HTML.
+- The practice quiz and assessment panels are proper modal dialogs: focus
+  moves in and returns, Escape closes, the background is inert, results are
+  announced, buttons use `data-action` instead of inline `onclick`, and the
+  intermediate-difficulty colour meets AA contrast. Added reduced-motion and
+  print styles.
+- Every page now has a meta description, canonical link, Open Graph tags and a
+  favicon. The build also emits `404.html`, `sitemap.xml`, `robots.txt` and
+  `.nojekyll`, renders the README's Mermaid diagram, and gives the
+  directory index pages readable titles.
+- Node 22 or newer is now required (`node --test` globs need it); CI tests
+  Node 22 and 24, validates the lab notebooks, and a weekly workflow checks
+  links. Added dependabot, `.editorconfig`, `SECURITY.md` and `CODEOWNERS`.
+
+### Added (tooling)
+
+- `npm run mcq-length` lists multiple-choice questions whose correct option
+  is more than 10% longer than every distractor.
+- Parser tests now cover every problem code, the title and near-duplicate
+  helpers, and the browser helpers; the tests load the same prelude the
+  build emits.
+
 ### Added (Microsoft Stack)
 
 - Added a Microsoft Stack question section, `11_microsoft_stack/` (104

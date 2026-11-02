@@ -153,7 +153,7 @@ This is the defining contrast between the two training-time approaches:
 
 ---
 
-## Q4. How does RETRO differ from REALM, Atlas, and Fusion-in-Decoder? `[Advanced]`
+## Q4. Where does RETRO's chunked cross-attention sit relative to REALM, Atlas, and Fusion-in-Decoder's input-side retrieval? `[Advanced]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -672,7 +672,7 @@ At trillion-token scale, the datastore and its ANN index are the dominant cost d
 
 ## Q24. In RETRO's chunked cross-attention, whose retrieved neighbors condition the generation of the next chunk? `[Intermediate]` `[MCQ]`
 
-- A. Neighbors retrieved using the next chunk itself
+- A. Neighbors retrieved using the next chunk's own tokens as the query
 - B. Neighbors retrieved using the immediately preceding chunk
 - C. Neighbors retrieved once for the first chunk only
 - D. Neighbors retrieved once for the whole prompt
@@ -733,3 +733,7 @@ At trillion-token scale, the datastore and its ANN index are the dominant cost d
 | Cost-sensitive large-scale generation | Enterprise infra | Smaller served model + datastore lowers per-token compute vs a giant parametric LM |
 | Domain-adaptable models via datastore swaps | Enterprise | Frozen retriever means knowledge updates by editing the datastore, not retraining |
 | Research into retrieval scaling laws | Academia | The canonical study of how generation quality scales with datastore size |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

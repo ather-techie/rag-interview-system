@@ -463,19 +463,23 @@ compression_retriever = ContextualCompressionRetriever(
     base_retriever=multi_query_retriever
 )
 
-# Final QA chain with reranking
-from langchain.chains import RetrievalQA
-qa = RetrievalQA.from_chain_type(
-    llm=ChatOpenAI(model="gpt-4o", temperature=0),
-    chain_type="stuff",
-    retriever=compression_retriever,
-    return_source_documents=True
+# Final generation step over the compressed, reranked context
+from langchain_core.prompts import ChatPromptTemplate
+
+prompt = ChatPromptTemplate.from_template(
+    "Answer using only the context.\n\nContext:\n{context}\n\nQuestion: {question}"
 )
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def answer(question: str):
+    docs = compression_retriever.invoke(question)
+    context = "\n\n".join(d.page_content for d in docs)
+    return llm.invoke(prompt.format_messages(context=context, question=question)).content, docs
 
 # Query
-response = qa({"query": "Your complex question here?"})
-print(f"Answer: {response['result']}")
-for doc in response["source_documents"]:
+result, sources = answer("Your complex question here?")
+print(f"Answer: {result}")
+for doc in sources:
     print(f"Source: {doc.metadata}")
 ```
 
@@ -1012,7 +1016,7 @@ What to monitor: p95 and p99 latency broken out per language specifically, since
 
 ## Q25. In hybrid search, what does the sparse/dense weighting parameter (often called alpha) actually control? `[Intermediate]` `[MCQ]`
 
-- A. The number of documents retrieved from each index before fusion
+- A. The number of documents retrieved from each index before fusion, i.e. each retriever's top-k
 - B. The relative contribution of the BM25 score versus the dense-embedding score in the final ranking
 - C. The temperature of the LLM's generation step
 - D. The chunk size used at ingestion time
@@ -1055,3 +1059,7 @@ What to monitor: p95 and p99 latency broken out per language specifically, since
 | Technical support tier-1 agent | IT / SaaS | Multi-query retrieval captures edge cases across a large ticket history; context compression keeps latency under SLA |
 | Legal document research assistant | Legal / Compliance | Hybrid BM25 + dense search handles both exact statute citations and semantic "what does this clause mean?" queries |
 | Healthcare patient portal Q&A | Healthcare | Reranking and deduplication prevent similar-sounding but distinct clinical terms from colliding in the context window |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

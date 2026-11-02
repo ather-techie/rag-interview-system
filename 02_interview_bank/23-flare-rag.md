@@ -659,7 +659,7 @@ Monitor: citation coverage of every numeric/material claim (should approach 100%
 - A. Whether the sentence contains a named entity or number
 - B. Whether the sentence exceeds a fixed token-length budget
 - C. Whether any token in the draft has probability below the threshold θ
-- D. Whether the previous retrieval returned fewer than k passages
+- D. Whether the previous retrieval step returned fewer than k passages for the query
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -710,7 +710,7 @@ Monitor: citation coverage of every numeric/material claim (should approach 100%
 
 ## Q26. A medical-education publisher uses FLARE to draft long study guides, and p95 latency has doubled because nearly every sentence triggers retrieval, including connective prose. Which change best restores latency without removing grounding for clinical facts? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Raise θ uniformly so that more sentences count as uncertain
+- A. Raise θ uniformly across all sentences so that more of them count as uncertain and are checked
 - B. Gate on sentence-level confidence, with higher θ for facts, lower θ for prose, and a retrieval cap
 - C. Retrieve before every sentence regardless of confidence
 - D. Replace FLARE with a single up-front retrieval using a much larger k
@@ -735,3 +735,7 @@ Monitor: citation coverage of every numeric/material claim (should approach 100%
 | Technical documentation & tutorial drafting | Software / DevTools | Confidence gating catches the exact points where the model is unsure about APIs/specifics |
 | Medical / scientific writing assistants | Healthcare / Research | High-stakes factual spans trigger retrieval and grounding precisely where hallucination is most dangerous |
 | Wikipedia-style article generation | Knowledge curation | The original benchmark domain — long, fact-dense articles where per-sentence active retrieval reduces hallucination |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

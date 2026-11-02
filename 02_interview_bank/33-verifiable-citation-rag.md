@@ -748,7 +748,7 @@ An educational tool checking student essays against assigned readings is a low-s
 
 ## Q23. In Verifiable RAG, which stage independently confirms that a cited passage actually supports its paired claim? `[Basic]` `[MCQ]`
 
-- A. The citation-aware generator, which inserts markers after each claim
+- A. The citation-aware generator, which inserts a citation marker after each claim it writes
 - B. The attribution/entailment verifier, which checks each claim against its cited passage
 - C. The retriever, which only returns passages that match the query
 - D. The citation renderer, which formats the final cited output
@@ -786,7 +786,7 @@ An educational tool checking student essays against assigned readings is a low-s
 
 - A. Decompose it into atomic sub-claims and verify each against its own passage
 - B. Lower the entailment threshold until the compound claim passes
-- C. Switch to source-level citations so the whole document is checked
+- C. Switch to source-level citations so the whole document is checked instead of single passages
 - D. Drop every claim that cites more than one passage
 
 <details>
@@ -802,8 +802,8 @@ An educational tool checking student essays against assigned readings is a low-s
 
 ## Q26. An investment research assistant passes every citation check, yet an analyst finds a false revenue figure backed by a verified citation to a fabricated press release in the corpus. What addition addresses the root cause? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Raise the NLI entailment threshold from 0.7 to 0.95
-- B. Escalate every claim from NLI to an LLM-judge verifier
+- A. Raise the NLI entailment threshold from 0.7 to 0.95 to reject weakly supported claims
+- B. Escalate every claim from NLI to an LLM-judge verifier for stronger entailment checking
 - C. Add source-trust scoring on corpus documents alongside verification
 - D. Move from passage-level to span-level citations
 
@@ -825,3 +825,7 @@ An educational tool checking student essays against assigned readings is a low-s
 - **Medical literature assistants**: Claims about drug interactions or clinical outcomes must cite specific study passages
 - **ALCE benchmark**: Stanford benchmark specifically for evaluating attribution in long-form answers (Gao et al., 2023)
 - **Enterprise compliance reporting**: Audit trails require traceability from every output claim back to a source document
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

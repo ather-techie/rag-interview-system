@@ -780,7 +780,7 @@ What to monitor: provenance-manifest completeness as an automated build-time che
 
 ## Q24. In RAPTOR's GMM clustering step, what happens if the soft-membership threshold is set very high? `[Intermediate]` `[MCQ]`
 
-- A. Each node joins more clusters, so neighboring cluster summaries overlap heavily
+- A. Each node joins more clusters, so neighboring cluster summaries overlap heavily and duplicate content
 - B. The BIC criterion is forced to pick fewer clusters at every level of the tree
 - C. Summaries become more faithful because only strongly related chunks are grouped
 - D. Clustering behaves more like hard assignment, with each node landing in about one cluster
@@ -841,3 +841,7 @@ What to monitor: provenance-manifest completeness as an automated build-time che
 | Book-length document Q&A (e.g., board reports, strategy documents) | Enterprise | C-suite queries need high-level synthesized answers; detailed questions from analysts need precise paragraph-level retrieval |
 | Scientific patent analysis | IP / Legal | Patent corpora are large and hierarchically structured; RAPTOR enables both "what does this portfolio cover?" and "what are the claims in patent X?" |
 | Clinical guideline synthesis | Healthcare | Treatment guidelines from multiple bodies are summarized at the condition → treatment → dosage hierarchy for different query depths |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

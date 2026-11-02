@@ -661,10 +661,10 @@ Given the live-audit pressure, mandatory abstention and escalation to a human co
 
 ## Q23. In Astute RAG, how is the model's own parametric knowledge obtained before consolidation begins? `[Basic]` `[MCQ]`
 
-- A. By fine-tuning the retriever on the model's pretraining corpus
-- B. By querying the model's embedding space with the query vector
+- A. By fine-tuning the retriever on the model's own pretraining corpus before inference
+- B. By querying the model's embedding space with the query vector and decoding neighbors
 - C. By prompting the LLM to answer from memory with no retrieved documents in context
-- D. By regenerating the answer after the retrieved passages are appended
+- D. By regenerating the answer after the retrieved passages are appended to its context
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -697,9 +697,9 @@ Given the live-audit pressure, mandatory abstention and escalation to a human co
 
 ## Q25. Which adjustment most directly reduces fabricated internal-source passages when queries concern a company's private documents? `[Intermediate]` `[MCQ]`
 
-- A. Raise max_rounds so consolidation re-examines each group more times
-- B. Increase the retriever's k so more external passages are returned
-- C. Add a hedging instruction to the final answer prompt only
+- A. Raise max_rounds so consolidation re-examines each group of passages more times
+- B. Increase the retriever's k so that more external passages are returned per query
+- C. Add a hedging instruction to the final answer prompt only, leaving elicitation on
 - D. Turn off internal-knowledge elicitation for queries classified as internal-specific
 
 <details>
@@ -738,3 +738,7 @@ Given the live-audit pressure, mandatory abstention and escalation to a human co
 - **Search-augmented chat assistants** (Google/Gemini-style grounded search): reconciling model prior knowledge with live search snippets before answering
 - **Regulatory/compliance QA**: flagging and surfacing genuine source conflicts (e.g., conflicting policy versions) instead of silently picking one
 - **Multi-source enterprise search**: reconciling conflicting answers across multiple internal document repositories (wikis, tickets, policy PDFs) that may disagree with each other
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

@@ -315,27 +315,29 @@ Understanding cost drivers lets you optimize intelligently.
 ### Three Cost Centers in RAG
 
 1. **Embedding Cost** (per-token, one-time at index-time + per-query at retrieval-time)
-   - Embedding index-time: 10M documents × 500 tokens/doc × $0.02/1M tokens = $100
-   - Embedding query-time (10K QPS × 50 tokens/query × $0.02/1M tokens): ~$10/day
+   - Embedding index-time: 10M documents × 500 tokens/doc × $0.02/1M tokens = $100 (one-time)
+   - Embedding query-time: 1 QPS average = 86,400 queries/day × 50 tokens/query = 4.3M tokens/day × $0.02/1M ≈ $0.09/day (negligible)
 
 2. **Vector Storage Cost** (per-GB-month)
    - 10M vectors × 1536 dimensions (OpenAI) × 4 bytes/dim = ~60 GB
-   - Pinecone: ~$10/GB-month → $600/month
-   - Self-hosted (Qdrant on disk): ~$5/month (storage cost only)
+   - Managed vector DB: ~$10/GB-month → $600/month (~$20/day)
+   - Self-hosted (Qdrant on disk): ~$5/month (storage cost only; compute billed separately)
 
 3. **LLM Inference Cost** (per-token, generation-time)
-   - GPT-4 Turbo: $0.01 per 1K input tokens, $0.03 per 1K output tokens *(verify current pricing at platform.openai.com/pricing before using these figures — LLM pricing changes frequently)*
-   - At 10K QPS × 1000 input tokens (context + query) × $0.01/1K = $100/day input
-   - At 10K QPS × 200 output tokens × $0.03/1K = $60/day output
+   - Illustrative frontier-model pricing: $2.50 per 1M input tokens, $10 per 1M output tokens *(verify current pricing on your provider's pricing page before using these figures — LLM pricing changes frequently)*
+   - Input: 86,400 queries/day × 1,000 input tokens (context + query) = 86.4M tokens/day × $2.50/1M ≈ $216/day
+   - Output: 86,400 queries/day × 200 output tokens = 17.3M tokens/day × $10/1M ≈ $173/day
 
-### Cost Breakdown Example: 10M Docs, 10K QPS
+> **Sanity-check the units.** QPS is per *second*; multiply by 86,400 to get per-day volumes before applying per-token prices. 10K QPS (hyperscale) is 10,000× the traffic above, so every per-day figure below scales by 10,000×, which puts LLM inference alone at several million dollars a day. Slipping by a factor of 86,400 here is a common interview mistake, and a common one in real capacity plans.
+
+### Cost Breakdown Example: 10M Docs, 1 QPS Average (~86K queries/day)
 
 | Cost Center | Cost per Day | Cost per Month | % of Total |
 |---|---|---|---|
-| Embedding (queries only) | $10 | $300 | 5% |
-| Vector Storage | $20 | $600 | 10% |
-| LLM Inference | $160 | $4800 | 85% |
-| **Total** | **$190** | **$5700** | **100%** |
+| Embedding (queries only) | ~$0.10 | ~$3 | <1% |
+| Vector Storage | $20 | $600 | 5% |
+| LLM Inference | ~$389 | ~$11,700 | 95% |
+| **Total** | **~$409** | **~$12,300** | **100%** |
 
 **Optimization Techniques:**
 
@@ -343,7 +345,7 @@ Understanding cost drivers lets you optimize intelligently.
 |---|---|---|---|
 | Semantic caching (don't re-compute for repeated queries) | Embedding | 20–30% | Minimal |
 | Quantization (8-bit embeddings instead of 32-bit) | Vector storage | 75% | ~1% recall loss |
-| Model tier routing (GPT-3.5 for simple queries, GPT-4 for complex) | LLM | 40–50% | Latency variance |
+| Model tier routing (small, cheap model for simple queries; frontier model for complex ones) | LLM | 40–50% | Latency variance |
 | Batch generation (generate 10 answers at once) | LLM | 5–10% (amortize overhead) | Latency increase |
 | Smaller embedding model (BGE instead of OpenAI) | Embedding | 50% | Domain-specific; test first |
 
@@ -500,7 +502,7 @@ Answer
 ### 5. Failure Modes & Mitigation
 - Embedding service down → Fallback to BM25
 - Vector DB latency spike → Circuit breaker + cache
-- LLM rate-limited → Queue or fallback to GPT-3.5
+- LLM rate-limited → Queue or fall back to a smaller model tier
 
 ### 6. Evaluation Plan
 - Retrieval metrics: recall@k on labeled probe set
@@ -525,7 +527,7 @@ User Query (natural language)
     ├──► Reranking (BGE-reranker-large, cross-encoder)
     │    └──► Top-5 results
     │
-    └──► LLM (GPT-4 Turbo, XML-delimited context to prevent injection)
+    └──► LLM (tiered: small model by default, frontier model for complex queries; XML-delimited context to prevent injection)
          └──► Generated answer
 ```
 
@@ -533,13 +535,15 @@ User Query (natural language)
 - **Embedding:** text-embedding-3-small (good for long documents, $0.02/1M)
 - **Vector DB:** Qdrant (partitioned by department for access control)
 - **Retrieval:** Dense + reranking (pipeline architecture for latency budget)
-- **LLM:** GPT-4 Turbo ($0.01/1K input, $0.03/1K output)
+- **LLM:** tiered — a small, cheap model for routine queries, a frontier model only for queries the router flags as complex (see Cost Architecture above)
 
 **Scale Analysis:**
 - 10M docs × 500 tokens/doc = 5B tokens indexed @ $0.02/1M = $100 (one-time)
-- 1K QPS × 50 query tokens × $0.02/1M = $1/day in embedding costs
-- 1K QPS × 1000 context tokens × $0.01/1K + 200 output × $0.03/1K = $10 + $6 = $16/day in LLM
-- Monthly: ~$100 (storage) + $30 (embedding) + $480 (LLM) = $610
+- Traffic: 1K QPS peak; assume ~100 QPS average = 8.6M queries/day
+- Embedding: 8.6M queries × 50 tokens × $0.02/1M ≈ $9/day
+- LLM, small-model tier ($0.15/1M input, $0.60/1M output): 8.6M × 1,000 input tokens ≈ $1,300/day + 8.6M × 200 output tokens ≈ $1,040/day ≈ $2,340/day
+- LLM, frontier tier ($2.50/1M input, $10/1M output) on the same traffic would be ≈ $39,000/day, which is why model tiering and semantic caching are first-order design decisions at this volume
+- Monthly: ~$600 (storage) + ~$270 (embedding) + ~$70,000 (LLM, small tier) ≈ $71,000
 
 **Failure Modes:**
 - Embedding timeout → Use BM25 directly on query keywords

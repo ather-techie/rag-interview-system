@@ -714,10 +714,10 @@ Fusing hundreds of passages runs directly into FiD's real bottleneck: while enco
 
 ## Q26. A tax authority's FiD assistant fuses 40 passages per query, including recently amended rulings that contradict older guidance. Answers often blend both versions into one inconsistent statement. What is the best fix? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Increase k to 100 so the newer rulings are outnumbered less often
+- A. Increase k to 100 passages so the newer rulings are outnumbered less often by older ones
 - B. Add an upstream step that detects conflicts and removes superseded rulings before FiD
-- C. Retrain the encoder so passages attend to each other before fusion
-- D. Replace the decoder with a larger one that resolves contradictions
+- C. Retrain the encoder so that passages attend to each other before the decoder fuses them
+- D. Replace the decoder with a much larger one that is better at resolving contradictions
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -739,3 +739,7 @@ Fusing hundreds of passages runs directly into FiD's real bottleneck: while enco
 | Knowledge-intensive assistants needing evidence synthesis | Enterprise | Decoder fusion aggregates partial evidence spread across multiple documents |
 | Long-tail / high-recall QA over large corpora | Enterprise search | Using many passages raises answer recall without quadratic concatenation cost |
 | Research on efficient retrieval-augmented readers | Academia | The canonical architecture (and bottleneck) that FiD-light / FiDO optimize |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

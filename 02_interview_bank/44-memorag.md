@@ -692,3 +692,7 @@ Because surfacing cross-ticket patterns for account management is inherently a c
 - **Long-context summarization tasks benchmarked on UltraDomain**: the MemoRAG paper reports gains over both standard RAG and long-context-only baselines on long, domain-specific QA
 - **Personal knowledge assistants** over a user's full document/email history, where queries are often vague or under-specified relative to the exact wording in source documents
 - **Due-diligence and audit tools** that need to surface cross-cutting patterns (contradictions, omissions) across a large document set that no single retrieved chunk would reveal
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

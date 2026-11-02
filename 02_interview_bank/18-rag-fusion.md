@@ -816,7 +816,7 @@ Monitor: end-to-end P95 latency against the sub-second target, each strategy's i
 
 - A. It lets the generator skip reading the reformulations
 - B. It keeps every fused RRF score strictly above zero
-- C. It reduces the reformulations needed to fewer than three
+- C. It reduces the number of reformulations needed to fewer than three
 - D. It hedges against reformulations drifting from the user's intent
 
 <details>
@@ -832,7 +832,7 @@ Monitor: end-to-end P95 latency against the sub-second target, each strategy's i
 
 ## Q26. A legal-research firm's RAG-Fusion tool (N=4) shows reformulations with average pairwise cosine similarity near 0.96, and fused recall barely beats single-query retrieval. Which change most directly addresses this? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Raise N to 12 while keeping the same reformulation prompt
+- A. Raise N to 12 while keeping the same reformulation prompt and default sampling temperature
 - B. Raise temperature and prompt for varied vocabulary, specificity and angle
 - C. Lower RRF's k to 1 so the top-ranked results dominate
 - D. Replace RRF with averaged raw scores across the variants
@@ -857,3 +857,7 @@ Monitor: end-to-end P95 latency against the sub-second target, each strategy's i
 | Academic literature discovery | Research / Academia | Synonymous research terms (e.g., "LLM", "large language model", "transformer-based language model") retrieve different papers; fusion covers them all |
 | E-commerce intent-ambiguous search | Retail | A query like "apple watch band" could mean replacement bands or full watches; multiple reformulations retrieve both and fusion re-ranks by relevance |
 | Enterprise policy & compliance search | Enterprise / Legal | Employees use different terminology for the same policy; RAG Fusion ensures "PTO", "vacation time", and "leave policy" all retrieve the same canonical doc |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

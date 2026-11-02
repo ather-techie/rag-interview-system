@@ -4,16 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import vm from 'node:vm';
-import { readFileSync } from 'node:fs';
-import { DIFFICULTIES, TAGS } from './questions.mjs';
+import { preludeJs, QUIZ_COMMON_JS } from './prelude.mjs';
 
-const prelude = [
-  `const DIFFICULTIES = ${JSON.stringify(DIFFICULTIES)};`,
-  `const TAGS = ${JSON.stringify(TAGS)};`,
-  'const ASSESSMENT_HREF = "assessment.html";',
-  'const QUIZ_PAGE_GROUP = null;',
-].join('\n');
-const common = readFileSync(new URL('../quiz-common.js', import.meta.url), 'utf8');
+const prelude = preludeJs();
+const common = QUIZ_COMMON_JS;
 const { isMcqItem, shuffleArray } = vm.runInNewContext(
   [prelude, common, ';({ isMcqItem, shuffleArray })'].join('\n'),
   { Math }

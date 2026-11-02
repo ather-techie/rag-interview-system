@@ -601,9 +601,9 @@ Reference: [Reliability in Azure AI Search](https://learn.microsoft.com/en-us/az
 
 ## Q24. Where must per-user document permissions be enforced so a restricted chunk can never reach the model prompt? `[Intermediate]` `[MCQ]`
 
-- A. In the system prompt, instructing the model to ignore restricted material
-- B. In the client app, by hiding citations the user is not allowed to open
-- C. After generation, by scanning the answer for restricted document titles
+- A. In the system prompt, instructing the model to ignore any restricted material it sees
+- B. In the client app, by hiding citations the user is not allowed to open or view
+- C. After generation, by scanning the final answer for the titles of restricted documents
 - D. In the search query itself, using a filter built from the validated caller identity
 
 <details>
@@ -619,8 +619,8 @@ Reference: [Reliability in Azure AI Search](https://learn.microsoft.com/en-us/az
 
 ## Q25. Azure OpenAI returns HTTP 429 with a `Retry-After` header during a traffic spike. What is the best first-line handling in the chat API? `[Intermediate]` `[MCQ]`
 
-- A. Honor Retry-After with jittered backoff, bounded by the request deadline, and fail over to another deployment
-- B. Retry immediately in a tight loop until the call succeeds, so users never see an error
+- A. Honor Retry-After with jittered backoff within the deadline and fail over to a second deployment
+- B. Retry immediately in a tight loop until the call succeeds, so users never see an error message
 - C. Increase the client timeout to several minutes so the platform queues the request
 - D. Switch the whole app to a larger model so the quota limit no longer applies
 
@@ -637,10 +637,10 @@ Reference: [Reliability in Azure AI Search](https://learn.microsoft.com/en-us/az
 
 ## Q26. A SaaS vendor serves many thousands of small tenants with identical schemas on Azure AI Search. Which multi-tenancy pattern is the usual best starting point? `[Advanced]` `[MCQ]`
 
-- A. One search service per tenant, to guarantee physical isolation for everyone
+- A. One search service per tenant, to guarantee strict physical isolation for every single tenant
 - B. One index per tenant, so each tenant has its own relevance statistics
 - C. One shared index with a filterable tenant field enforced by the server-side retrieval layer
-- D. One shared index with no tenant field, relying on the prompt to scope answers
+- D. One shared index with no tenant field, relying on the system prompt to scope answers to the tenant
 
 <details>
 <summary>💡 Show Answer</summary>

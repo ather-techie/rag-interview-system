@@ -10,18 +10,25 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: ${{ matrix.node-version }}
           cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Lint
+        run: npm run lint
 
       - name: Run unit tests
         run: npm test
@@ -35,9 +42,46 @@ jobs:
       - name: Build HTML site
         run: npm run build
 
+      - name: Smoke-test the built site in jsdom
+        run: npm run test:site
+
       - name: Upload site preview
+        if: matrix.node-version == 24
         uses: actions/upload-artifact@v4
         with:
           name: site-preview
           path: _site
           retention-days: 3
+
+  labs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate notebooks and compile the client
+        run: |
+          pip install nbformat==5.11.1
+          python -m py_compile 06_labs_py/ai_client.py
+          python - <<'PY'
+          import glob, nbformat
+          bad = 0
+          for path in sorted(glob.glob('06_labs_py/*.ipynb')):
+              nb = nbformat.read(path, as_version=4)
+              try:
+                  nbformat.validate(nb)
+              except Exception as exc:
+                  bad += 1
+                  print(f'INVALID {path}: {exc}')
+              outputs = sum(len(c.get('outputs', [])) for c in nb.cells if c.cell_type == 'code')
+              if outputs:
+                  bad += 1
+                  print(f'{path}: {outputs} committed cell outputs (clear them before committing)')
+              print(f'ok {path}')
+          raise SystemExit(1 if bad else 0)
+          PY

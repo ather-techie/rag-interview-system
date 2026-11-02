@@ -696,7 +696,7 @@ Given the deadline, default to adaptive-length decoding for routine cases to fit
 
 ## Q24. Which decoding strategy lets one trained CoRAG model spend extra hops only on questions that need them? `[Intermediate]` `[MCQ]`
 
-- A. Greedy decoding with a fixed long chain length
+- A. Greedy decoding with a fixed long chain length applied to every question
 - B. Best-of-N sampling with reranking on every query
 - C. Adaptive-length decoding that stops once the model is confident
 - D. Lowering the sampling temperature at inference time
@@ -714,7 +714,7 @@ Given the deadline, default to adaptive-length decoding for routine cases to fit
 
 ## Q25. Why does CoRAG's best-of-N reranking rely on signals like self-consistency voting rather than gold-answer matching? `[Intermediate]` `[MCQ]`
 
-- A. Gold answers exist only for short chains
+- A. Gold answers exist only for short chains, so longer chains cannot be checked against labels
 - B. No gold answer exists at inference, so agreement across sampled chains acts as a proxy
 - C. Gold matching would reject chains that were actually correct
 - D. The retriever cannot score chains containing sub-answers
@@ -733,7 +733,7 @@ Given the deadline, default to adaptive-length decoding for routine cases to fit
 ## Q26. After deployment, a hospital's CoRAG assistant gets correct final answers on its eval set, yet clinicians see many off-topic intermediate reformulations. Which fix targets the cause? `[Advanced]` `[Scenario]` `[MCQ]`
 
 - A. Add an intermediate-step quality filter on top of final-answer matching during rejection sampling
-- B. Raise n_samples so more candidate chains are accepted per question
+- B. Raise n_samples so that more candidate chains are sampled and accepted per question during training
 - C. Switch inference decoding from adaptive length to greedy fixed length
 - D. Raise the sampling temperature to diversify the accepted chains
 
@@ -754,3 +754,7 @@ Given the deadline, default to adaptive-length decoding for routine cases to fit
 - **Knowledge-intensive benchmarks (KILT tasks)**: CoRAG established new state-of-the-art results across a diverse set of knowledge-intensive tasks by training directly on rejection-sampled chains
 - **Cost-tiered QA products**: exposing chain-length/sampling as a user- or product-tier-selectable knob (fast/cheap vs. thorough/expensive answers), the same way reasoning-effort tiers work for reasoning models
 - **Domain-adapted retrieval assistants** (legal, medical, financial multi-hop research): fine-tuning the reformulation policy on domain-specific rejection-sampled chains to learn domain query-reformulation idioms a frozen general-purpose model wouldn't produce via prompting alone
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

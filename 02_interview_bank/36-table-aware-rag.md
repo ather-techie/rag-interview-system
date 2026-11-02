@@ -680,7 +680,7 @@ At this scale — thousands of tables, many logically linked (age-by-region cros
 
 ## Q25. Extraction of a table with a merged "2025" header over Q1 to Q4 sub-columns produces columns named `Unnamed: 0`. Which fix preserves the meaning before linearization? `[Intermediate]` `[MCQ]`
 
-- A. Drop the header rows and rely on column position
+- A. Drop the multi-row header rows and rely on column position alone to identify each value
 - B. Forward-fill merged cells and join multi-row headers into composite names
 - C. Raise the table_boost factor in the RRF merge
 - D. Linearize the table as full Markdown regardless of its size
@@ -723,3 +723,7 @@ At this scale — thousands of tables, many logically linked (age-by-region cros
 | Procurement/spend analysis over vendor invoices | Enterprise Ops | Invoice line-items are tabular but arrive as unstructured PDF/HTML documents, not a queryable schema |
 | Regulatory compliance review of exported spreadsheets | Compliance | Auditors need to ask natural-language questions over ad hoc spreadsheet exports with no fixed schema |
 | Customer support over pricing/plan comparison tables | SaaS | Pricing pages embed comparison tables that customers ask natural-language questions against |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

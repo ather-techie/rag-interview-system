@@ -1,14 +1,14 @@
-// Runs inline in every generated page (see scripts/build_site.mjs's wrapPage)
-// and on quiz.html, so this is a plain classic script, not an ES module. The
-// build emits a prelude before it that defines DIFFICULTIES, TAGS,
-// ASSESSMENT_HREF and QUIZ_PAGE_GROUP, followed by scripts/quiz-common.js
-// (isMcqItem, shuffleArray, setPressed).
+// Practice quiz. Served as assets/site/quiz.js and loaded after the build's
+// inline prelude (DIFFICULTIES, TAGS, ASSESSMENT_HREF, QUIZ_PAGE_GROUP,
+// QUIZ_DATA_HREF) and assets/site/quiz-common.js. A plain classic script, not
+// an ES module. Section pages carry no dataset and scrape their own DOM;
+// quiz.html fetches quiz-data.json.
 
 function scrapeFromDom() {
   const items = [];
   document.querySelectorAll('h2').forEach(h2 => {
     if (!/^Q\d+\./.test(h2.textContent.trim())) return;
-    // Collect every `[Tag]` code span in the heading (not just the first —
+    // Collect every `[Tag]` code span in the heading (not just the first --
     // a question can carry a difficulty tag *and* a Scenario tag, and some
     // headings also contain unrelated backticked tokens mid-sentence, e.g.
     // Self-RAG's `[IsSup]` reflection token).
@@ -23,7 +23,7 @@ function scrapeFromDom() {
       .replace(/(\s*\[[A-Za-z]+\])+\s*$/, '')
       .trim();
     // For [MCQ] questions, an option <ul> sits between the heading and
-    // <details> — read it off before continuing the walk to <details>.
+    // <details> -- read it off before continuing the walk to <details>.
     let el = h2.nextElementSibling;
     let options = null;
     if (el && el.tagName === 'UL' && tags.includes('MCQ')) {
@@ -35,40 +35,33 @@ function scrapeFromDom() {
       el = el.nextElementSibling;
     }
     while (el && el.tagName !== 'DETAILS') el = el.nextElementSibling;
-    const answerHTML = el ? el.innerHTML : '<summary>No answer found</summary>';
-    const correctMatch = el ? el.textContent.match(/\bCorrect:\s*([A-Z])\./) : null;
-    const correct = correctMatch ? correctMatch[1] : null;
+    let answerHTML = '<p>No answer found.</p>';
+    let correct = null;
+    if (el) {
+      const clone = el.cloneNode(true);
+      const summary = clone.querySelector('summary');
+      if (summary) summary.remove();
+      answerHTML = clone.innerHTML;
+      const m = el.textContent.match(/\bCorrect:\s*([A-Z])\./);
+      correct = m ? m[1] : null;
+    }
     items.push({ questionText, difficulty, tags, answerHTML, options, correct, section: null, sectionGroup: null, href: null });
   });
   return items;
 }
 
-function loadQuestions() {
-  const dataEl = document.getElementById('quiz-data');
-  if (!dataEl) return scrapeFromDom();
-  const raw = JSON.parse(dataEl.textContent);
-  return raw.map(item => ({
-    questionText: item.question,
-    difficulty: item.difficulty,
-    tags: item.tags || [],
-    answerHTML: item.answer,
-    options: item.options || null,
-    correct: item.correct || null,
-    section: item.section || null,
-    sectionGroup: item.sectionGroup || null,
-    href: item.href || null,
-  }));
-}
-
-const allQuestions = loadQuestions();
-
-let filtered = [], currentIndex = 0, correctCount = 0, reviewCount = 0;
+let allQuestions = [];
+let filtered = [], currentIndex = 0, correctCount = 0, reviewCount = 0, skippedCount = 0;
 let difficultyFilter = 'All';
 let scenarioOnly = false;
 let typeFilter = 'All';
 let answered = false;
 
-function applyFilters() {
+function sessionActive() {
+  return document.getElementById('quiz-panel').classList.contains('visible');
+}
+
+function applyFilters({ shuffle = true } = {}) {
   let result = allQuestions;
   if (difficultyFilter !== 'All') {
     result = result.filter(q => q.difficulty === difficultyFilter);
@@ -86,20 +79,19 @@ function applyFilters() {
     result = result.filter(q => q.section === sectionSelect.value);
   }
   const shuffleToggle = document.getElementById('shuffle-toggle');
-  if (shuffleToggle && shuffleToggle.checked) {
+  if (shuffle && shuffleToggle && shuffleToggle.checked) {
     result = shuffleArray(result);
   }
   return result;
 }
 
 // Live "N questions match" readout under the filter bar, plus disabling
-// Start when the combination is empty. Both elements are optional so the
-// same script keeps working on pages whose bar lacks them.
+// Start when the combination is empty. Counts without shuffling.
 function updateMatchCount() {
   const countEl = document.getElementById('quiz-match-count');
   const startBtn = document.getElementById('quiz-start-btn');
   if (!countEl && !startBtn) return;
-  const n = applyFilters().length;
+  const n = applyFilters({ shuffle: false }).length;
   if (countEl) {
     countEl.textContent = n === 0
       ? 'No questions match these filters'
@@ -109,54 +101,19 @@ function updateMatchCount() {
   if (startBtn) startBtn.disabled = n === 0;
 }
 
-function setFilter(level, btn) {
-  const target = btn || (typeof event !== 'undefined' ? event.target : null);
-  if (target) setPressed('.filter-btn', target.closest('.filter-btn') || target);
-  difficultyFilter = level;
-  filtered = applyFilters();
-  if (currentIndex >= filtered.length) currentIndex = 0;
-  if (document.getElementById('quiz-panel').classList.contains('visible')) {
-    currentIndex = 0;
-    renderQuestion();
-  }
-  updateMatchCount();
+function resetSession() {
+  currentIndex = 0;
+  correctCount = 0;
+  reviewCount = 0;
+  skippedCount = 0;
 }
 
-function onScenarioChange() {
-  const toggle = document.getElementById('scenario-toggle');
-  scenarioOnly = !!(toggle && toggle.checked);
+// Every filter control funnels through here. A filter change during a session
+// restarts it, so the final score can never exceed the number of questions.
+function onFiltersChanged() {
   filtered = applyFilters();
-  currentIndex = 0;
-  if (document.getElementById('quiz-panel').classList.contains('visible')) {
-    renderQuestion();
-  }
-  updateMatchCount();
-}
-
-function onSectionChange() {
-  filtered = applyFilters();
-  currentIndex = 0;
-  if (document.getElementById('quiz-panel').classList.contains('visible')) {
-    renderQuestion();
-  }
-  updateMatchCount();
-}
-
-// Called from the Type segmented control with the value directly. Falls
-// back to reading a legacy `#type-select` dropdown if invoked with no args.
-function onTypeChange(value, btn) {
-  if (typeof value === 'string') {
-    typeFilter = value;
-    if (btn) setPressed('.type-btn', btn);
-  } else {
-    const select = document.getElementById('type-select');
-    typeFilter = select ? select.value : 'All';
-  }
-  filtered = applyFilters();
-  currentIndex = 0;
-  if (document.getElementById('quiz-panel').classList.contains('visible')) {
-    renderQuestion();
-  }
+  resetSession();
+  if (sessionActive()) renderQuestion();
   updateMatchCount();
 }
 
@@ -177,71 +134,54 @@ function resetFilters() {
   const sectionSelect = document.getElementById('section-select');
   if (sectionSelect) sectionSelect.value = 'All';
   filtered = applyFilters();
-  currentIndex = 0;
-  updateMatchCount();
-}
-
-function onShuffleChange() {
-  filtered = applyFilters();
-  currentIndex = 0;
-  if (document.getElementById('quiz-panel').classList.contains('visible')) {
-    renderQuestion();
-  }
+  resetSession();
   updateMatchCount();
 }
 
 function startQuiz() {
   filtered = applyFilters();
-  currentIndex = 0;
-  correctCount = 0;
-  reviewCount = 0;
-  document.getElementById('main-content').classList.add('hidden');
-  document.getElementById('quiz-overlay').classList.add('visible');
-  document.getElementById('quiz-panel').classList.add('visible');
+  resetSession();
+  openQuizPanel('Practice quiz');
   renderQuestion();
 }
 
 function renderQuestion() {
+  const panel = document.getElementById('quiz-panel');
   if (filtered.length === 0) {
-    document.getElementById('quiz-panel').innerHTML = `
+    panel.innerHTML = `
       <div class="quiz-header">
-        <div><strong>No questions match these filters</strong></div>
-        <button onclick="exitQuiz()" style="border: none; background: none; cursor: pointer; font-size: 1.2em;">✕</button>
-      </div>
-    `;
+        <div class="quiz-title"><strong>No questions match these filters</strong></div>
+        ${closeButtonHtml('exit', 'Exit quiz')}
+      </div>`;
+    focusQuizPanel();
     return;
   }
   const q = filtered[currentIndex];
   answered = false;
   const progress = ((currentIndex + 1) / filtered.length * 100);
-  const diffClass = q.difficulty.toLowerCase();
-  const tagBadges = q.tags.map(t => `<span class="tag-badge ${t.toLowerCase()}">${t}</span>`).join('');
-  const sectionLine = q.section
-    ? `<div class="quiz-section">${q.section}</div>`
-    : '';
+  const tagBadges = q.tags.map(t => `<span class="tag-badge ${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}</span>`).join('');
+  const sectionLine = q.section ? `<div class="quiz-section">${escapeHtml(q.section)}</div>` : '';
   const openLink = (q.section && q.href)
-    ? `<a class="quiz-open" href="${q.href}">Open in section page ↗</a>`
+    ? `<a class="quiz-open" href="${escapeHtml(q.href)}">Open in section page ↗</a>`
     : '';
 
   const mcq = isMcqItem(q);
   const optionsHtml = mcq
-    ? `<div class="mcq-options">${q.options.map(o =>
-        `<button class="mcq-option" data-letter="${o.letter}" onclick="chooseOption('${o.letter}')"><span class="mcq-letter">${o.letter}.</span> ${o.html}</button>`
-      ).join('')}</div>
-    <div id="mcq-result" class="mcq-result"></div>`
+    ? `<div class="mcq-options">${q.options.map(o => mcqOptionHtml(o, { action: 'choose' })).join('')}</div>
+    <div id="mcq-result" class="mcq-result" role="status" aria-live="polite"></div>`
     : '';
   const buttonsHtml = mcq
-    ? `<button onclick="skipQuestion()">Skip →</button>`
-    : `<button class="primary" onclick="showAnswer()">Show Answer</button>
-       <button onclick="skipQuestion()">Skip →</button>`;
+    ? `<button type="button" data-action="skip">Skip →</button>`
+    : `<button type="button" class="primary" data-action="show">Show Answer</button>
+       <button type="button" data-action="skip">Skip →</button>`;
 
-  const html = `
+  panel.innerHTML = `
     <div class="quiz-header">
       <div>
-        <strong>Question ${currentIndex + 1} / ${filtered.length}</strong>
-        <span class="difficulty-badge ${diffClass}">${q.difficulty}</span>${tagBadges}
+        <strong class="quiz-title">Question ${currentIndex + 1} / ${filtered.length}</strong>
+        ${difficultyBadgeHtml(q.difficulty)}${tagBadges}
       </div>
-      <button onclick="exitQuiz()" style="border: none; background: none; cursor: pointer; font-size: 1.2em;">✕</button>
+      ${closeButtonHtml('exit', 'Exit quiz')}
     </div>
     <div class="quiz-progress">
       <div class="quiz-progress-bar" style="width: ${progress}%"></div>
@@ -249,7 +189,7 @@ function renderQuestion() {
     ${sectionLine}
     <div class="quiz-question">${q.questionText}</div>
     ${optionsHtml}
-    <div id="answer-container" style="display: none;">
+    <div id="answer-container" hidden>
       <div class="quiz-answer">${q.answerHTML}</div>
       ${openLink}
     </div>
@@ -257,7 +197,7 @@ function renderQuestion() {
       ${buttonsHtml}
     </div>
   `;
-  document.getElementById('quiz-panel').innerHTML = html;
+  focusQuizPanel();
 }
 
 function chooseOption(letter) {
@@ -277,21 +217,22 @@ function chooseOption(letter) {
     resultEl.textContent = isRight ? 'Correct!' : `Not quite — the answer is ${q.correct}.`;
   }
   const container = document.getElementById('answer-container');
-  if (container) container.style.display = 'block';
+  if (container) container.hidden = false;
   const buttons = document.querySelector('.quiz-buttons');
   if (buttons) {
-    buttons.innerHTML = `<button class="primary" onclick="nextQuestion()">Next →</button>`;
+    buttons.innerHTML = `<button type="button" class="primary" data-action="next">Next →</button>`;
+    buttons.querySelector('button').focus();
   }
 }
 
 function showAnswer() {
-  const container = document.getElementById('answer-container');
-  container.style.display = 'block';
+  document.getElementById('answer-container').hidden = false;
   const buttons = document.querySelector('.quiz-buttons');
   buttons.innerHTML = `
-    <button class="primary" onclick="markCorrect()" style="background: #4caf50; border-color: #4caf50;">✓ Got it</button>
-    <button onclick="markReview()">✗ Review again</button>
+    <button type="button" class="primary got-it" data-action="got">✓ Got it</button>
+    <button type="button" data-action="review">✗ Review again</button>
   `;
+  buttons.querySelector('button').focus();
 }
 
 function markCorrect() {
@@ -305,6 +246,7 @@ function markReview() {
 }
 
 function skipQuestion() {
+  skippedCount++;
   nextQuestion();
 }
 
@@ -336,46 +278,79 @@ function assessmentHandoffHref() {
 
 function showSummary() {
   const percentage = Math.round((correctCount / filtered.length) * 100);
-  const html = `
+  const skipped = skippedCount > 0 ? ` · ${skippedCount} skipped` : '';
+  document.getElementById('quiz-panel').innerHTML = `
     <div class="quiz-summary">
-      <h3>Quiz Complete! 🎉</h3>
-      <p style="font-size: 1.1em; margin: 1.5rem 0;">You got <strong>${correctCount} out of ${filtered.length}</strong> correct.</p>
+      <h3 class="quiz-title">Quiz Complete! 🎉</h3>
+      <p class="quiz-summary-line">You got <strong>${correctCount} out of ${filtered.length}</strong> correct.</p>
       <div class="quiz-score">${percentage}%</div>
-      <p style="color: #666; margin: 1rem 0;">${reviewCount} to review</p>
-      <p class="quiz-handoff"><a href="${assessmentHandoffHref()}">Think you know it? Take a timed assessment →</a></p>
-      <button onclick="restartQuiz()">← Try Again</button>
-      <button onclick="exitQuiz()" style="background: #666; border-color: #666; margin-left: 1rem;">Exit Quiz</button>
+      <p class="quiz-summary-sub">${reviewCount} to review${skipped}</p>
+      <p class="quiz-handoff"><a href="${escapeHtml(assessmentHandoffHref())}">Think you know it? Take a timed assessment →</a></p>
+      <button type="button" data-action="restart">← Try Again</button>
+      <button type="button" class="secondary" data-action="exit">Exit Quiz</button>
     </div>
   `;
-  document.getElementById('quiz-panel').innerHTML = html;
+  focusQuizPanel();
 }
 
 function restartQuiz() {
-  currentIndex = 0;
-  correctCount = 0;
-  reviewCount = 0;
+  filtered = applyFilters();
+  resetSession();
   renderQuestion();
 }
 
 function exitQuiz() {
-  document.getElementById('quiz-panel').classList.remove('visible');
-  document.getElementById('quiz-overlay').classList.remove('visible');
-  document.getElementById('main-content').classList.remove('hidden');
+  closeQuizPanel();
 }
 
-// Keyboard shortcut: press a letter key to choose that MCQ option, as long
-// as the quiz panel is open, the current card is an unanswered MCQ, and the
-// keystroke isn't meant for a focused form control (a <select> or <input>
-// in the filter bar).
+async function initQuiz() {
+  try {
+    const data = await loadQuizData('quiz-data');
+    allQuestions = data ?? scrapeFromDom();
+  } catch (err) {
+    const countEl = document.getElementById('quiz-match-count');
+    if (countEl) {
+      countEl.textContent = 'Could not load the question data. Reload the page, or open a section page directly.';
+      countEl.classList.add('empty');
+    }
+    const startBtn = document.getElementById('quiz-start-btn');
+    if (startBtn) startBtn.disabled = true;
+    return;
+  }
+  filtered = applyFilters();
+  updateMatchCount();
+}
+
+bindActions({
+  filter: (el) => { difficultyFilter = el.dataset.value; setPressed('.filter-btn', el); onFiltersChanged(); },
+  type: (el) => { typeFilter = el.dataset.value; setPressed('.type-btn', el); onFiltersChanged(); },
+  scenario: (el) => { scenarioOnly = !!el.checked; onFiltersChanged(); },
+  section: onFiltersChanged,
+  shuffle: onFiltersChanged,
+  start: startQuiz,
+  reset: resetFilters,
+  exit: exitQuiz,
+  choose: (el) => chooseOption(el.dataset.letter),
+  show: showAnswer,
+  got: markCorrect,
+  review: markReview,
+  skip: skipQuestion,
+  next: nextQuestion,
+  restart: restartQuiz,
+});
+
+// Keyboard: Escape closes the panel; a letter key chooses that MCQ option
+// while an unanswered MCQ is showing (never on modifier combos or in a form
+// control -- see isShortcutBlocked).
 document.addEventListener('keydown', (e) => {
   const panel = document.getElementById('quiz-panel');
-  if (!panel || !panel.classList.contains('visible') || answered) return;
-  const target = e.target;
-  if (target && /^(SELECT|INPUT|TEXTAREA)$/.test(target.tagName)) return;
+  if (!panel || !panel.classList.contains('visible')) return;
+  if (e.key === 'Escape') { exitQuiz(); return; }
+  if (answered || isShortcutBlocked(e)) return;
   const q = filtered[currentIndex];
   if (!q || !isMcqItem(q)) return;
   const letter = e.key.toUpperCase();
   if (q.options.some(o => o.letter === letter)) chooseOption(letter);
 });
 
-updateMatchCount();
+initQuiz();

@@ -111,7 +111,9 @@ The [Self-Assessment][assessment-url] is an exam-style multiple-choice test that
 - [Core Concepts](#-core-concepts)
 - [RAG Architecture Map (52 Types)](#-rag-architecture-map-52-types)
 - [Failure Modes & Production Issues](#-failure-modes--production-issues)
+- [Microsoft Stack](#-microsoft-stack)
 - [Labs & Patterns](#-labs--patterns)
+- [Microsoft Technology in This Repo](#-microsoft-technology-in-this-repo)
 - [Coming Soon](#-coming-soon)
 - [Study Plans](#-study-plans)
 - [How to Use](#-how-to-use)
@@ -206,7 +208,7 @@ flowchart TD
     TT --> TT2["Atlas · Fusion-in-Decoder · RAFT"]
 ```
 
-Full classification (retrieval control, data modality, feedback loop, scope, latency class) for all 52 types: [`00_overview/rag_taxonomy.md`](./00_overview/rag_taxonomy.md).
+Full classification (the four taxonomy axes plus fine-tuning requirement, latency class, and production maturity) for all 52 types: [`00_overview/rag_taxonomy.md`](./00_overview/rag_taxonomy.md).
 
 <!-- questions:table -->
 | # | Topic | Questions |
@@ -378,7 +380,7 @@ Hands-on Jupyter notebooks and composition pattern guides:
 |---|---------|----------|
 | 04 | [Patterns](./04_patterns/README.md) | Router + fallback, fan-out/fan-in, migration path, anti-patterns |
 | 06 | [Labs](./06_labs_py/README.md) | 5 Jupyter notebooks: Naive RAG → Hybrid RAG → Reranker → RAGAS Evaluation → Agentic RAG. Each has an [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ather-techie/rag-interview-system/blob/main/06_labs_py/01_naive_rag.ipynb) badge — no local setup needed |
-| 08 | [Evaluation](./08_evaluation/README.md) | Golden dataset construction guide + RAGAS CI harness |
+| 08 | [Evaluation](./08_evaluation/README.md) | Golden dataset construction, RAGAS CI harness, LLM-judge frameworks |
 | 09 | [Tools](./09_tools/README.md) | Eval & observability tool comparison (Ragas, TruLens, DeepEval, LlamaIndex eval, LangChain eval); vector DB & framework comparisons still planned |
 
 ### 🪟 Microsoft Technology in This Repo
@@ -407,7 +409,7 @@ Microsoft Research and the Azure AI platform shape much of modern RAG. Where the
 | # | Section | Status |
 |---|---------|--------|
 | 05 | [Graphs](./05_graphs/README.md) | Planned |
-| 07 | [Simulator](./07_simulator/README.md) | Planned |
+| 07 | [Simulator](./07_simulator/README.md) | Timed question sets shipped as the [Self-Assessment][assessment-url]; design-scenario rubrics planned |
 | 10 | [Decision System](./10_decision_system/README.md) | Planned |
 
 ---
@@ -458,7 +460,7 @@ Microsoft Research and the Azure AI platform shape much of modern RAG. Where the
    - Covers definitions, mechanisms, comparisons, implementation, evaluation, failure modes, production ops, and security
    - Questions are tagged with difficulty: `[Basic]` `[Intermediate]` `[Advanced]`
    - Situational questions also carry a `[Scenario]` tag (e.g. `` `[Advanced]` `[Scenario]` ``) — use the quiz's "Scenario only" filter to drill just these
-   - A growing set carry an `[MCQ]` tag — multiple-choice, auto-graded in the quiz — instead of a free-form answer
+   - Every architecture and Microsoft Stack file ends with four `[MCQ]` questions (Q23–Q26) — multiple-choice, auto-graded in the quiz — and some failure-mode files have them too
 
 4. **Failure Modes (03_failure_modes/)** — 4–14 questions per failure pattern
    - Nine critical production failure scenarios with diagnostic Q&A

@@ -865,3 +865,7 @@ Monitor: actual observed staleness window (bulletin timestamp to live-cache time
 | LLM-powered customer service for a fixed product catalog | Retail / E-commerce | Product specs and FAQs are stable for weeks; KV-cached corpus means each query pays only for the dynamic user question, not the full context |
 | Educational platform with fixed curriculum content | EdTech | Textbook chapters are stable for a semester; caching them lets the platform serve thousands of students at a fraction of the uncached cost |
 | Enterprise "always-on" knowledge base copilot | Enterprise | Large internal wikis that change infrequently benefit from persistent KV caches — updates trigger selective cache invalidation, not full recompute |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

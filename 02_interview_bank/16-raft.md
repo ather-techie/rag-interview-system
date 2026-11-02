@@ -747,9 +747,9 @@ Monitor: citation accuracy specifically on newly-added equipment content each qu
 ## Q23. Which input and target combination makes up a typical RAFT training example? `[Basic]` `[MCQ]`
 
 - A. A question, an oracle document mixed with shuffled distractors, and a chain-of-thought answer citing the oracle
-- B. A question paired with only its oracle document and a short final answer
+- B. A question paired with only its oracle document and a short final answer, with no distractor documents in context
 - C. A question and a gold answer, with no documents in the input
-- D. A question, reranked chunks from the live retriever, and a relevance label
+- D. A question, reranked chunks from the live retriever, and a binary relevance label for each chunk
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -825,3 +825,7 @@ Monitor: citation accuracy specifically on newly-added equipment content each qu
 | Financial product advisor (e.g., internal mortgage/insurance Q&A) | Finance | Fine-tuning on product-specific documents trains the model to answer from policy docs and ignore superficially similar but irrelevant clauses |
 | Enterprise IT helpdesk with proprietary runbooks | IT / DevOps | RAFT adapts the model to a company's specific infrastructure docs; it learns to reason over internal playbooks rather than generic internet knowledge |
 | Domain-specific coding assistant (e.g., SAP, Salesforce APEX) | Enterprise DevTools | Fine-tuned on proprietary API documentation, the model cites the correct SDK method and ignores distractor examples from generic Python docs |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

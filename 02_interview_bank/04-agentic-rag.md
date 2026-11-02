@@ -251,7 +251,7 @@ while iteration < max_iterations:
     
     # Call Claude with tools
     response = client.messages.create(
-        model="claude-3-5-sonnet-20241022",
+        model="claude-sonnet-5-5",
         max_tokens=1024,
         tools=TOOLS,
         messages=messages
@@ -1161,7 +1161,7 @@ Agentic RAG as described in this file is the synthesis of these two ideas specif
 
 ---
 
-## Q17. How does Agentic RAG compare to Adaptive RAG (#11)? `[Basic]`
+## Q17. When would you pick Agentic RAG's continuous retrieval decisions over Adaptive RAG's (#11) one-shot query classifier? `[Basic]`
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1299,9 +1299,9 @@ What to monitor: iteration count and cost per due-diligence run (Q11, Q18), audi
 ## Q25. An agent keeps re-querying a corpus that genuinely lacks the answer. Which safeguard most directly bounds the cost? `[Intermediate]` `[MCQ]`
 
 - A. A hard iteration ceiling that returns the best partial answer with a caveat
-- B. A larger top-k on every retrieval tool call
+- B. A larger top-k on every retrieval tool call so more passages come back
 - C. A stronger embedding model behind the retrieval tool
-- D. A longer system prompt that describes each tool schema in detail
+- D. A longer system prompt that describes each tool schema in detail with examples
 
 <details>
 <summary>💡 Show Answer</summary>
@@ -1316,7 +1316,7 @@ What to monitor: iteration count and cost per due-diligence run (Q11, Q18), audi
 
 ## Q26. A health insurer's claims agent retrieves a policy PDF containing a hidden line telling the model to approve the claim. Which defense is most structural? `[Advanced]` `[Scenario]` `[MCQ]`
 
-- A. Add a firmer line to the system prompt telling the model to ignore documents
+- A. Add a firmer line to the system prompt telling the model to ignore instructions found inside documents
 - B. Raise the iteration cap so the agent can cross-check the claim more often
 - C. Treat retrieved text as untrusted data and require human approval for claim approvals
 - D. Switch to a larger model that is less likely to follow embedded instructions
@@ -1366,3 +1366,7 @@ Some sources (including common workshop material) use **"A-RAG" / "Adaptive-Hier
 | Clinical assistant | Healthcare | Agent validates medical literature and patient records against each other before producing an output, rather than trusting a single retrieval pass on sensitive data |
 | Legal research assistant | Legal | Maps statutes, precedents, and case law across sources and cross-checks context before drafting summaries or legal arguments |
 | Intelligent tutoring system | Education | Plans which sources to pull from per student question and explains answers with supporting context, rather than returning a single static passage |
+
+---
+
+> 📚 Paper citations for this architecture, with arXiv links: [REFERENCES.md](../REFERENCES.md)

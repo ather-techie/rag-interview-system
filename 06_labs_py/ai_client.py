@@ -25,6 +25,13 @@ def _require_known_provider():
         raise ValueError(
             f"Unknown AI_PROVIDER: {PROVIDER!r}. Expected one of: {', '.join(sorted(_VALID_PROVIDERS))}."
         )
+    if not MODEL:
+        raise ValueError(
+            "AI_MODEL is not set. Put AI_MODEL=<model name or Azure deployment> in .env "
+            "(see .env.example) or export it before importing ai_client."
+        )
+    if PROVIDER not in ("ollama",) and not API_KEY:
+        raise ValueError(f"AI_API_KEY is not set (required for AI_PROVIDER={PROVIDER}).")
 
 
 # ---------------------------------------------------------------------------
@@ -211,8 +218,14 @@ def _chat_openai_family(messages, tools, system, max_tokens, json_mode):
     kwargs = {
         "model": MODEL,
         "messages": _openai_messages(messages, system, json_mode),
-        "max_tokens": max_tokens,
     }
+    # OpenAI and Azure OpenAI retired `max_tokens` on newer models in favour of
+    # `max_completion_tokens`; Ollama's OpenAI-compatible server still expects
+    # the old name.
+    if PROVIDER == "ollama":
+        kwargs["max_tokens"] = max_tokens
+    else:
+        kwargs["max_completion_tokens"] = max_tokens
     if tools:
         kwargs["tools"] = [
             {"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["parameters"]}}
