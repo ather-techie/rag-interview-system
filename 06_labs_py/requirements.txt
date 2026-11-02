@@ -30,7 +30,7 @@ datasets==5.1.0
 # Provider SDKs (see ai_client.py — dispatched via AI_PROVIDER)
 google-genai==2.34.0
 anthropic==2.3.0
-openai==3.3.0
+openai==3.41.0
 
 # Config
 python-dotenv==1.2.4
