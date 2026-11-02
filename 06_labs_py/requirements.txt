@@ -18,7 +18,7 @@ langchain-ollama==1.1.0
 # Retrieval & embeddings
 sentence-transformers==6.2.0
 chromadb==1.5.9
-huggingface_hub==1.33.0
+huggingface_hub==2.4.0
 rank-bm25==0.2.2
 faiss-cpu==1.15.1
 numpy==2.5.4
